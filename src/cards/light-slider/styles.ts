@@ -110,6 +110,10 @@ export const styles = css`
     border-radius: 50%;
     color: var(--secondary-text-color);
   }
+  .expand-spacer {
+    flex: none;
+    width: 32px;
+  }
   .expand ha-icon {
     transition: transform 200ms ease;
   }

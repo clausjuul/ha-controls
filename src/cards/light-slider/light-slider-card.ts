@@ -274,7 +274,9 @@ export class LightSliderCard extends LitElement {
             >
               <ha-icon icon="mdi:chevron-down"></ha-icon>
             </button>`
-          : nothing}
+          : o.sub
+            ? html`<span class="expand-spacer"></span>`
+            : nothing}
       </div>
     `;
   }
