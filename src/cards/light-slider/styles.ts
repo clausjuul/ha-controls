@@ -239,9 +239,31 @@ export const styles = css`
     --hac-slider-height: 40px;
     --hac-slider-radius: 12px;
   }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--primary-text-color, #000) 7%, transparent);
+  }
+  .tab {
+    flex: 1;
+    height: 36px;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--secondary-text-color);
+    transition: background 150ms, color 150ms;
+  }
+  .tab.selected {
+    color: var(--primary-text-color);
+    background: var(--card-background-color, var(--ha-card-background, #fff));
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
   .swatches {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
+    align-items: center;
     gap: 12px;
     justify-items: center;
     padding: 4px 0;

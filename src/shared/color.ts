@@ -51,3 +51,11 @@ export const hueDistance = (a: number, b: number) => {
   const d = Math.abs(a - b) % 360;
   return d > 180 ? 360 - d : d;
 };
+
+/** Five evenly spaced white tones (rounded to 100 K) between min and max. */
+export function kelvinPresets(min: number, max: number, count = 5): number[] {
+  if (max <= min) return [min];
+  return Array.from({ length: count }, (_, i) =>
+    Math.round((min + ((max - min) * i) / (count - 1)) / 100) * 100,
+  ).map((k) => Math.min(max, Math.max(min, k)));
+}
