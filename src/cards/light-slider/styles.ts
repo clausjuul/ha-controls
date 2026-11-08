@@ -172,8 +172,9 @@ export const styles = css`
     inset: auto;
     margin: 0;
     padding: 0;
-    border: none;
+    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.25));
     width: min(420px, calc(100vw - 16px));
+    max-width: none;
     max-height: calc(100dvh - 16px);
     box-sizing: border-box;
     overflow-y: auto;
