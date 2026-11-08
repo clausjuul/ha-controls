@@ -197,7 +197,11 @@ export class HacSlider extends LitElement {
           ? html`<div class="fill" style="width: ${pct}%"></div>`
           : nothing}
         ${this.showValue && value > this.min
-          ? html`<span class="value ${textOnFill ? 'on-fill' : ''}">${text}</span>`
+          ? html`<span
+              class="value ${textOnFill ? 'on-fill' : ''}"
+              style=${textOnFill || this.mode !== 'fill' ? '' : `left: calc(${pct}% + 12px)`}
+              >${text}</span
+            >`
           : nothing}
         <div
           class="thumb ${hideThumb ? 'hidden' : ''}"
