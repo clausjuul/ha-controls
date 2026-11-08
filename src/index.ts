@@ -1,5 +1,6 @@
 import { define } from './shared/types';
 import { HacSlider } from './components/slider';
+import { HacColorWheel } from './components/color-wheel';
 import {
   CARD_TAG,
   EDITOR_TAG,
@@ -13,6 +14,7 @@ const REPO_URL = 'https://github.com/Clausjuul/ha-controls';
 
 // Shared components
 define('hac-slider', HacSlider);
+define('hac-color-wheel', HacColorWheel);
 
 // Cards
 define(CARD_TAG, LightSliderCard);

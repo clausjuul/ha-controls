@@ -30,8 +30,9 @@ A compact, horizontal brightness slider for one or more lights.
 - **Several lights:** one shared slider sets all lights at once (it shows the
   average brightness of the lights that are on). Tap the name or chevron to
   show a row per light, each with its own slider and buttons.
-- **Color button** opens a popup with color temperature, hue and saturation.
-  On the shared row it changes every light that supports it.
+- **Color button** opens a popup with color temperature, ten preset colors
+  (they follow the chosen saturation), a color wheel for picking any color and
+  a saturation slider. On the shared row it changes every light that supports it.
 - **Scenes button** opens a popup with the scenes that include the light(s).
   The most recently activated scene is highlighted. Choose scenes yourself with
   `scenes` if you prefer.

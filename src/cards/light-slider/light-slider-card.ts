@@ -12,7 +12,13 @@ import {
   supportsColor,
   supportsColorTemp,
 } from '../../shared/light';
-import { HUE_GRADIENT, kelvinGradient, saturationGradient } from '../../shared/color';
+import {
+  SWATCH_HUES,
+  hsCss,
+  hueDistance,
+  kelvinGradient,
+  saturationGradient,
+} from '../../shared/color';
 import {
   normalizeConfig,
   type LightEntityConfig,
@@ -65,7 +71,13 @@ export class LightSliderCard extends LitElement {
   @state() private _dialog?: DialogState;
   /** Brightness shown while the user is dragging, keyed by row. */
   @state() private _live: Readonly<Record<string, number>> = {};
+  /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
+  @state() private _popupHs?: [number, number];
   @query('dialog') private _dialogEl?: HTMLDialogElement;
+
+  private _popupHsTimer?: number;
+  private _liveTimer?: number;
+  private _lastLive = 0;
 
   static styles = styles;
 
@@ -76,6 +88,12 @@ export class LightSliderCard extends LitElement {
   static getStubConfig(hass: HomeAssistant): Partial<LightSliderCardConfig> {
     const light = Object.keys(hass.states).find((id) => id.startsWith('light.'));
     return { entities: light ? [light] : [] };
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    window.clearTimeout(this._popupHsTimer);
+    window.clearTimeout(this._liveTimer);
   }
 
   setConfig(config: LightSliderCardConfig): void {
@@ -340,7 +358,7 @@ export class LightSliderCard extends LitElement {
     return html`
       <dialog
         aria-label=${d ? `${t(d.kind)}: ${d.title}` : nothing}
-        @close=${() => (this._dialog = undefined)}
+        @close=${this._closeDialog}
         @click=${this._onDialogClick}
       >
         ${d
@@ -362,11 +380,14 @@ export class LightSliderCard extends LitElement {
   }
 
   private _openDialog(kind: DialogState['kind'], target: Target) {
+    this._popupHs = undefined;
     this._dialog = { kind, ...target };
   }
 
   private _closeDialog = () => {
     this._dialog = undefined;
+    this._popupHs = undefined;
+    window.clearTimeout(this._liveTimer);
   };
 
   /** Clicks on the backdrop land on the <dialog> itself. */
@@ -406,24 +427,43 @@ export class LightSliderCard extends LitElement {
 
     if (color.length) {
       const ref = pickRef(color);
-      const hs: [number, number] = ref.attributes.hs_color ?? [0, 100];
-      const [hue, sat] = [Math.round(hs[0]), Math.round(hs[1])];
+      const refHs: [number, number] = ref.attributes.hs_color ?? [0, 100];
+      const [hue, sat] = this._popupHs ?? [Math.round(refHs[0]), Math.round(refHs[1])];
       const targets = color.map((s) => s.entity_id);
+      const inColorMode = ref.attributes.color_mode !== 'color_temp' && isOn(ref);
+      const pick = (h: number, s: number) => {
+        this._setPopupHs([h, s]);
+        window.clearTimeout(this._liveTimer);
+        this._turnOn(targets, { hs_color: [h, s] });
+      };
+
       out.push(html`
         <div class="control">
           <span class="label">${t('hue')}</span>
-          <hac-slider
-            mode="cursor"
-            .min=${0}
-            .max=${360}
-            .value=${hue}
-            .label=${t('hue')}
-            .formatValue=${(v: number) => `${v}°`}
-            style="--hac-slider-track-background: ${HUE_GRADIENT}"
-            @value-changed=${(e: CustomEvent<{ value: number }>) =>
-              this._turnOn(targets, { hs_color: [e.detail.value, sat] })}
-          ></hac-slider>
+          <div class="swatches">
+            ${SWATCH_HUES.map(
+              (h) => html`<button
+                class="swatch ${inColorMode && sat > 5 && hueDistance(h, hue) <= 6
+                  ? 'active'
+                  : ''}"
+                style="background: ${hsCss(h, sat)}"
+                aria-label=${`${t('hue')} ${h}°`}
+                @click=${() => pick(h, sat)}
+              ></button>`,
+            )}
+          </div>
         </div>
+        <hac-color-wheel
+          .hue=${hue}
+          .saturation=${sat}
+          .label=${t('custom_color')}
+          @value-changing=${(e: CustomEvent<{ hue: number; saturation: number }>) => {
+            this._setPopupHs([e.detail.hue, e.detail.saturation]);
+            this._applyLive(targets, [e.detail.hue, e.detail.saturation]);
+          }}
+          @value-changed=${(e: CustomEvent<{ hue: number; saturation: number }>) =>
+            pick(e.detail.hue, e.detail.saturation)}
+        ></hac-color-wheel>
         <div class="control">
           <span class="label">${t('saturation')}</span>
           <hac-slider
@@ -434,8 +474,10 @@ export class LightSliderCard extends LitElement {
             .label=${t('saturation')}
             .formatValue=${(v: number) => `${v}%`}
             style="--hac-slider-track-background: ${saturationGradient(hue)}"
-            @value-changed=${(e: CustomEvent<{ value: number }>) =>
-              this._turnOn(targets, { hs_color: [hue, e.detail.value] })}
+            @value-changing=${(e: CustomEvent<{ value?: number }>) => {
+              if (e.detail.value !== undefined) this._setPopupHs([hue, e.detail.value]);
+            }}
+            @value-changed=${(e: CustomEvent<{ value: number }>) => pick(hue, e.detail.value)}
           ></hac-slider>
         </div>
       `);
@@ -498,6 +540,24 @@ export class LightSliderCard extends LitElement {
     }
     const name = (s: HassEntity) => String(s.attributes.friendly_name ?? s.entity_id);
     return found.sort((a, b) => name(a).localeCompare(name(b)));
+  }
+
+  private _setPopupHs(hs: [number, number]) {
+    this._popupHs = hs;
+    window.clearTimeout(this._popupHsTimer);
+    this._popupHsTimer = window.setTimeout(() => (this._popupHs = undefined), 5000);
+  }
+
+  /** Update the lights while the wheel is dragged, at most every 300 ms. */
+  private _applyLive(ids: string[], hs: [number, number]) {
+    window.clearTimeout(this._liveTimer);
+    const send = () => {
+      this._lastLive = Date.now();
+      this._turnOn(ids, { hs_color: hs });
+    };
+    const wait = 300 - (Date.now() - this._lastLive);
+    if (wait <= 0) send();
+    else this._liveTimer = window.setTimeout(send, wait);
   }
 
   private _setLive(key: string, value: number | undefined) {
