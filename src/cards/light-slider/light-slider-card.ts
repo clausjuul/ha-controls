@@ -19,6 +19,7 @@ import {
   hueDistance,
   kelvinGradient,
   kelvinPresets,
+  hsToRgb,
   kelvinToRgb,
   rgbCss,
   saturationGradient,
@@ -30,6 +31,7 @@ import {
   type NormalizedConfig,
 } from './config';
 import { styles } from './styles';
+import { OptimisticStates } from '../../shared/optimistic';
 
 export const CARD_TAG = 'ha-controls-light-slider-card';
 export const EDITOR_TAG = 'ha-controls-light-slider-card-editor';
@@ -55,7 +57,12 @@ interface RowOptions {
   icon: string;
   on: boolean;
   unavailable: boolean;
+  /** Text under the name; only used when there is no slider. */
   secondary: string;
+  /** Text inside the slider when the light is off / unavailable. */
+  emptyText?: string;
+  /** Right-aligned text inside the slider. */
+  endText?: string;
   brightness?: number; // undefined = no slider
   color?: string;
   /** The light's colour is pale, so text on the slider fill must be dark. */
@@ -78,6 +85,8 @@ export class LightSliderCard extends LitElement {
   @state() private _colorTab?: 'white' | 'color';
   @query('dialog') private _dialogEl?: HTMLDialogElement;
 
+  /** Expected states after our own service calls, so the UI reacts instantly. */
+  private _optimistic = new OptimisticStates(() => this.requestUpdate());
   private _popupHsTimer?: number;
   private _liveTimer?: number;
   private _lastLive = 0;
@@ -97,6 +106,7 @@ export class LightSliderCard extends LitElement {
     super.disconnectedCallback();
     window.clearTimeout(this._popupHsTimer);
     window.clearTimeout(this._liveTimer);
+    this._optimistic.clear();
   }
 
   setConfig(config: LightSliderCardConfig): void {
@@ -127,6 +137,15 @@ export class LightSliderCard extends LitElement {
     );
   }
 
+  protected willUpdate(changed: PropertyValues<this>): void {
+    if (changed.has('hass') && this.hass) this._optimistic.reconcile(this.hass.states);
+  }
+
+  /** An entity's state, including changes we've just asked for. */
+  private _state(id: string): HassEntity | undefined {
+    return this._optimistic.get(this.hass!.states[id]);
+  }
+
   protected updated(): void {
     const dialog = this._dialogEl;
     if (!dialog) return;
@@ -150,7 +169,7 @@ export class LightSliderCard extends LitElement {
   }
 
   private _renderSingle(conf: LightEntityConfig, t: Localize): TemplateResult {
-    const s = this.hass!.states[conf.entity];
+    const s = this._state(conf.entity);
     if (!s) return this._renderMissing(conf.entity, t);
     const cfg = this._config!;
     const name = cfg.name ?? conf.name ?? s.attributes.friendly_name ?? conf.entity;
@@ -168,7 +187,7 @@ export class LightSliderCard extends LitElement {
     const cfg = this._config!;
     const ids = confs.map((c) => c.entity);
     const states = ids
-      .map((id) => this.hass!.states[id])
+      .map((id) => this._state(id))
       .filter((s): s is HassEntity => !!s);
     const available = states.filter((s) => !isUnavailable(s));
     const on = available.filter(isOn);
@@ -185,7 +204,7 @@ export class LightSliderCard extends LitElement {
     }
 
     const anyOn = on.length > 0;
-    const count = t('lights_on', { on: on.length, total: confs.length });
+    const count = t('lights_on', { on: on.length, total: available.length });
     const unavailable = available.length === 0;
     const name = cfg.name ?? t('lights');
 
@@ -197,6 +216,12 @@ export class LightSliderCard extends LitElement {
         on: anyOn,
         unavailable,
         secondary: unavailable ? t('unavailable') : count,
+        emptyText: t('off'),
+        // Only interesting when some, but not all, lights are on.
+        endText:
+          on.length > 0 && on.length < available.length
+            ? t('lights_on', { on: on.length, total: available.length })
+            : undefined,
         brightness: dimmable.length ? brightness : undefined,
         color: lightColor(on[0]),
         lightFill: isLightColor(on[0]),
@@ -215,7 +240,7 @@ export class LightSliderCard extends LitElement {
   }
 
   private _renderSubLight(conf: LightEntityConfig, t: Localize): TemplateResult {
-    const s = this.hass!.states[conf.entity];
+    const s = this._state(conf.entity);
     if (!s) return this._renderMissing(conf.entity, t);
     const name = conf.name ?? s.attributes.friendly_name ?? conf.entity;
 
@@ -236,16 +261,16 @@ export class LightSliderCard extends LitElement {
     const dimmable = supportsBrightness(s);
     const pct = brightnessPct(s);
 
-    // The brightness is shown inside the slider, so only show other states here.
-    let secondary = '';
-    if (unavailable) secondary = t('unavailable');
-    else if (!on) secondary = t('off');
-    else if (!dimmable) secondary = t('on');
+    let state: string;
+    if (unavailable) state = t('unavailable');
+    else if (!on) state = t('off');
+    else state = t('on');
 
     return {
       on,
       unavailable,
-      secondary,
+      secondary: state,
+      emptyText: unavailable ? t('unavailable') : t('off'),
       brightness: dimmable ? pct : undefined,
       color: lightColor(s),
       lightFill: isLightColor(s),
@@ -258,6 +283,15 @@ export class LightSliderCard extends LitElement {
     const t = localize(this.hass);
     const hasColor = this._colorLights(o.target.ids).any;
     const hasScenes = this._config!.show_scenes && this._scenes(o.target).length > 0;
+    const expandButton = (cls: string) =>
+      html`<button
+        class="${cls} expand ${o.expander!.expanded ? 'open' : ''}"
+        aria-label=${t('expand')}
+        aria-expanded=${o.expander!.expanded ? 'true' : 'false'}
+        @click=${o.expander!.onExpand}
+      >
+        <ha-icon icon="mdi:chevron-down"></ha-icon>
+      </button>`;
 
     return html`
       <div
@@ -279,7 +313,9 @@ export class LightSliderCard extends LitElement {
             @click=${o.expander ? o.expander.onExpand : undefined}
           >
             <span class="name">${o.name}</span>
-            ${o.secondary ? html`<span class="secondary">${o.secondary}</span>` : nothing}
+            ${o.secondary && o.brightness === undefined
+              ? html`<span class="secondary">${o.secondary}</span>`
+              : nothing}
           </div>
           <div class="actions">
             ${hasColor
@@ -303,31 +339,27 @@ export class LightSliderCard extends LitElement {
                   <ha-icon icon=${ICON_SCENES}></ha-icon>
                 </button>`
               : nothing}
-            ${o.expander
-              ? html`<button
-                  class="action expand ${o.expander.expanded ? 'open' : ''}"
-                  aria-label=${t('expand')}
-                  aria-expanded=${o.expander.expanded ? 'true' : 'false'}
-                  @click=${o.expander.onExpand}
-                >
-                  <ha-icon icon="mdi:chevron-down"></ha-icon>
-                </button>`
-              : nothing}
+            ${o.expander && o.brightness === undefined ? expandButton('action') : nothing}
           </div>
         </div>
         ${o.brightness !== undefined
-          ? html`<hac-slider
-              show-value
-              .thumb=${false}
-              .value=${o.brightness}
-              .min=${0}
-              .max=${100}
-              .label=${`${t('brightness')}: ${o.name}`}
-              .formatValue=${(v: number) => `${v}%`}
-              ?disabled=${o.unavailable}
-              @value-changed=${(e: CustomEvent<{ value: number }>) =>
-                o.onBrightness(e.detail.value)}
-            ></hac-slider>`
+          ? html`<div class="bottom">
+              <hac-slider
+                show-value
+                .thumb=${false}
+                .value=${o.brightness}
+                .min=${0}
+                .max=${100}
+                .emptyText=${o.emptyText ?? ''}
+                .endText=${o.endText ?? ''}
+                .label=${`${t('brightness')}: ${o.name}`}
+                .formatValue=${(v: number) => `${v}%`}
+                ?disabled=${o.unavailable}
+                @value-changed=${(e: CustomEvent<{ value: number }>) =>
+                  o.onBrightness(e.detail.value)}
+              ></hac-slider>
+              ${o.expander ? expandButton('expand-tile') : nothing}
+            </div>`
           : nothing}
       </div>
     `;
@@ -528,7 +560,7 @@ export class LightSliderCard extends LitElement {
           (s) => html`<button
             class="scene ${s === latest ? 'active' : ''}"
             ?disabled=${isUnavailable(s)}
-            @click=${() => this.hass!.callService('scene', 'turn_on', { entity_id: s.entity_id })}
+            @click=${() => this._activateScene(s)}
           >
             <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
             <span>${s.attributes.friendly_name ?? s.entity_id}</span>
@@ -554,13 +586,13 @@ export class LightSliderCard extends LitElement {
     const states = this.hass!.states;
     if (target.sceneOverride) {
       return target.sceneOverride
-        .map((id) => states[id])
+        .map((id) => this._state(id))
         .filter((s): s is HassEntity => !!s);
     }
     const found: HassEntity[] = [];
     for (const id in states) {
       if (!id.startsWith('scene.')) continue;
-      const s = states[id];
+      const s = this._state(id);
       const members = s?.attributes.entity_id;
       if (Array.isArray(members) && target.ids.some((l) => members.includes(l))) found.push(s!);
     }
@@ -590,36 +622,67 @@ export class LightSliderCard extends LitElement {
 
   private _available(ids: string[]): HassEntity[] {
     return ids
-      .map((id) => this.hass!.states[id])
+      .map((id) => this._state(id))
       .filter((s): s is HassEntity => !!s && !isUnavailable(s));
   }
 
   private _toggle(ids: string[]) {
     const states = this._available(ids);
     if (!states.length) return;
-    const service = states.some(isOn) ? 'turn_off' : 'turn_on';
-    this.hass!.callService('light', service, { entity_id: states.map((s) => s.entity_id) });
+    const turnOn = !states.some(isOn);
+    for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: turnOn ? 'on' : 'off' });
+    this.hass!.callService('light', turnOn ? 'turn_on' : 'turn_off', {
+      entity_id: states.map((st) => st.entity_id),
+    });
   }
 
   private _setBrightness(ids: string[], pct: number) {
     const states = this._available(ids);
     if (!states.length) return;
     if (pct <= 0) {
-      this.hass!.callService('light', 'turn_off', { entity_id: states.map((s) => s.entity_id) });
+      for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'off' });
+      this.hass!.callService('light', 'turn_off', { entity_id: states.map((st) => st.entity_id) });
       return;
     }
-    const dimmable = states.filter(supportsBrightness).map((s) => s.entity_id);
-    const plain = states.filter((s) => !supportsBrightness(s)).map((s) => s.entity_id);
+    const dimmable = states.filter(supportsBrightness);
+    const plain = states.filter((st) => !supportsBrightness(st));
+    const brightness = Math.round((pct / 100) * 255);
+    for (const st of dimmable) {
+      this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on', attributes: { brightness } });
+    }
+    for (const st of plain) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on' });
     if (dimmable.length) {
-      this.hass!.callService('light', 'turn_on', { entity_id: dimmable, brightness_pct: pct });
+      this.hass!.callService('light', 'turn_on', {
+        entity_id: dimmable.map((st) => st.entity_id),
+        brightness_pct: pct,
+      });
     }
     if (plain.length) {
-      this.hass!.callService('light', 'turn_on', { entity_id: plain });
+      this.hass!.callService('light', 'turn_on', { entity_id: plain.map((st) => st.entity_id) });
     }
+  }
+
+  private _activateScene(scene: HassEntity) {
+    const base = this.hass!.states[scene.entity_id];
+    if (base) this._optimistic.set(base, { state: new Date().toISOString() }, { untilChanged: true });
+    this.hass!.callService('scene', 'turn_on', { entity_id: scene.entity_id });
   }
 
   private _turnOn(ids: string[], data: Record<string, unknown>) {
     if (!ids.length) return;
+    const attributes: Record<string, unknown> = {};
+    if (typeof data.color_temp_kelvin === 'number') {
+      const k = data.color_temp_kelvin;
+      Object.assign(attributes, { color_mode: 'color_temp', color_temp_kelvin: k, rgb_color: kelvinToRgb(k) });
+    }
+    if (Array.isArray(data.hs_color)) {
+      const [h, sat] = data.hs_color as [number, number];
+      Object.assign(attributes, { color_mode: 'hs', hs_color: [h, sat], rgb_color: hsToRgb(h, sat) });
+    }
+    for (const id of ids) {
+      const base = this.hass!.states[id];
+      if (base) this._optimistic.set(base, { state: 'on', attributes });
+    }
     this.hass!.callService('light', 'turn_on', {
       entity_id: ids.length === 1 ? ids[0] : ids,
       ...data,

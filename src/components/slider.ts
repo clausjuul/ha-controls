@@ -25,6 +25,10 @@ export class HacSlider extends LitElement {
   @property({ attribute: false }) formatValue?: (value: number) => string;
   /** Show the formatted value inside the track (hidden at the minimum). */
   @property({ type: Boolean, attribute: 'show-value' }) showValue = false;
+  /** Text shown inside the track when the value is at the minimum (e.g. "Off"). */
+  @property() emptyText = '';
+  /** Text shown right-aligned inside the track. */
+  @property() endText = '';
   /** Show the small handle. */
   @property({ type: Boolean }) thumb = true;
 
@@ -202,6 +206,13 @@ export class HacSlider extends LitElement {
               style=${textOnFill || this.mode !== 'fill' ? '' : `left: calc(${pct}% + 12px)`}
               >${text}</span
             >`
+          : this.emptyText && value <= this.min
+            ? html`<span class="value empty">${this.emptyText}</span>`
+            : nothing}
+        ${this.endText
+          ? html`<span class="end ${this.mode === 'fill' && f >= 0.75 ? 'on-fill' : ''}"
+              >${this.endText}</span
+            >`
           : nothing}
         <div
           class="thumb ${hideThumb ? 'hidden' : ''}"
@@ -276,8 +287,23 @@ export class HacSlider extends LitElement {
       color: var(--hac-slider-value-color-track, var(--primary-text-color, #000));
       pointer-events: none;
     }
-    .value.on-fill {
+    .value.on-fill,
+    .end.on-fill {
       color: var(--hac-slider-value-color, #fff);
+    }
+    .value.empty {
+      font-weight: 400;
+      color: var(--secondary-text-color, #727272);
+    }
+    .end {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 13px;
+      color: var(--secondary-text-color, #727272);
+      white-space: nowrap;
+      pointer-events: none;
     }
     :host([dragging]) .fill,
     :host([dragging]) .thumb {
