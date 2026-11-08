@@ -31,7 +31,8 @@ import {
   type NormalizedConfig,
 } from './config';
 import { styles } from './styles';
-import { OptimisticStates } from '../../shared/optimistic';
+import { OptimisticStates, type Patch } from '../../shared/optimistic';
+import { lastOn, rememberOn } from '../../shared/last-state';
 
 export const CARD_TAG = 'ha-controls-light-slider-card';
 export const EDITOR_TAG = 'ha-controls-light-slider-card-editor';
@@ -107,6 +108,7 @@ export class LightSliderCard extends LitElement {
     window.clearTimeout(this._popupHsTimer);
     window.clearTimeout(this._liveTimer);
     this._optimistic.clear();
+    this._watchPosition(false);
   }
 
   setConfig(config: LightSliderCardConfig): void {
@@ -138,7 +140,26 @@ export class LightSliderCard extends LitElement {
   }
 
   protected willUpdate(changed: PropertyValues<this>): void {
-    if (changed.has('hass') && this.hass) this._optimistic.reconcile(this.hass.states);
+    if (changed.has('hass') && this.hass && this._config) {
+      const old = changed.get('hass') as HomeAssistant | undefined;
+      for (const { entity } of this._config.entities) {
+        const s = this.hass.states[entity];
+        if (s !== old?.states[entity]) rememberOn(s);
+      }
+      this._optimistic.reconcile(this.hass.states);
+    }
+  }
+
+  /**
+   * Record what we expect a light to look like after a call. A light that is
+   * off gets its last known look as a hint, so it doesn't flash 100 % / the
+   * default colour while turning on.
+   */
+  private _expect(id: string, patch: Patch) {
+    const base = this.hass!.states[id];
+    if (!base) return;
+    const hints = patch.state === 'on' && base.state !== 'on' ? lastOn(id) : undefined;
+    this._optimistic.set(base, hints ? { ...patch, hints } : patch);
   }
 
   /** An entity's state, including changes we've just asked for. */
@@ -149,8 +170,67 @@ export class LightSliderCard extends LitElement {
   protected updated(): void {
     const dialog = this._dialogEl;
     if (!dialog) return;
-    if (this._dialog && !dialog.open) dialog.showModal();
-    else if (!this._dialog && dialog.open) dialog.close();
+    if (this._dialog && !dialog.open) {
+      dialog.showModal();
+      this._watchPosition(true);
+    } else if (!this._dialog && dialog.open) {
+      dialog.close();
+    }
+    if (!this._dialog) this._watchPosition(false);
+    this._position();
+  }
+
+  // ------------------------------------------------------- popup position
+
+  /** The row whose button opened the popup. */
+  private _anchor?: HTMLElement;
+  private _resizeObserver?: ResizeObserver;
+  private _reposition = () => this._position();
+
+  private _watchPosition(on: boolean) {
+    if (on) {
+      if (this._resizeObserver) return;
+      this._resizeObserver = new ResizeObserver(this._reposition);
+      if (this._dialogEl) this._resizeObserver.observe(this._dialogEl);
+      window.addEventListener('resize', this._reposition);
+      window.addEventListener('scroll', this._reposition, true);
+    } else if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = undefined;
+      window.removeEventListener('resize', this._reposition);
+      window.removeEventListener('scroll', this._reposition, true);
+    }
+  }
+
+  /**
+   * Place the popup next to the card: below the row that opened it, above it
+   * if there's no room, otherwise as close as the screen allows.
+   */
+  private _position() {
+    const dialog = this._dialogEl;
+    const card = this.renderRoot.querySelector('ha-card');
+    if (!dialog?.open || !card) return;
+
+    const margin = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cardRect = card.getBoundingClientRect();
+    const anchor = (this._anchor?.isConnected ? this._anchor : card).getBoundingClientRect();
+
+    const width = Math.min(vw - 2 * margin, Math.max(320, Math.min(cardRect.width, 440)));
+    const left = Math.min(
+      vw - width - margin,
+      Math.max(margin, cardRect.left + (cardRect.width - width) / 2),
+    );
+    dialog.style.width = `${width}px`;
+    dialog.style.left = `${left}px`;
+
+    const height = dialog.offsetHeight;
+    let top: number;
+    if (anchor.bottom + margin + height <= vh - margin) top = anchor.bottom + margin;
+    else if (anchor.top - margin - height >= margin) top = anchor.top - margin - height;
+    else top = Math.max(margin, Math.min(vh - height - margin, anchor.top));
+    dialog.style.top = `${top}px`;
   }
 
   // ---------------------------------------------------------------- render
@@ -324,7 +404,7 @@ export class LightSliderCard extends LitElement {
                   title=${t('color')}
                   aria-label=${`${t('color')}: ${o.name}`}
                   ?disabled=${o.unavailable}
-                  @click=${() => this._openDialog('color', o.target)}
+                  @click=${(e: Event) => this._openDialog('color', o.target, e)}
                 >
                   <ha-icon icon=${ICON_COLOR}></ha-icon>
                 </button>`
@@ -334,7 +414,7 @@ export class LightSliderCard extends LitElement {
                   class="action"
                   title=${t('scenes')}
                   aria-label=${`${t('scenes')}: ${o.name}`}
-                  @click=${() => this._openDialog('scenes', o.target)}
+                  @click=${(e: Event) => this._openDialog('scenes', o.target, e)}
                 >
                   <ha-icon icon=${ICON_SCENES}></ha-icon>
                 </button>`
@@ -397,7 +477,8 @@ export class LightSliderCard extends LitElement {
     `;
   }
 
-  private _openDialog(kind: DialogState['kind'], target: Target) {
+  private _openDialog(kind: DialogState['kind'], target: Target, ev: Event) {
+    this._anchor = (ev.currentTarget as HTMLElement).closest<HTMLElement>('.row') ?? undefined;
     this._popupHs = undefined;
     this._colorTab = undefined;
     this._dialog = { kind, ...target };
@@ -405,6 +486,7 @@ export class LightSliderCard extends LitElement {
 
   private _closeDialog = () => {
     this._dialog = undefined;
+    this._anchor = undefined;
     this._popupHs = undefined;
     window.clearTimeout(this._liveTimer);
   };
@@ -630,7 +712,7 @@ export class LightSliderCard extends LitElement {
     const states = this._available(ids);
     if (!states.length) return;
     const turnOn = !states.some(isOn);
-    for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: turnOn ? 'on' : 'off' });
+    for (const st of states) this._expect(st.entity_id, { state: turnOn ? 'on' : 'off' });
     this.hass!.callService('light', turnOn ? 'turn_on' : 'turn_off', {
       entity_id: states.map((st) => st.entity_id),
     });
@@ -640,7 +722,7 @@ export class LightSliderCard extends LitElement {
     const states = this._available(ids);
     if (!states.length) return;
     if (pct <= 0) {
-      for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'off' });
+      for (const st of states) this._expect(st.entity_id, { state: 'off' });
       this.hass!.callService('light', 'turn_off', { entity_id: states.map((st) => st.entity_id) });
       return;
     }
@@ -648,9 +730,9 @@ export class LightSliderCard extends LitElement {
     const plain = states.filter((st) => !supportsBrightness(st));
     const brightness = Math.round((pct / 100) * 255);
     for (const st of dimmable) {
-      this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on', attributes: { brightness } });
+      this._expect(st.entity_id, { state: 'on', attributes: { brightness } });
     }
-    for (const st of plain) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on' });
+    for (const st of plain) this._expect(st.entity_id, { state: 'on' });
     if (dimmable.length) {
       this.hass!.callService('light', 'turn_on', {
         entity_id: dimmable.map((st) => st.entity_id),
@@ -679,10 +761,7 @@ export class LightSliderCard extends LitElement {
       const [h, sat] = data.hs_color as [number, number];
       Object.assign(attributes, { color_mode: 'hs', hs_color: [h, sat], rgb_color: hsToRgb(h, sat) });
     }
-    for (const id of ids) {
-      const base = this.hass!.states[id];
-      if (base) this._optimistic.set(base, { state: 'on', attributes });
-    }
+    for (const id of ids) this._expect(id, { state: 'on', attributes });
     this.hass!.callService('light', 'turn_on', {
       entity_id: ids.length === 1 ? ids[0] : ids,
       ...data,
