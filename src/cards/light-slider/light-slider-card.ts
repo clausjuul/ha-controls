@@ -1,5 +1,5 @@
 import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
-import { property, state } from 'lit/decorators.js';
+import { property, state, query } from 'lit/decorators.js';
 import type { HassEntity, HomeAssistant } from '../../shared/types';
 import { localize, type Localize } from '../../shared/localize';
 import {
@@ -24,6 +24,21 @@ import { styles } from './styles';
 export const CARD_TAG = 'ha-controls-light-slider-card';
 export const EDITOR_TAG = 'ha-controls-light-slider-card-editor';
 
+const ICON_COLOR = 'mdi:palette';
+const ICON_SCENES = 'mdi:creation';
+
+/** What a row's colour / scene buttons act on. */
+interface Target {
+  title: string;
+  ids: string[];
+  /** Scenes chosen in the config; undefined = find automatically. */
+  sceneOverride?: string[];
+}
+
+interface DialogState extends Target {
+  kind: 'color' | 'scenes';
+}
+
 interface RowOptions {
   key: string;
   name: string;
@@ -33,21 +48,24 @@ interface RowOptions {
   secondary: string;
   brightness?: number; // undefined = no slider
   color?: string;
-  expandable: boolean;
-  expanded: boolean;
+  target: Target;
+  /** Part of a group: reserve space for every button so sliders line up. */
+  aligned: boolean;
+  /** Show the chevron that expands the individual lights (group main row). */
+  expander?: { expanded: boolean; onExpand: () => void };
   sub?: boolean;
   onToggle: () => void;
   onBrightness: (pct: number) => void;
-  onExpand: () => void;
 }
 
 export class LightSliderCard extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
   @state() private _config?: NormalizedConfig;
   @state() private _expanded = false;
-  @state() private _expandedLights: ReadonlySet<string> = new Set();
+  @state() private _dialog?: DialogState;
   /** Brightness shown while the user is dragging, keyed by row. */
   @state() private _live: Readonly<Record<string, number>> = {};
+  @query('dialog') private _dialogEl?: HTMLDialogElement;
 
   static styles = styles;
 
@@ -67,7 +85,8 @@ export class LightSliderCard extends LitElement {
 
   getCardSize(): number {
     if (!this._config) return 1;
-    return 1 + (this._expanded ? this._config.entities.length : 0);
+    const lights = this._config.entities.length;
+    return 1 + (lights > 1 && this._expanded ? lights : 0);
   }
 
   getGridOptions() {
@@ -79,10 +98,19 @@ export class LightSliderCard extends LitElement {
     if (changed.size > 1 || !changed.has('hass')) return true;
     const old = changed.get('hass') as HomeAssistant | undefined;
     if (!old || !this.hass) return true;
+    // An open popup may show scenes, so let every update through.
+    if (this._dialog) return true;
     if (old.locale?.language !== this.hass.locale?.language) return true;
     return this._config.entities.some(
       (e) => old.states[e.entity] !== this.hass!.states[e.entity],
     );
+  }
+
+  protected updated(): void {
+    const dialog = this._dialogEl;
+    if (!dialog) return;
+    if (this._dialog && !dialog.open) dialog.showModal();
+    else if (!this._dialog && dialog.open) dialog.close();
   }
 
   // ---------------------------------------------------------------- render
@@ -96,29 +124,24 @@ export class LightSliderCard extends LitElement {
       <ha-card>
         ${lights.length === 1 ? this._renderSingle(lights[0], t) : this._renderGroup(lights, t)}
       </ha-card>
+      ${this._renderDialog(t)}
     `;
   }
 
   private _renderSingle(conf: LightEntityConfig, t: Localize): TemplateResult {
     const s = this.hass!.states[conf.entity];
     if (!s) return this._renderMissing(conf.entity, t);
-    const hasColor = this._hasColorControls(s);
     const cfg = this._config!;
+    const name = cfg.name ?? conf.name ?? s.attributes.friendly_name ?? conf.entity;
 
-    return html`
-      ${this._renderRow({
-        ...this._lightRowBase(s, conf, t),
-        key: 'main',
-        name: cfg.name ?? conf.name ?? s.attributes.friendly_name ?? conf.entity,
-        icon: cfg.icon ?? conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
-        expandable: hasColor,
-        expanded: this._expanded,
-        onExpand: () => (this._expanded = !this._expanded),
-      })}
-      ${hasColor && this._expanded
-        ? html`<div class="details">${this._renderColorControls(s, t)}</div>`
-        : nothing}
-    `;
+    return this._renderRow({
+      ...this._lightRowBase(s, conf, t),
+      key: 'main',
+      name,
+      icon: cfg.icon ?? conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
+      target: { title: name, ids: [conf.entity], sceneOverride: cfg.scenes ?? conf.scenes },
+      aligned: false,
+    });
   }
 
   private _renderGroup(confs: LightEntityConfig[], t: Localize): TemplateResult {
@@ -146,11 +169,12 @@ export class LightSliderCard extends LitElement {
     const anyOn = on.length > 0;
     const count = t('lights_on', { on: on.length, total: confs.length });
     const unavailable = available.length === 0;
+    const name = cfg.name ?? t('lights');
 
     return html`
       ${this._renderRow({
         key: 'main',
-        name: cfg.name ?? t('lights'),
+        name,
         icon: cfg.icon ?? defaultIcon(anyOn, true),
         on: anyOn,
         unavailable,
@@ -161,16 +185,17 @@ export class LightSliderCard extends LitElement {
             : count,
         brightness: dimmable.length ? brightness : undefined,
         color: lightColor(on[0]),
-        expandable: true,
-        expanded: this._expanded,
+        target: { title: name, ids, sceneOverride: cfg.scenes },
+        aligned: true,
+        expander: {
+          expanded: this._expanded,
+          onExpand: () => (this._expanded = !this._expanded),
+        },
         onToggle: () => this._toggle(ids),
         onBrightness: (pct) => this._setBrightness(ids, pct),
-        onExpand: () => (this._expanded = !this._expanded),
       })}
       ${this._expanded
-        ? html`<div class="details group">
-            ${confs.map((c) => this._renderSubLight(c, t))}
-          </div>`
+        ? html`<div class="lights">${confs.map((c) => this._renderSubLight(c, t))}</div>`
         : nothing}
     `;
   }
@@ -178,24 +203,17 @@ export class LightSliderCard extends LitElement {
   private _renderSubLight(conf: LightEntityConfig, t: Localize): TemplateResult {
     const s = this.hass!.states[conf.entity];
     if (!s) return this._renderMissing(conf.entity, t);
-    const hasColor = this._hasColorControls(s);
-    const open = this._expandedLights.has(conf.entity);
+    const name = conf.name ?? s.attributes.friendly_name ?? conf.entity;
 
-    return html`
-      ${this._renderRow({
-        ...this._lightRowBase(s, conf, t),
-        key: conf.entity,
-        name: conf.name ?? s.attributes.friendly_name ?? conf.entity,
-        icon: conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
-        sub: true,
-        expandable: hasColor,
-        expanded: open,
-        onExpand: () => this._toggleLightExpanded(conf.entity),
-      })}
-      ${hasColor && open
-        ? html`<div class="details sub">${this._renderColorControls(s, t)}</div>`
-        : nothing}
-    `;
+    return this._renderRow({
+      ...this._lightRowBase(s, conf, t),
+      key: conf.entity,
+      name,
+      icon: conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
+      target: { title: name, ids: [conf.entity], sceneOverride: conf.scenes },
+      aligned: true,
+      sub: true,
+    });
   }
 
   /** Row fields shared by single and sub-rows for one light. */
@@ -226,6 +244,11 @@ export class LightSliderCard extends LitElement {
 
   private _renderRow(o: RowOptions): TemplateResult {
     const t = localize(this.hass);
+    const hasColor = this._colorLights(o.target.ids).any;
+    const hasScenes = this._config!.show_scenes && this._scenes(o.target).length > 0;
+    const slot = (show: boolean, button: () => TemplateResult) =>
+      show ? button() : o.aligned ? html`<span class="action-spacer"></span>` : nothing;
+
     return html`
       <div
         class="row ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''}"
@@ -242,8 +265,8 @@ export class LightSliderCard extends LitElement {
         </button>
         <div class="content">
           <div
-            class="header ${o.expandable ? 'clickable' : ''}"
-            @click=${o.expandable ? o.onExpand : undefined}
+            class="header ${o.expander ? 'clickable' : ''}"
+            @click=${o.expander ? o.expander.onExpand : undefined}
           >
             <span class="name">${o.name}</span>
             <span class="secondary">${o.secondary}</span>
@@ -265,32 +288,103 @@ export class LightSliderCard extends LitElement {
               ></hac-slider>`
             : nothing}
         </div>
-        ${o.expandable
-          ? html`<button
-              class="expand ${o.expanded ? 'open' : ''}"
-              aria-label=${t('expand')}
-              aria-expanded=${o.expanded ? 'true' : 'false'}
-              @click=${o.onExpand}
+        <div class="actions">
+          ${slot(
+            hasColor,
+            () => html`<button
+              class="action"
+              title=${t('color')}
+              aria-label=${`${t('color')}: ${o.name}`}
+              ?disabled=${o.unavailable}
+              @click=${() => this._openDialog('color', o.target)}
             >
-              <ha-icon icon="mdi:chevron-down"></ha-icon>
-            </button>`
-          : o.sub
-            ? html`<span class="expand-spacer"></span>`
-            : nothing}
+              <ha-icon icon=${ICON_COLOR}></ha-icon>
+            </button>`,
+          )}
+          ${slot(
+            hasScenes,
+            () => html`<button
+              class="action"
+              title=${t('scenes')}
+              aria-label=${`${t('scenes')}: ${o.name}`}
+              @click=${() => this._openDialog('scenes', o.target)}
+            >
+              <ha-icon icon=${ICON_SCENES}></ha-icon>
+            </button>`,
+          )}
+          ${o.expander
+            ? html`<button
+                class="action expand ${o.expander.expanded ? 'open' : ''}"
+                aria-label=${t('expand')}
+                aria-expanded=${o.expander.expanded ? 'true' : 'false'}
+                @click=${o.expander.onExpand}
+              >
+                <ha-icon icon="mdi:chevron-down"></ha-icon>
+              </button>`
+            : o.sub
+              ? html`<span class="action-spacer"></span>`
+              : nothing}
+        </div>
       </div>
     `;
   }
 
-  private _renderColorControls(s: HassEntity, t: Localize): TemplateResult[] {
-    const cfg = this._config!;
-    const id = s.entity_id;
-    const disabled = isUnavailable(s);
-    const out: TemplateResult[] = [];
+  private _renderMissing(entity: string, t: Localize): TemplateResult {
+    return html`<div class="row missing">${t('not_found', { entity })}</div>`;
+  }
 
-    if (cfg.show_color_temp && supportsColorTemp(s)) {
-      const min: number = s.attributes.min_color_temp_kelvin ?? 2000;
-      const max: number = s.attributes.max_color_temp_kelvin ?? 6500;
-      const value: number = s.attributes.color_temp_kelvin ?? Math.round((min + max) / 2);
+  // ---------------------------------------------------------------- dialog
+
+  private _renderDialog(t: Localize): TemplateResult {
+    const d = this._dialog;
+    return html`
+      <dialog
+        aria-label=${d ? `${t(d.kind)}: ${d.title}` : nothing}
+        @close=${() => (this._dialog = undefined)}
+        @click=${this._onDialogClick}
+      >
+        ${d
+          ? html`<div class="sheet">
+              <div class="sheet-header">
+                <ha-icon icon=${d.kind === 'color' ? ICON_COLOR : ICON_SCENES}></ha-icon>
+                <span class="sheet-title">${d.title}</span>
+                <button class="action" aria-label=${t('close')} @click=${this._closeDialog}>
+                  <ha-icon icon="mdi:close"></ha-icon>
+                </button>
+              </div>
+              <div class="sheet-body">
+                ${d.kind === 'color' ? this._renderColorControls(d.ids, t) : this._renderScenes(d, t)}
+              </div>
+            </div>`
+          : nothing}
+      </dialog>
+    `;
+  }
+
+  private _openDialog(kind: DialogState['kind'], target: Target) {
+    this._dialog = { kind, ...target };
+  }
+
+  private _closeDialog = () => {
+    this._dialog = undefined;
+  };
+
+  /** Clicks on the backdrop land on the <dialog> itself. */
+  private _onDialogClick(ev: MouseEvent) {
+    if (ev.target === ev.currentTarget) this._closeDialog();
+  }
+
+  private _renderColorControls(ids: string[], t: Localize): TemplateResult[] {
+    const { ct, color } = this._colorLights(ids);
+    const out: TemplateResult[] = [];
+    const pickRef = (list: HassEntity[]) => list.find(isOn) ?? list[0];
+
+    if (ct.length) {
+      const ref = pickRef(ct);
+      const min = Math.min(...ct.map((s) => s.attributes.min_color_temp_kelvin ?? 2000));
+      const max = Math.max(...ct.map((s) => s.attributes.max_color_temp_kelvin ?? 6500));
+      const value: number = ref.attributes.color_temp_kelvin ?? Math.round((min + max) / 2);
+      const targets = ct.map((s) => s.entity_id);
       out.push(html`
         <div class="control">
           <span class="label">${t('color_temp')}</span>
@@ -302,18 +396,19 @@ export class LightSliderCard extends LitElement {
             .value=${value}
             .label=${t('color_temp')}
             .formatValue=${(v: number) => `${v} K`}
-            ?disabled=${disabled}
             style="--hac-slider-track-background: ${kelvinGradient(min, max)}"
             @value-changed=${(e: CustomEvent<{ value: number }>) =>
-              this._turnOn(id, { color_temp_kelvin: e.detail.value })}
+              this._turnOn(targets, { color_temp_kelvin: e.detail.value })}
           ></hac-slider>
         </div>
       `);
     }
 
-    if (cfg.show_color && supportsColor(s)) {
-      const hs: [number, number] = s.attributes.hs_color ?? [0, 100];
+    if (color.length) {
+      const ref = pickRef(color);
+      const hs: [number, number] = ref.attributes.hs_color ?? [0, 100];
       const [hue, sat] = [Math.round(hs[0]), Math.round(hs[1])];
+      const targets = color.map((s) => s.entity_id);
       out.push(html`
         <div class="control">
           <span class="label">${t('hue')}</span>
@@ -324,10 +419,9 @@ export class LightSliderCard extends LitElement {
             .value=${hue}
             .label=${t('hue')}
             .formatValue=${(v: number) => `${v}°`}
-            ?disabled=${disabled}
             style="--hac-slider-track-background: ${HUE_GRADIENT}"
             @value-changed=${(e: CustomEvent<{ value: number }>) =>
-              this._turnOn(id, { hs_color: [e.detail.value, sat] })}
+              this._turnOn(targets, { hs_color: [e.detail.value, sat] })}
           ></hac-slider>
         </div>
         <div class="control">
@@ -339,10 +433,9 @@ export class LightSliderCard extends LitElement {
             .value=${sat}
             .label=${t('saturation')}
             .formatValue=${(v: number) => `${v}%`}
-            ?disabled=${disabled}
             style="--hac-slider-track-background: ${saturationGradient(hue)}"
             @value-changed=${(e: CustomEvent<{ value: number }>) =>
-              this._turnOn(id, { hs_color: [hue, e.detail.value] })}
+              this._turnOn(targets, { hs_color: [hue, e.detail.value] })}
           ></hac-slider>
         </div>
       `);
@@ -350,24 +443,61 @@ export class LightSliderCard extends LitElement {
     return out;
   }
 
-  private _renderMissing(entity: string, t: Localize): TemplateResult {
-    return html`<div class="row missing">${t('not_found', { entity })}</div>`;
+  private _renderScenes(target: Target, t: Localize): TemplateResult {
+    const scenes = this._scenes(target);
+    if (!scenes.length) return html`<div class="empty">${t('no_scenes')}</div>`;
+
+    // A scene's state is the time it was last activated.
+    let latest: HassEntity | undefined;
+    for (const s of scenes) {
+      const time = Date.parse(s.state);
+      if (!Number.isNaN(time) && (!latest || time > Date.parse(latest.state))) latest = s;
+    }
+
+    return html`
+      <div class="scenes">
+        ${scenes.map(
+          (s) => html`<button
+            class="scene ${s === latest ? 'active' : ''}"
+            ?disabled=${isUnavailable(s)}
+            @click=${() => this.hass!.callService('scene', 'turn_on', { entity_id: s.entity_id })}
+          >
+            <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
+            <span>${s.attributes.friendly_name ?? s.entity_id}</span>
+          </button>`,
+        )}
+      </div>
+    `;
   }
 
   // --------------------------------------------------------------- helpers
 
-  private _hasColorControls(s: HassEntity): boolean {
+  /** Lights among `ids` whose colour temperature / colour can be set. */
+  private _colorLights(ids: string[]) {
     const cfg = this._config!;
-    return (
-      (cfg.show_color_temp && supportsColorTemp(s)) || (cfg.show_color && supportsColor(s))
-    );
+    const states = this._available(ids);
+    const ct = cfg.show_color_temp ? states.filter(supportsColorTemp) : [];
+    const color = cfg.show_color ? states.filter(supportsColor) : [];
+    return { ct, color, any: ct.length > 0 || color.length > 0 };
   }
 
-  private _toggleLightExpanded(id: string) {
-    const next = new Set(this._expandedLights);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    this._expandedLights = next;
+  /** Scenes chosen in the config, or every scene that includes one of the lights. */
+  private _scenes(target: Target): HassEntity[] {
+    const states = this.hass!.states;
+    if (target.sceneOverride) {
+      return target.sceneOverride
+        .map((id) => states[id])
+        .filter((s): s is HassEntity => !!s);
+    }
+    const found: HassEntity[] = [];
+    for (const id in states) {
+      if (!id.startsWith('scene.')) continue;
+      const s = states[id];
+      const members = s?.attributes.entity_id;
+      if (Array.isArray(members) && target.ids.some((l) => members.includes(l))) found.push(s!);
+    }
+    const name = (s: HassEntity) => String(s.attributes.friendly_name ?? s.entity_id);
+    return found.sort((a, b) => name(a).localeCompare(name(b)));
   }
 
   private _setLive(key: string, value: number | undefined) {
@@ -409,7 +539,11 @@ export class LightSliderCard extends LitElement {
     }
   }
 
-  private _turnOn(id: string, data: Record<string, unknown>) {
-    this.hass!.callService('light', 'turn_on', { entity_id: id, ...data });
+  private _turnOn(ids: string[], data: Record<string, unknown>) {
+    if (!ids.length) return;
+    this.hass!.callService('light', 'turn_on', {
+      entity_id: ids.length === 1 ? ids[0] : ids,
+      ...data,
+    });
   }
 }

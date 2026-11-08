@@ -26,11 +26,16 @@ JavaScript bundle.
 
 A compact, horizontal brightness slider for one or more lights.
 
-- **One light:** icon (tap to toggle), name, brightness and a slider. Tap the
-  name or chevron to reveal color temperature and color controls.
+- **One light:** icon (tap to toggle), name, brightness and a slider.
 - **Several lights:** one shared slider sets all lights at once (it shows the
-  average brightness of the lights that are on). Expand to get a row per light,
-  each with its own slider and its own color controls.
+  average brightness of the lights that are on). Tap the name or chevron to
+  show a row per light, each with its own slider and buttons.
+- **Color button** opens a popup with color temperature, hue and saturation.
+  On the shared row it changes every light that supports it.
+- **Scenes button** opens a popup with the scenes that include the light(s).
+  The most recently activated scene is highlighted. Choose scenes yourself with
+  `scenes` if you prefer.
+- Buttons only appear when there is something to show.
 - Visual editor in the dashboard UI. English and Danish.
 
 ### Options
@@ -43,7 +48,9 @@ A compact, horizontal brightness slider for one or more lights.
 | `icon` | string | lightbulb | Card icon |
 | `show_color_temp` | boolean | `true` | Show the color temperature slider (lights that support it) |
 | `show_color` | boolean | `true` | Show hue and saturation sliders (lights that support color) |
-| `expanded` | boolean | `false` | Start expanded |
+| `show_scenes` | boolean | `true` | Show the scenes button |
+| `scenes` | list | automatic | Scenes for the card's main row. Each light entry can also have its own `scenes` |
+| `expanded` | boolean | `false` | Show the individual lights of a group by default |
 
 ### Examples
 
@@ -60,8 +67,12 @@ entities:
   - light.ceiling
   - entity: light.floor_lamp
     name: Floor lamp
+    scenes:
+      - scene.reading
   - light.spots
-show_color: false
+scenes:
+  - scene.movie_night
+  - scene.relax
 ```
 
 ### Theming
