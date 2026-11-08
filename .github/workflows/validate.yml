@@ -1,9 +1,10 @@
 name: HACS validation
 
+# HACS installs ha-controls.js from release assets, so validation only
+# passes once a release exists.
 on:
-  push:
-    branches: [main]
-  pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 jobs:
