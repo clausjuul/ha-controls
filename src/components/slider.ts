@@ -23,6 +23,10 @@ export class HacSlider extends LitElement {
   @property({ reflect: true }) mode: 'fill' | 'cursor' = 'fill';
   @property() label = '';
   @property({ attribute: false }) formatValue?: (value: number) => string;
+  /** Show the formatted value inside the track (hidden at the minimum). */
+  @property({ type: Boolean, attribute: 'show-value' }) showValue = false;
+  /** Show the small handle. */
+  @property({ type: Boolean }) thumb = true;
 
   /** Value chosen by the user that Home Assistant hasn't confirmed yet. */
   @state() private _pending?: number;
@@ -168,7 +172,9 @@ export class HacSlider extends LitElement {
     const f = range > 0 ? (value - this.min) / range : 0;
     const pct = f * 100;
     const text = this.formatValue ? this.formatValue(value) : String(value);
-    const hideThumb = this.mode === 'fill' && value <= this.min;
+    const hideThumb = !this.thumb || (this.mode === 'fill' && value <= this.min);
+    // Text sits on the fill once the fill is wide enough to hold it.
+    const textOnFill = this.mode === 'fill' && f >= 0.2;
 
     return html`
       <div
@@ -189,6 +195,9 @@ export class HacSlider extends LitElement {
       >
         ${this.mode === 'fill'
           ? html`<div class="fill" style="width: ${pct}%"></div>`
+          : nothing}
+        ${this.showValue && value > this.min
+          ? html`<span class="value ${textOnFill ? 'on-fill' : ''}">${text}</span>`
           : nothing}
         <div
           class="thumb ${hideThumb ? 'hidden' : ''}"
@@ -251,6 +260,20 @@ export class HacSlider extends LitElement {
     }
     .thumb.hidden {
       opacity: 0;
+    }
+    .value {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 15px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: var(--hac-slider-value-color-track, var(--primary-text-color, #000));
+      pointer-events: none;
+    }
+    .value.on-fill {
+      color: var(--hac-slider-value-color, #fff);
     }
     :host([dragging]) .fill,
     :host([dragging]) .thumb {

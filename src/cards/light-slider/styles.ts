@@ -6,19 +6,34 @@ export const styles = css`
     box-sizing: border-box;
   }
   .row {
-    --hac-slider-color: var(--hac-light-color, var(--state-light-active-color, #ffb74d));
+    --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
+    --hac-slider-color: var(--_light);
+    --hac-slider-height: 52px;
+    --hac-slider-radius: 14px;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 12px;
-    min-height: 40px;
+  }
+  .row.on {
+    --hac-slider-track-background: color-mix(in srgb, var(--_light) 22%, transparent);
+  }
+  .row.light-fill {
+    --hac-slider-value-color: rgba(0, 0, 0, 0.75);
   }
   .row.sub {
-    --hac-slider-height: 28px;
-    --hac-slider-radius: 10px;
+    --hac-slider-height: 40px;
+    --hac-slider-radius: 12px;
+    gap: 8px;
   }
   .row.missing {
     color: var(--error-color, #db4437);
     font-size: 14px;
+  }
+  .top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 40px;
   }
 
   button {
@@ -44,46 +59,36 @@ export const styles = css`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     color: var(--state-icon-color, var(--secondary-text-color));
-    background: color-mix(in srgb, var(--primary-text-color, #000) 6%, transparent);
+    background: transparent;
     transition: background 200ms, color 200ms;
   }
   .row.sub .icon {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     --mdc-icon-size: 20px;
   }
   .row.on .icon {
-    color: var(--hac-light-color, var(--state-light-active-color, #ffb74d));
-    background: color-mix(
-      in srgb,
-      var(--hac-light-color, var(--state-light-active-color, #ffb74d)) 20%,
-      transparent
-    );
+    color: var(--_light);
+    background: color-mix(in srgb, var(--_light) 22%, transparent);
   }
 
-  .content {
+  .info {
     flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-  }
-  .header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 8px;
+    justify-content: center;
     line-height: 20px;
   }
-  .header.clickable {
+  .info.clickable {
     cursor: pointer;
   }
   .name {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: var(--primary-text-color);
     overflow: hidden;
@@ -91,13 +96,14 @@ export const styles = css`
     text-overflow: ellipsis;
   }
   .row.sub .name {
-    font-weight: 400;
+    font-size: 14px;
   }
   .secondary {
-    flex: none;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--secondary-text-color);
-    font-variant-numeric: tabular-nums;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
 
   .actions {
@@ -105,13 +111,10 @@ export const styles = css`
     display: flex;
     align-items: center;
   }
-  .action,
-  .action-spacer {
-    flex: none;
-    width: 32px;
-    height: 32px;
-  }
   .action {
+    flex: none;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -134,7 +137,7 @@ export const styles = css`
   .lights {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 16px;
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
