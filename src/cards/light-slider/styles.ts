@@ -67,8 +67,8 @@ export const styles = css`
     transition: background 200ms, color 200ms;
   }
   .row.sub .icon {
-    width: 36px;
-    height: 36px;
+    width: 40px;
+    height: 40px;
     --mdc-icon-size: 20px;
   }
   .row.on .icon {
@@ -111,23 +111,45 @@ export const styles = css`
     display: flex;
     align-items: center;
   }
+  .bottom {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .bottom hac-slider {
+    flex: 1;
+    min-width: 0;
+  }
+  .expand-tile {
+    flex: none;
+    width: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--hac-slider-radius, 14px);
+    color: var(--secondary-text-color);
+    background: color-mix(in srgb, var(--primary-text-color, #000) 8%, transparent);
+    --mdc-icon-size: 26px;
+  }
+  .actions {
+    gap: 4px;
+  }
   .action {
     flex: none;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     color: var(--secondary-text-color);
-    --mdc-icon-size: 20px;
+    --mdc-icon-size: 24px;
     transition: background 150ms;
   }
   .action:hover:not(:disabled) {
     background: color-mix(in srgb, var(--primary-text-color, #000) 8%, transparent);
   }
   .expand ha-icon {
-    --mdc-icon-size: 24px;
     transition: transform 200ms ease;
   }
   .expand.open ha-icon {

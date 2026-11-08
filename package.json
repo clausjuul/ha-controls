@@ -1,6 +1,6 @@
 {
   "name": "ha-controls",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A collection of custom Lovelace cards for Home Assistant",
   "private": true,
   "type": "module",

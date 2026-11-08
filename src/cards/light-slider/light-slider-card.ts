@@ -55,7 +55,12 @@ interface RowOptions {
   icon: string;
   on: boolean;
   unavailable: boolean;
+  /** Text under the name; only used when there is no slider. */
   secondary: string;
+  /** Text inside the slider when the light is off / unavailable. */
+  emptyText?: string;
+  /** Right-aligned text inside the slider. */
+  endText?: string;
   brightness?: number; // undefined = no slider
   color?: string;
   /** The light's colour is pale, so text on the slider fill must be dark. */
@@ -185,7 +190,7 @@ export class LightSliderCard extends LitElement {
     }
 
     const anyOn = on.length > 0;
-    const count = t('lights_on', { on: on.length, total: confs.length });
+    const count = t('lights_on', { on: on.length, total: available.length });
     const unavailable = available.length === 0;
     const name = cfg.name ?? t('lights');
 
@@ -197,6 +202,12 @@ export class LightSliderCard extends LitElement {
         on: anyOn,
         unavailable,
         secondary: unavailable ? t('unavailable') : count,
+        emptyText: t('off'),
+        // Only interesting when some, but not all, lights are on.
+        endText:
+          on.length > 0 && on.length < available.length
+            ? t('lights_on', { on: on.length, total: available.length })
+            : undefined,
         brightness: dimmable.length ? brightness : undefined,
         color: lightColor(on[0]),
         lightFill: isLightColor(on[0]),
@@ -236,16 +247,16 @@ export class LightSliderCard extends LitElement {
     const dimmable = supportsBrightness(s);
     const pct = brightnessPct(s);
 
-    // The brightness is shown inside the slider, so only show other states here.
-    let secondary = '';
-    if (unavailable) secondary = t('unavailable');
-    else if (!on) secondary = t('off');
-    else if (!dimmable) secondary = t('on');
+    let state: string;
+    if (unavailable) state = t('unavailable');
+    else if (!on) state = t('off');
+    else state = t('on');
 
     return {
       on,
       unavailable,
-      secondary,
+      secondary: state,
+      emptyText: unavailable ? t('unavailable') : t('off'),
       brightness: dimmable ? pct : undefined,
       color: lightColor(s),
       lightFill: isLightColor(s),
@@ -258,6 +269,15 @@ export class LightSliderCard extends LitElement {
     const t = localize(this.hass);
     const hasColor = this._colorLights(o.target.ids).any;
     const hasScenes = this._config!.show_scenes && this._scenes(o.target).length > 0;
+    const expandButton = (cls: string) =>
+      html`<button
+        class="${cls} expand ${o.expander!.expanded ? 'open' : ''}"
+        aria-label=${t('expand')}
+        aria-expanded=${o.expander!.expanded ? 'true' : 'false'}
+        @click=${o.expander!.onExpand}
+      >
+        <ha-icon icon="mdi:chevron-down"></ha-icon>
+      </button>`;
 
     return html`
       <div
@@ -279,7 +299,9 @@ export class LightSliderCard extends LitElement {
             @click=${o.expander ? o.expander.onExpand : undefined}
           >
             <span class="name">${o.name}</span>
-            ${o.secondary ? html`<span class="secondary">${o.secondary}</span>` : nothing}
+            ${o.secondary && o.brightness === undefined
+              ? html`<span class="secondary">${o.secondary}</span>`
+              : nothing}
           </div>
           <div class="actions">
             ${hasColor
@@ -303,31 +325,27 @@ export class LightSliderCard extends LitElement {
                   <ha-icon icon=${ICON_SCENES}></ha-icon>
                 </button>`
               : nothing}
-            ${o.expander
-              ? html`<button
-                  class="action expand ${o.expander.expanded ? 'open' : ''}"
-                  aria-label=${t('expand')}
-                  aria-expanded=${o.expander.expanded ? 'true' : 'false'}
-                  @click=${o.expander.onExpand}
-                >
-                  <ha-icon icon="mdi:chevron-down"></ha-icon>
-                </button>`
-              : nothing}
+            ${o.expander && o.brightness === undefined ? expandButton('action') : nothing}
           </div>
         </div>
         ${o.brightness !== undefined
-          ? html`<hac-slider
-              show-value
-              .thumb=${false}
-              .value=${o.brightness}
-              .min=${0}
-              .max=${100}
-              .label=${`${t('brightness')}: ${o.name}`}
-              .formatValue=${(v: number) => `${v}%`}
-              ?disabled=${o.unavailable}
-              @value-changed=${(e: CustomEvent<{ value: number }>) =>
-                o.onBrightness(e.detail.value)}
-            ></hac-slider>`
+          ? html`<div class="bottom">
+              <hac-slider
+                show-value
+                .thumb=${false}
+                .value=${o.brightness}
+                .min=${0}
+                .max=${100}
+                .emptyText=${o.emptyText ?? ''}
+                .endText=${o.endText ?? ''}
+                .label=${`${t('brightness')}: ${o.name}`}
+                .formatValue=${(v: number) => `${v}%`}
+                ?disabled=${o.unavailable}
+                @value-changed=${(e: CustomEvent<{ value: number }>) =>
+                  o.onBrightness(e.detail.value)}
+              ></hac-slider>
+              ${o.expander ? expandButton('expand-tile') : nothing}
+            </div>`
           : nothing}
       </div>
     `;
