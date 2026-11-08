@@ -26,7 +26,8 @@ JavaScript bundle.
 
 A compact, horizontal brightness slider for one or more lights.
 
-- **One light:** icon (tap to toggle), name, brightness and a slider.
+- **One light:** icon (tap to toggle) and name, with the buttons on the same
+  line and a full-width brightness slider below that shows the percentage.
 - **Several lights:** one shared slider sets all lights at once (it shows the
   average brightness of the lights that are on). Tap the name or chevron to
   show a row per light, each with its own slider and buttons.
@@ -84,7 +85,7 @@ The card uses Home Assistant theme variables. You can also override:
 | Variable | Description |
 | --- | --- |
 | `--state-light-active-color` | Fallback color for lights that don't report a color |
-| `--hac-slider-height` | Height of the brightness slider (default `36px`) |
+| `--hac-slider-height` | Height of the brightness slider (default `52px`) |
 | `--hac-slider-radius` | Corner radius of the sliders |
 | `--hac-slider-track-background` | Track background |
 

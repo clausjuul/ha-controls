@@ -7,6 +7,7 @@ import {
   defaultIcon,
   isOn,
   isUnavailable,
+  isLightColor,
   lightColor,
   supportsBrightness,
   supportsColor,
@@ -57,9 +58,9 @@ interface RowOptions {
   secondary: string;
   brightness?: number; // undefined = no slider
   color?: string;
+  /** The light's colour is pale, so text on the slider fill must be dark. */
+  lightFill?: boolean;
   target: Target;
-  /** Part of a group: reserve space for every button so sliders line up. */
-  aligned: boolean;
   /** Show the chevron that expands the individual lights (group main row). */
   expander?: { expanded: boolean; onExpand: () => void };
   sub?: boolean;
@@ -72,8 +73,6 @@ export class LightSliderCard extends LitElement {
   @state() private _config?: NormalizedConfig;
   @state() private _expanded = false;
   @state() private _dialog?: DialogState;
-  /** Brightness shown while the user is dragging, keyed by row. */
-  @state() private _live: Readonly<Record<string, number>> = {};
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
   @state() private _popupHs?: [number, number];
   @state() private _colorTab?: 'white' | 'color';
@@ -162,7 +161,6 @@ export class LightSliderCard extends LitElement {
       name,
       icon: cfg.icon ?? conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
       target: { title: name, ids: [conf.entity], sceneOverride: cfg.scenes ?? conf.scenes },
-      aligned: false,
     });
   }
 
@@ -186,8 +184,6 @@ export class LightSliderCard extends LitElement {
       brightness = 100;
     }
 
-    const live = this._live.main;
-    const shown = live ?? brightness;
     const anyOn = on.length > 0;
     const count = t('lights_on', { on: on.length, total: confs.length });
     const unavailable = available.length === 0;
@@ -200,15 +196,11 @@ export class LightSliderCard extends LitElement {
         icon: cfg.icon ?? defaultIcon(anyOn, true),
         on: anyOn,
         unavailable,
-        secondary: unavailable
-          ? t('unavailable')
-          : anyOn || live !== undefined
-            ? `${count} · ${shown}%`
-            : count,
+        secondary: unavailable ? t('unavailable') : count,
         brightness: dimmable.length ? brightness : undefined,
         color: lightColor(on[0]),
+        lightFill: isLightColor(on[0]),
         target: { title: name, ids, sceneOverride: cfg.scenes },
-        aligned: true,
         expander: {
           expanded: this._expanded,
           onExpand: () => (this._expanded = !this._expanded),
@@ -233,25 +225,22 @@ export class LightSliderCard extends LitElement {
       name,
       icon: conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
       target: { title: name, ids: [conf.entity], sceneOverride: conf.scenes },
-      aligned: true,
       sub: true,
     });
   }
 
   /** Row fields shared by single and sub-rows for one light. */
   private _lightRowBase(s: HassEntity, conf: LightEntityConfig, t: Localize) {
-    const key = this._config!.entities.length === 1 ? 'main' : conf.entity;
     const unavailable = isUnavailable(s);
     const on = isOn(s);
     const dimmable = supportsBrightness(s);
     const pct = brightnessPct(s);
-    const live = this._live[key];
 
-    let secondary: string;
+    // The brightness is shown inside the slider, so only show other states here.
+    let secondary = '';
     if (unavailable) secondary = t('unavailable');
-    else if (live !== undefined) secondary = `${live}%`;
     else if (!on) secondary = t('off');
-    else secondary = dimmable ? `${pct}%` : t('on');
+    else if (!dimmable) secondary = t('on');
 
     return {
       on,
@@ -259,6 +248,7 @@ export class LightSliderCard extends LitElement {
       secondary,
       brightness: dimmable ? pct : undefined,
       color: lightColor(s),
+      lightFill: isLightColor(s),
       onToggle: () => this._toggle([conf.entity]),
       onBrightness: (v: number) => this._setBrightness([conf.entity], v),
     };
@@ -268,85 +258,77 @@ export class LightSliderCard extends LitElement {
     const t = localize(this.hass);
     const hasColor = this._colorLights(o.target.ids).any;
     const hasScenes = this._config!.show_scenes && this._scenes(o.target).length > 0;
-    const slot = (show: boolean, button: () => TemplateResult) =>
-      show ? button() : o.aligned ? html`<span class="action-spacer"></span>` : nothing;
 
     return html`
       <div
-        class="row ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''}"
+        class="row ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''} ${o.lightFill ? 'light-fill' : ''}"
         style=${o.color ? `--hac-light-color: ${o.color}` : ''}
       >
-        <button
-          class="icon"
-          title=${t('toggle')}
-          aria-label=${`${t('toggle')}: ${o.name}`}
-          ?disabled=${o.unavailable}
-          @click=${o.onToggle}
-        >
-          <ha-icon .icon=${o.icon}></ha-icon>
-        </button>
-        <div class="content">
+        <div class="top">
+          <button
+            class="icon"
+            title=${t('toggle')}
+            aria-label=${`${t('toggle')}: ${o.name}`}
+            ?disabled=${o.unavailable}
+            @click=${o.onToggle}
+          >
+            <ha-icon .icon=${o.icon}></ha-icon>
+          </button>
           <div
-            class="header ${o.expander ? 'clickable' : ''}"
+            class="info ${o.expander ? 'clickable' : ''}"
             @click=${o.expander ? o.expander.onExpand : undefined}
           >
             <span class="name">${o.name}</span>
-            <span class="secondary">${o.secondary}</span>
+            ${o.secondary ? html`<span class="secondary">${o.secondary}</span>` : nothing}
           </div>
-          ${o.brightness !== undefined
-            ? html`<hac-slider
-                .value=${o.brightness}
-                .min=${0}
-                .max=${100}
-                .label=${`${t('brightness')}: ${o.name}`}
-                .formatValue=${(v: number) => `${v}%`}
-                ?disabled=${o.unavailable}
-                @value-changing=${(e: CustomEvent<{ value?: number }>) =>
-                  this._setLive(o.key, e.detail.value)}
-                @value-changed=${(e: CustomEvent<{ value: number }>) => {
-                  this._setLive(o.key, undefined);
-                  o.onBrightness(e.detail.value);
-                }}
-              ></hac-slider>`
-            : nothing}
-        </div>
-        <div class="actions">
-          ${slot(
-            hasColor,
-            () => html`<button
-              class="action"
-              title=${t('color')}
-              aria-label=${`${t('color')}: ${o.name}`}
-              ?disabled=${o.unavailable}
-              @click=${() => this._openDialog('color', o.target)}
-            >
-              <ha-icon icon=${ICON_COLOR}></ha-icon>
-            </button>`,
-          )}
-          ${slot(
-            hasScenes,
-            () => html`<button
-              class="action"
-              title=${t('scenes')}
-              aria-label=${`${t('scenes')}: ${o.name}`}
-              @click=${() => this._openDialog('scenes', o.target)}
-            >
-              <ha-icon icon=${ICON_SCENES}></ha-icon>
-            </button>`,
-          )}
-          ${o.expander
-            ? html`<button
-                class="action expand ${o.expander.expanded ? 'open' : ''}"
-                aria-label=${t('expand')}
-                aria-expanded=${o.expander.expanded ? 'true' : 'false'}
-                @click=${o.expander.onExpand}
-              >
-                <ha-icon icon="mdi:chevron-down"></ha-icon>
-              </button>`
-            : o.sub
-              ? html`<span class="action-spacer"></span>`
+          <div class="actions">
+            ${hasColor
+              ? html`<button
+                  class="action"
+                  title=${t('color')}
+                  aria-label=${`${t('color')}: ${o.name}`}
+                  ?disabled=${o.unavailable}
+                  @click=${() => this._openDialog('color', o.target)}
+                >
+                  <ha-icon icon=${ICON_COLOR}></ha-icon>
+                </button>`
               : nothing}
+            ${hasScenes
+              ? html`<button
+                  class="action"
+                  title=${t('scenes')}
+                  aria-label=${`${t('scenes')}: ${o.name}`}
+                  @click=${() => this._openDialog('scenes', o.target)}
+                >
+                  <ha-icon icon=${ICON_SCENES}></ha-icon>
+                </button>`
+              : nothing}
+            ${o.expander
+              ? html`<button
+                  class="action expand ${o.expander.expanded ? 'open' : ''}"
+                  aria-label=${t('expand')}
+                  aria-expanded=${o.expander.expanded ? 'true' : 'false'}
+                  @click=${o.expander.onExpand}
+                >
+                  <ha-icon icon="mdi:chevron-down"></ha-icon>
+                </button>`
+              : nothing}
+          </div>
         </div>
+        ${o.brightness !== undefined
+          ? html`<hac-slider
+              show-value
+              .thumb=${false}
+              .value=${o.brightness}
+              .min=${0}
+              .max=${100}
+              .label=${`${t('brightness')}: ${o.name}`}
+              .formatValue=${(v: number) => `${v}%`}
+              ?disabled=${o.unavailable}
+              @value-changed=${(e: CustomEvent<{ value: number }>) =>
+                o.onBrightness(e.detail.value)}
+            ></hac-slider>`
+          : nothing}
       </div>
     `;
   }
@@ -602,13 +584,6 @@ export class LightSliderCard extends LitElement {
     const wait = 300 - (Date.now() - this._lastLive);
     if (wait <= 0) send();
     else this._liveTimer = window.setTimeout(send, wait);
-  }
-
-  private _setLive(key: string, value: number | undefined) {
-    const next = { ...this._live };
-    if (value === undefined) delete next[key];
-    else next[key] = value;
-    this._live = next;
   }
 
   // -------------------------------------------------------------- services
