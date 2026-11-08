@@ -459,9 +459,7 @@ export class LightSliderCard extends LitElement {
       };
 
       colorTab = html`
-        <div class="control">
-          <span class="label">${t('hue')}</span>
-          <div class="swatches">
+        <div class="swatches">
             ${SWATCH_HUES.map(
               (h) => html`<button
                 class="swatch ${inColorMode && sat > 5 && hueDistance(h, hue) <= 6
@@ -472,7 +470,6 @@ export class LightSliderCard extends LitElement {
                 @click=${() => pick(h, sat)}
               ></button>`,
             )}
-          </div>
         </div>
         <hac-color-wheel
           .hue=${hue}
