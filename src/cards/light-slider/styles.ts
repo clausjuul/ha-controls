@@ -145,7 +145,9 @@ export const styles = css`
     padding: 0;
     border: none;
     width: min(420px, calc(100vw - 32px));
-    max-height: calc(100vh - 64px);
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-radius: var(--ha-card-border-radius, 16px);
     background: var(--card-background-color, var(--ha-card-background, #fff));
     color: var(--primary-text-color);
@@ -236,6 +238,32 @@ export const styles = css`
     gap: 6px;
     --hac-slider-height: 40px;
     --hac-slider-radius: 12px;
+  }
+  .swatches {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    justify-items: center;
+    padding: 4px 0;
+  }
+  .swatch {
+    width: 100%;
+    max-width: 52px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    transition: transform 120ms ease, background 200ms;
+  }
+  .swatch:active {
+    transform: scale(0.92);
+  }
+  .swatch.active {
+    box-shadow:
+      0 0 0 3px var(--card-background-color, var(--ha-card-background, #fff)),
+      0 0 0 5px var(--primary-text-color, #000);
+  }
+  hac-color-wheel {
+    margin: 4px auto;
   }
   .label {
     font-size: 13px;

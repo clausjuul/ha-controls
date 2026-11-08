@@ -38,3 +38,16 @@ export const HUE_GRADIENT =
 
 export const saturationGradient = (hue: number) =>
   `linear-gradient(to right, #ffffff, hsl(${hue}, 100%, 50%))`;
+
+/** How a light at this hue/saturation looks: full colour at 100 %, white at 0 %. */
+export const hsCss = (hue: number, saturation: number) =>
+  `hsl(${hue}, 100%, ${100 - saturation / 2}%)`;
+
+/** Preset colours shown as buttons in the colour popup. */
+export const SWATCH_HUES = [0, 25, 45, 60, 120, 175, 210, 240, 275, 320];
+
+/** Shortest distance between two hues in degrees. */
+export const hueDistance = (a: number, b: number) => {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+};
