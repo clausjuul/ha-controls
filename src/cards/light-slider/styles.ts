@@ -167,10 +167,15 @@ export const styles = css`
 
   /* ----- popup ----- */
   dialog {
+    /* Positioned next to the card from script */
+    position: fixed;
+    inset: auto;
+    margin: 0;
     padding: 0;
     border: none;
-    width: min(420px, calc(100vw - 32px));
-    max-height: calc(100dvh - 48px);
+    width: min(420px, calc(100vw - 16px));
+    max-height: calc(100dvh - 16px);
+    box-sizing: border-box;
     overflow-y: auto;
     overscroll-behavior: contain;
     border-radius: var(--ha-card-border-radius, 16px);
@@ -179,19 +184,19 @@ export const styles = css`
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   }
   dialog::backdrop {
-    background: rgba(0, 0, 0, 0.45);
+    background: rgba(0, 0, 0, 0.25);
   }
-  @media (max-width: 600px) {
-    /* Bottom sheet on phones */
-    dialog {
-      width: 100vw;
-      max-width: 100vw;
-      margin: auto 0 0 0;
-      border-radius: 20px 20px 0 0;
+  dialog[open] {
+    animation: pop-in 140ms ease-out;
+  }
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.97);
     }
   }
   .sheet {
-    padding: 8px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 16px 20px;
   }
   .sheet-header {
     display: flex;

@@ -107,6 +107,7 @@ export class LightSliderCard extends LitElement {
     window.clearTimeout(this._popupHsTimer);
     window.clearTimeout(this._liveTimer);
     this._optimistic.clear();
+    this._watchPosition(false);
   }
 
   setConfig(config: LightSliderCardConfig): void {
@@ -149,8 +150,67 @@ export class LightSliderCard extends LitElement {
   protected updated(): void {
     const dialog = this._dialogEl;
     if (!dialog) return;
-    if (this._dialog && !dialog.open) dialog.showModal();
-    else if (!this._dialog && dialog.open) dialog.close();
+    if (this._dialog && !dialog.open) {
+      dialog.showModal();
+      this._watchPosition(true);
+    } else if (!this._dialog && dialog.open) {
+      dialog.close();
+    }
+    if (!this._dialog) this._watchPosition(false);
+    this._position();
+  }
+
+  // ------------------------------------------------------- popup position
+
+  /** The row whose button opened the popup. */
+  private _anchor?: HTMLElement;
+  private _resizeObserver?: ResizeObserver;
+  private _reposition = () => this._position();
+
+  private _watchPosition(on: boolean) {
+    if (on) {
+      if (this._resizeObserver) return;
+      this._resizeObserver = new ResizeObserver(this._reposition);
+      if (this._dialogEl) this._resizeObserver.observe(this._dialogEl);
+      window.addEventListener('resize', this._reposition);
+      window.addEventListener('scroll', this._reposition, true);
+    } else if (this._resizeObserver) {
+      this._resizeObserver.disconnect();
+      this._resizeObserver = undefined;
+      window.removeEventListener('resize', this._reposition);
+      window.removeEventListener('scroll', this._reposition, true);
+    }
+  }
+
+  /**
+   * Place the popup next to the card: below the row that opened it, above it
+   * if there's no room, otherwise as close as the screen allows.
+   */
+  private _position() {
+    const dialog = this._dialogEl;
+    const card = this.renderRoot.querySelector('ha-card');
+    if (!dialog?.open || !card) return;
+
+    const margin = 8;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const cardRect = card.getBoundingClientRect();
+    const anchor = (this._anchor?.isConnected ? this._anchor : card).getBoundingClientRect();
+
+    const width = Math.min(vw - 2 * margin, Math.max(320, Math.min(cardRect.width, 440)));
+    const left = Math.min(
+      vw - width - margin,
+      Math.max(margin, cardRect.left + (cardRect.width - width) / 2),
+    );
+    dialog.style.width = `${width}px`;
+    dialog.style.left = `${left}px`;
+
+    const height = dialog.offsetHeight;
+    let top: number;
+    if (anchor.bottom + margin + height <= vh - margin) top = anchor.bottom + margin;
+    else if (anchor.top - margin - height >= margin) top = anchor.top - margin - height;
+    else top = Math.max(margin, Math.min(vh - height - margin, anchor.top));
+    dialog.style.top = `${top}px`;
   }
 
   // ---------------------------------------------------------------- render
@@ -324,7 +384,7 @@ export class LightSliderCard extends LitElement {
                   title=${t('color')}
                   aria-label=${`${t('color')}: ${o.name}`}
                   ?disabled=${o.unavailable}
-                  @click=${() => this._openDialog('color', o.target)}
+                  @click=${(e: Event) => this._openDialog('color', o.target, e)}
                 >
                   <ha-icon icon=${ICON_COLOR}></ha-icon>
                 </button>`
@@ -334,7 +394,7 @@ export class LightSliderCard extends LitElement {
                   class="action"
                   title=${t('scenes')}
                   aria-label=${`${t('scenes')}: ${o.name}`}
-                  @click=${() => this._openDialog('scenes', o.target)}
+                  @click=${(e: Event) => this._openDialog('scenes', o.target, e)}
                 >
                   <ha-icon icon=${ICON_SCENES}></ha-icon>
                 </button>`
@@ -397,7 +457,8 @@ export class LightSliderCard extends LitElement {
     `;
   }
 
-  private _openDialog(kind: DialogState['kind'], target: Target) {
+  private _openDialog(kind: DialogState['kind'], target: Target, ev: Event) {
+    this._anchor = (ev.currentTarget as HTMLElement).closest<HTMLElement>('.row') ?? undefined;
     this._popupHs = undefined;
     this._colorTab = undefined;
     this._dialog = { kind, ...target };
@@ -405,6 +466,7 @@ export class LightSliderCard extends LitElement {
 
   private _closeDialog = () => {
     this._dialog = undefined;
+    this._anchor = undefined;
     this._popupHs = undefined;
     window.clearTimeout(this._liveTimer);
   };
