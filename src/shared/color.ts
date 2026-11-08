@@ -59,3 +59,13 @@ export function kelvinPresets(min: number, max: number, count = 5): number[] {
     Math.round((min + ((max - min) * i) / (count - 1)) / 100) * 100,
   ).map((k) => Math.min(max, Math.max(min, k)));
 }
+
+/** RGB for a hue/saturation at full brightness. */
+export function hsToRgb(hue: number, saturation: number): RGB {
+  const s = saturation / 100;
+  const f = (n: number) => {
+    const k = (n + hue / 60) % 6;
+    return clamp255(255 * (1 - s * Math.max(0, Math.min(k, 4 - k, 1))));
+  };
+  return [f(5), f(3), f(1)];
+}

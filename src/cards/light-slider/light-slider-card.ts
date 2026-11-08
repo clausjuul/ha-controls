@@ -19,6 +19,7 @@ import {
   hueDistance,
   kelvinGradient,
   kelvinPresets,
+  hsToRgb,
   kelvinToRgb,
   rgbCss,
   saturationGradient,
@@ -30,6 +31,7 @@ import {
   type NormalizedConfig,
 } from './config';
 import { styles } from './styles';
+import { OptimisticStates } from '../../shared/optimistic';
 
 export const CARD_TAG = 'ha-controls-light-slider-card';
 export const EDITOR_TAG = 'ha-controls-light-slider-card-editor';
@@ -83,6 +85,8 @@ export class LightSliderCard extends LitElement {
   @state() private _colorTab?: 'white' | 'color';
   @query('dialog') private _dialogEl?: HTMLDialogElement;
 
+  /** Expected states after our own service calls, so the UI reacts instantly. */
+  private _optimistic = new OptimisticStates(() => this.requestUpdate());
   private _popupHsTimer?: number;
   private _liveTimer?: number;
   private _lastLive = 0;
@@ -102,6 +106,7 @@ export class LightSliderCard extends LitElement {
     super.disconnectedCallback();
     window.clearTimeout(this._popupHsTimer);
     window.clearTimeout(this._liveTimer);
+    this._optimistic.clear();
   }
 
   setConfig(config: LightSliderCardConfig): void {
@@ -132,6 +137,15 @@ export class LightSliderCard extends LitElement {
     );
   }
 
+  protected willUpdate(changed: PropertyValues<this>): void {
+    if (changed.has('hass') && this.hass) this._optimistic.reconcile(this.hass.states);
+  }
+
+  /** An entity's state, including changes we've just asked for. */
+  private _state(id: string): HassEntity | undefined {
+    return this._optimistic.get(this.hass!.states[id]);
+  }
+
   protected updated(): void {
     const dialog = this._dialogEl;
     if (!dialog) return;
@@ -155,7 +169,7 @@ export class LightSliderCard extends LitElement {
   }
 
   private _renderSingle(conf: LightEntityConfig, t: Localize): TemplateResult {
-    const s = this.hass!.states[conf.entity];
+    const s = this._state(conf.entity);
     if (!s) return this._renderMissing(conf.entity, t);
     const cfg = this._config!;
     const name = cfg.name ?? conf.name ?? s.attributes.friendly_name ?? conf.entity;
@@ -173,7 +187,7 @@ export class LightSliderCard extends LitElement {
     const cfg = this._config!;
     const ids = confs.map((c) => c.entity);
     const states = ids
-      .map((id) => this.hass!.states[id])
+      .map((id) => this._state(id))
       .filter((s): s is HassEntity => !!s);
     const available = states.filter((s) => !isUnavailable(s));
     const on = available.filter(isOn);
@@ -226,7 +240,7 @@ export class LightSliderCard extends LitElement {
   }
 
   private _renderSubLight(conf: LightEntityConfig, t: Localize): TemplateResult {
-    const s = this.hass!.states[conf.entity];
+    const s = this._state(conf.entity);
     if (!s) return this._renderMissing(conf.entity, t);
     const name = conf.name ?? s.attributes.friendly_name ?? conf.entity;
 
@@ -546,7 +560,7 @@ export class LightSliderCard extends LitElement {
           (s) => html`<button
             class="scene ${s === latest ? 'active' : ''}"
             ?disabled=${isUnavailable(s)}
-            @click=${() => this.hass!.callService('scene', 'turn_on', { entity_id: s.entity_id })}
+            @click=${() => this._activateScene(s)}
           >
             <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
             <span>${s.attributes.friendly_name ?? s.entity_id}</span>
@@ -572,13 +586,13 @@ export class LightSliderCard extends LitElement {
     const states = this.hass!.states;
     if (target.sceneOverride) {
       return target.sceneOverride
-        .map((id) => states[id])
+        .map((id) => this._state(id))
         .filter((s): s is HassEntity => !!s);
     }
     const found: HassEntity[] = [];
     for (const id in states) {
       if (!id.startsWith('scene.')) continue;
-      const s = states[id];
+      const s = this._state(id);
       const members = s?.attributes.entity_id;
       if (Array.isArray(members) && target.ids.some((l) => members.includes(l))) found.push(s!);
     }
@@ -608,36 +622,67 @@ export class LightSliderCard extends LitElement {
 
   private _available(ids: string[]): HassEntity[] {
     return ids
-      .map((id) => this.hass!.states[id])
+      .map((id) => this._state(id))
       .filter((s): s is HassEntity => !!s && !isUnavailable(s));
   }
 
   private _toggle(ids: string[]) {
     const states = this._available(ids);
     if (!states.length) return;
-    const service = states.some(isOn) ? 'turn_off' : 'turn_on';
-    this.hass!.callService('light', service, { entity_id: states.map((s) => s.entity_id) });
+    const turnOn = !states.some(isOn);
+    for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: turnOn ? 'on' : 'off' });
+    this.hass!.callService('light', turnOn ? 'turn_on' : 'turn_off', {
+      entity_id: states.map((st) => st.entity_id),
+    });
   }
 
   private _setBrightness(ids: string[], pct: number) {
     const states = this._available(ids);
     if (!states.length) return;
     if (pct <= 0) {
-      this.hass!.callService('light', 'turn_off', { entity_id: states.map((s) => s.entity_id) });
+      for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'off' });
+      this.hass!.callService('light', 'turn_off', { entity_id: states.map((st) => st.entity_id) });
       return;
     }
-    const dimmable = states.filter(supportsBrightness).map((s) => s.entity_id);
-    const plain = states.filter((s) => !supportsBrightness(s)).map((s) => s.entity_id);
+    const dimmable = states.filter(supportsBrightness);
+    const plain = states.filter((st) => !supportsBrightness(st));
+    const brightness = Math.round((pct / 100) * 255);
+    for (const st of dimmable) {
+      this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on', attributes: { brightness } });
+    }
+    for (const st of plain) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on' });
     if (dimmable.length) {
-      this.hass!.callService('light', 'turn_on', { entity_id: dimmable, brightness_pct: pct });
+      this.hass!.callService('light', 'turn_on', {
+        entity_id: dimmable.map((st) => st.entity_id),
+        brightness_pct: pct,
+      });
     }
     if (plain.length) {
-      this.hass!.callService('light', 'turn_on', { entity_id: plain });
+      this.hass!.callService('light', 'turn_on', { entity_id: plain.map((st) => st.entity_id) });
     }
+  }
+
+  private _activateScene(scene: HassEntity) {
+    const base = this.hass!.states[scene.entity_id];
+    if (base) this._optimistic.set(base, { state: new Date().toISOString() }, { untilChanged: true });
+    this.hass!.callService('scene', 'turn_on', { entity_id: scene.entity_id });
   }
 
   private _turnOn(ids: string[], data: Record<string, unknown>) {
     if (!ids.length) return;
+    const attributes: Record<string, unknown> = {};
+    if (typeof data.color_temp_kelvin === 'number') {
+      const k = data.color_temp_kelvin;
+      Object.assign(attributes, { color_mode: 'color_temp', color_temp_kelvin: k, rgb_color: kelvinToRgb(k) });
+    }
+    if (Array.isArray(data.hs_color)) {
+      const [h, sat] = data.hs_color as [number, number];
+      Object.assign(attributes, { color_mode: 'hs', hs_color: [h, sat], rgb_color: hsToRgb(h, sat) });
+    }
+    for (const id of ids) {
+      const base = this.hass!.states[id];
+      if (base) this._optimistic.set(base, { state: 'on', attributes });
+    }
     this.hass!.callService('light', 'turn_on', {
       entity_id: ids.length === 1 ? ids[0] : ids,
       ...data,

@@ -138,7 +138,7 @@
       async function callService(domain, service, data) {
         window.serviceCalls.push({ domain, service, data });
         log(`${domain}.${service} ${JSON.stringify(data)}`);
-        await new Promise((r) => setTimeout(r, 150));
+        await new Promise((r) => setTimeout(r, window.demoDelay ?? 150));
         const ids = [].concat(data.entity_id);
         states = { ...states };
         if (domain === 'scene') {
