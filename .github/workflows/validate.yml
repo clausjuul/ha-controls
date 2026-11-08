@@ -1,0 +1,17 @@
+name: HACS validation
+
+# HACS installs ha-controls.js from release assets, so validation only
+# passes once a release exists.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: plugin
+          ignore: brands
