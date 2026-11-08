@@ -3,6 +3,8 @@ import type { HassEntity } from './types';
 interface Override {
   state?: string;
   attributes: Record<string, unknown>;
+  /** Shown, but not waited for: HA's own values replace them on its next update. */
+  hints: Record<string, unknown>;
   expires: number;
   /** Keep until Home Assistant sends any new state (instead of a matching one). */
   untilChanged?: HassEntity;
@@ -11,6 +13,8 @@ interface Override {
 export interface Patch {
   state?: string;
   attributes?: Record<string, unknown>;
+  /** Best guesses to show until HA reports (e.g. last known brightness). */
+  hints?: Record<string, unknown>;
 }
 
 /** Attributes we derive ourselves; Home Assistant may report them differently. */
@@ -46,6 +50,7 @@ export class OptimisticStates {
     this._overrides.set(base.entity_id, {
       state: patch.state ?? (keepPrev ? prev!.state : undefined),
       attributes: { ...(keepPrev ? prev!.attributes : {}), ...patch.attributes },
+      hints: { ...(keepPrev ? prev!.hints : {}), ...patch.hints },
       expires: Date.now() + this._ttl,
       untilChanged: options.untilChanged ? base : undefined,
     });
@@ -61,7 +66,7 @@ export class OptimisticStates {
     return {
       ...base,
       state: o.state ?? base.state,
-      attributes: { ...base.attributes, ...o.attributes },
+      attributes: { ...base.attributes, ...o.hints, ...o.attributes },
     };
   }
 

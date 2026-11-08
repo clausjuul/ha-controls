@@ -31,7 +31,8 @@ import {
   type NormalizedConfig,
 } from './config';
 import { styles } from './styles';
-import { OptimisticStates } from '../../shared/optimistic';
+import { OptimisticStates, type Patch } from '../../shared/optimistic';
+import { lastOn, rememberOn } from '../../shared/last-state';
 
 export const CARD_TAG = 'ha-controls-light-slider-card';
 export const EDITOR_TAG = 'ha-controls-light-slider-card-editor';
@@ -139,7 +140,26 @@ export class LightSliderCard extends LitElement {
   }
 
   protected willUpdate(changed: PropertyValues<this>): void {
-    if (changed.has('hass') && this.hass) this._optimistic.reconcile(this.hass.states);
+    if (changed.has('hass') && this.hass && this._config) {
+      const old = changed.get('hass') as HomeAssistant | undefined;
+      for (const { entity } of this._config.entities) {
+        const s = this.hass.states[entity];
+        if (s !== old?.states[entity]) rememberOn(s);
+      }
+      this._optimistic.reconcile(this.hass.states);
+    }
+  }
+
+  /**
+   * Record what we expect a light to look like after a call. A light that is
+   * off gets its last known look as a hint, so it doesn't flash 100 % / the
+   * default colour while turning on.
+   */
+  private _expect(id: string, patch: Patch) {
+    const base = this.hass!.states[id];
+    if (!base) return;
+    const hints = patch.state === 'on' && base.state !== 'on' ? lastOn(id) : undefined;
+    this._optimistic.set(base, hints ? { ...patch, hints } : patch);
   }
 
   /** An entity's state, including changes we've just asked for. */
@@ -692,7 +712,7 @@ export class LightSliderCard extends LitElement {
     const states = this._available(ids);
     if (!states.length) return;
     const turnOn = !states.some(isOn);
-    for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: turnOn ? 'on' : 'off' });
+    for (const st of states) this._expect(st.entity_id, { state: turnOn ? 'on' : 'off' });
     this.hass!.callService('light', turnOn ? 'turn_on' : 'turn_off', {
       entity_id: states.map((st) => st.entity_id),
     });
@@ -702,7 +722,7 @@ export class LightSliderCard extends LitElement {
     const states = this._available(ids);
     if (!states.length) return;
     if (pct <= 0) {
-      for (const st of states) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'off' });
+      for (const st of states) this._expect(st.entity_id, { state: 'off' });
       this.hass!.callService('light', 'turn_off', { entity_id: states.map((st) => st.entity_id) });
       return;
     }
@@ -710,9 +730,9 @@ export class LightSliderCard extends LitElement {
     const plain = states.filter((st) => !supportsBrightness(st));
     const brightness = Math.round((pct / 100) * 255);
     for (const st of dimmable) {
-      this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on', attributes: { brightness } });
+      this._expect(st.entity_id, { state: 'on', attributes: { brightness } });
     }
-    for (const st of plain) this._optimistic.set(this.hass!.states[st.entity_id]!, { state: 'on' });
+    for (const st of plain) this._expect(st.entity_id, { state: 'on' });
     if (dimmable.length) {
       this.hass!.callService('light', 'turn_on', {
         entity_id: dimmable.map((st) => st.entity_id),
@@ -741,10 +761,7 @@ export class LightSliderCard extends LitElement {
       const [h, sat] = data.hs_color as [number, number];
       Object.assign(attributes, { color_mode: 'hs', hs_color: [h, sat], rgb_color: hsToRgb(h, sat) });
     }
-    for (const id of ids) {
-      const base = this.hass!.states[id];
-      if (base) this._optimistic.set(base, { state: 'on', attributes });
-    }
+    for (const id of ids) this._expect(id, { state: 'on', attributes });
     this.hass!.callService('light', 'turn_on', {
       entity_id: ids.length === 1 ? ids[0] : ids,
       ...data,
