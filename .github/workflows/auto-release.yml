@@ -1,0 +1,67 @@
+name: Auto release
+
+# Creates a GitHub release (with ha-controls.js attached) whenever the
+# version in package.json changes on main and no release exists for it yet.
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - .github/workflows/auto-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.check.outputs.create }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check whether this version is already released
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "$VERSION already released, nothing to do"
+            echo "create=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "create=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.create == 'true'
+        with:
+          node-version: 20
+      - name: Build
+        if: steps.check.outputs.create == 'true'
+        run: |
+          npm install
+          npm run typecheck
+          npm run build
+      - name: Create release
+        if: steps.check.outputs.create == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          gh release create "$VERSION" dist/ha-controls.js \
+            --target "$GITHUB_SHA" \
+            --title "$VERSION" \
+            --generate-notes
+
+  # Releases created with GITHUB_TOKEN don't trigger other workflows,
+  # so HACS validation runs here as well.
+  hacs:
+    needs: release
+    if: needs.release.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: plugin
+          ignore: brands
