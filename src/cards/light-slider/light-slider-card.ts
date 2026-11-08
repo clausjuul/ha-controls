@@ -17,6 +17,9 @@ import {
   hsCss,
   hueDistance,
   kelvinGradient,
+  kelvinPresets,
+  kelvinToRgb,
+  rgbCss,
   saturationGradient,
 } from '../../shared/color';
 import {
@@ -73,6 +76,7 @@ export class LightSliderCard extends LitElement {
   @state() private _live: Readonly<Record<string, number>> = {};
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
   @state() private _popupHs?: [number, number];
+  @state() private _colorTab?: 'white' | 'color';
   @query('dialog') private _dialogEl?: HTMLDialogElement;
 
   private _popupHsTimer?: number;
@@ -381,6 +385,7 @@ export class LightSliderCard extends LitElement {
 
   private _openDialog(kind: DialogState['kind'], target: Target) {
     this._popupHs = undefined;
+    this._colorTab = undefined;
     this._dialog = { kind, ...target };
   }
 
@@ -395,18 +400,34 @@ export class LightSliderCard extends LitElement {
     if (ev.target === ev.currentTarget) this._closeDialog();
   }
 
-  private _renderColorControls(ids: string[], t: Localize): TemplateResult[] {
+  private _renderColorControls(ids: string[], t: Localize): TemplateResult {
     const { ct, color } = this._colorLights(ids);
-    const out: TemplateResult[] = [];
     const pickRef = (list: HassEntity[]) => list.find(isOn) ?? list[0];
 
+    let whiteTab: TemplateResult | undefined;
     if (ct.length) {
       const ref = pickRef(ct);
       const min = Math.min(...ct.map((s) => s.attributes.min_color_temp_kelvin ?? 2000));
       const max = Math.max(...ct.map((s) => s.attributes.max_color_temp_kelvin ?? 6500));
       const value: number = ref.attributes.color_temp_kelvin ?? Math.round((min + max) / 2);
       const targets = ct.map((s) => s.entity_id);
-      out.push(html`
+      const inWhiteMode = ref.attributes.color_mode === 'color_temp' && isOn(ref);
+      const presets = kelvinPresets(min, max);
+      const step = presets.length > 1 ? (presets[1] - presets[0]) / 2 : 100;
+      const pick = (k: number) => this._turnOn(targets, { color_temp_kelvin: k });
+
+      whiteTab = html`
+        <div class="swatches">
+          ${presets.map(
+            (k) => html`<button
+              class="swatch ${inWhiteMode && Math.abs(k - value) < step ? 'active' : ''}"
+              style="background: ${rgbCss(kelvinToRgb(k))}"
+              aria-label=${`${k} K`}
+              title=${`${k} K`}
+              @click=${() => pick(k)}
+            ></button>`,
+          )}
+        </div>
         <div class="control">
           <span class="label">${t('color_temp')}</span>
           <hac-slider
@@ -418,13 +439,13 @@ export class LightSliderCard extends LitElement {
             .label=${t('color_temp')}
             .formatValue=${(v: number) => `${v} K`}
             style="--hac-slider-track-background: ${kelvinGradient(min, max)}"
-            @value-changed=${(e: CustomEvent<{ value: number }>) =>
-              this._turnOn(targets, { color_temp_kelvin: e.detail.value })}
+            @value-changed=${(e: CustomEvent<{ value: number }>) => pick(e.detail.value)}
           ></hac-slider>
         </div>
-      `);
+      `;
     }
 
+    let colorTab: TemplateResult | undefined;
     if (color.length) {
       const ref = pickRef(color);
       const refHs: [number, number] = ref.attributes.hs_color ?? [0, 100];
@@ -437,10 +458,8 @@ export class LightSliderCard extends LitElement {
         this._turnOn(targets, { hs_color: [h, s] });
       };
 
-      out.push(html`
-        <div class="control">
-          <span class="label">${t('hue')}</span>
-          <div class="swatches">
+      colorTab = html`
+        <div class="swatches">
             ${SWATCH_HUES.map(
               (h) => html`<button
                 class="swatch ${inColorMode && sat > 5 && hueDistance(h, hue) <= 6
@@ -451,7 +470,6 @@ export class LightSliderCard extends LitElement {
                 @click=${() => pick(h, sat)}
               ></button>`,
             )}
-          </div>
         </div>
         <hac-color-wheel
           .hue=${hue}
@@ -480,9 +498,35 @@ export class LightSliderCard extends LitElement {
             @value-changed=${(e: CustomEvent<{ value: number }>) => pick(hue, e.detail.value)}
           ></hac-slider>
         </div>
-      `);
+      `;
     }
-    return out;
+    if (!whiteTab || !colorTab) return whiteTab ?? colorTab ?? html``;
+
+    const tab = this._colorTab ?? this._defaultColorTab(ids);
+    return html`
+      <div class="tabs" role="tablist">
+        ${(['white', 'color'] as const).map(
+          (k) => html`<button
+            class="tab ${tab === k ? 'selected' : ''}"
+            role="tab"
+            aria-selected=${tab === k ? 'true' : 'false'}
+            @click=${() => (this._colorTab = k)}
+          >
+            ${t(k === 'white' ? 'white' : 'hue')}
+          </button>`,
+        )}
+      </div>
+      ${tab === 'white' ? whiteTab : colorTab}
+    `;
+  }
+
+  /** Open on the tab matching what the lights are doing now. */
+  private _defaultColorTab(ids: string[]): 'white' | 'color' {
+    const on = this._available(ids).find(isOn);
+    const mode = on?.attributes.color_mode;
+    return mode && mode !== 'color_temp' && mode !== 'brightness' && mode !== 'onoff' && mode !== 'white'
+      ? 'color'
+      : 'white';
   }
 
   private _renderScenes(target: Target, t: Localize): TemplateResult {
