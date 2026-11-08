@@ -95,6 +95,9 @@ on them without a Home Assistant instance.
 
 ### Releasing
 
-Bump `version` in `package.json`, then publish a GitHub release (e.g. `v0.1.0`).
-The release workflow builds `ha-controls.js` and attaches it to the release,
-which is what HACS installs.
+Bump `version` in `package.json` and merge to `main`. The **Auto release**
+workflow then builds `ha-controls.js` and publishes a release `v<version>` with
+the file attached, which is what HACS installs.
+
+Releases published by hand in the GitHub UI also work: the **Release**
+workflow builds the bundle and attaches it.
