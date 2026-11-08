@@ -100,28 +100,38 @@ export const styles = css`
     font-variant-numeric: tabular-nums;
   }
 
-  .expand {
+  .actions {
     flex: none;
     display: flex;
     align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    color: var(--secondary-text-color);
   }
-  .expand-spacer {
+  .action,
+  .action-spacer {
     flex: none;
     width: 32px;
+    height: 32px;
+  }
+  .action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--secondary-text-color);
+    --mdc-icon-size: 20px;
+    transition: background 150ms;
+  }
+  .action:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary-text-color, #000) 8%, transparent);
   }
   .expand ha-icon {
+    --mdc-icon-size: 24px;
     transition: transform 200ms ease;
   }
   .expand.open ha-icon {
     transform: rotate(180deg);
   }
 
-  .details {
+  .lights {
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -129,20 +139,106 @@ export const styles = css`
     padding-top: 12px;
     border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
   }
-  .details.sub {
-    margin: 0 0 4px 44px;
-    padding-top: 0;
-    border-top: none;
+
+  /* ----- popup ----- */
+  dialog {
+    padding: 0;
+    border: none;
+    width: min(420px, calc(100vw - 32px));
+    max-height: calc(100vh - 64px);
+    border-radius: var(--ha-card-border-radius, 16px);
+    background: var(--card-background-color, var(--ha-card-background, #fff));
+    color: var(--primary-text-color);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  }
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.45);
+  }
+  @media (max-width: 600px) {
+    /* Bottom sheet on phones */
+    dialog {
+      width: 100vw;
+      max-width: 100vw;
+      margin: auto 0 0 0;
+      border-radius: 20px 20px 0 0;
+    }
+  }
+  .sheet {
+    padding: 8px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    color: var(--secondary-text-color);
+  }
+  .sheet-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 8px;
+  }
+  .empty {
+    padding: 16px 0;
+    text-align: center;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+  .scenes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  .scene {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 48px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    text-align: left;
+    font-size: 14px;
+    background: color-mix(in srgb, var(--primary-text-color, #000) 6%, transparent);
+    transition: background 150ms;
+  }
+  .scene span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .scene ha-icon {
+    flex: none;
+    --mdc-icon-size: 20px;
+    color: var(--secondary-text-color);
+  }
+  .scene:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary-text-color, #000) 12%, transparent);
+  }
+  .scene.active {
+    background: color-mix(in srgb, var(--primary-color, #03a9f4) 18%, transparent);
+  }
+  .scene.active ha-icon {
+    color: var(--primary-color, #03a9f4);
   }
   .control {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    --hac-slider-height: 28px;
-    --hac-slider-radius: 10px;
+    gap: 6px;
+    --hac-slider-height: 40px;
+    --hac-slider-radius: 12px;
   }
   .label {
-    font-size: 12px;
+    font-size: 13px;
     color: var(--secondary-text-color);
   }
 `;

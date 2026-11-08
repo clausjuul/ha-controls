@@ -13,12 +13,18 @@ const en = {
   not_found: 'Entity not found: {entity}',
   toggle: 'Toggle',
   expand: 'Show more',
+  color: 'Color',
+  scenes: 'Scenes',
+  no_scenes: 'No scenes include these lights',
+  close: 'Close',
   'editor.entities': 'Lights',
   'editor.name': 'Name (optional)',
   'editor.icon': 'Icon (optional)',
   'editor.show_color_temp': 'Show color temperature',
   'editor.show_color': 'Show color',
-  'editor.expanded': 'Expanded by default',
+  'editor.show_scenes': 'Show scenes',
+  'editor.expanded': 'Lights expanded by default',
+  'editor.scenes': 'Scenes (empty = find automatically)',
 };
 
 type Key = keyof typeof en;
@@ -36,12 +42,18 @@ const da: Record<Key, string> = {
   not_found: 'Enhed ikke fundet: {entity}',
   toggle: 'Tænd/sluk',
   expand: 'Vis mere',
+  color: 'Farve',
+  scenes: 'Scener',
+  no_scenes: 'Ingen scener indeholder disse lys',
+  close: 'Luk',
   'editor.entities': 'Lys',
   'editor.name': 'Navn (valgfrit)',
   'editor.icon': 'Ikon (valgfrit)',
   'editor.show_color_temp': 'Vis farvetemperatur',
   'editor.show_color': 'Vis farve',
-  'editor.expanded': 'Udfoldet som standard',
+  'editor.show_scenes': 'Vis scener',
+  'editor.expanded': 'Vis enkelte lys som standard',
+  'editor.scenes': 'Scener (tom = find automatisk)',
 };
 
 const languages: Record<string, Record<Key, string>> = { en, da };

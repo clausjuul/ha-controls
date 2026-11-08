@@ -18,8 +18,13 @@ const SCHEMA = [
     schema: [
       { name: 'show_color_temp', selector: { boolean: {} } },
       { name: 'show_color', selector: { boolean: {} } },
+      { name: 'show_scenes', selector: { boolean: {} } },
       { name: 'expanded', selector: { boolean: {} } },
     ],
+  },
+  {
+    name: 'scenes',
+    selector: { entity: { multiple: true, filter: { domain: 'scene' } } },
   },
 ] as const;
 
@@ -31,7 +36,9 @@ interface FormData {
   icon: string;
   show_color_temp: boolean;
   show_color: boolean;
+  show_scenes: boolean;
   expanded: boolean;
+  scenes: string[];
 }
 
 export class LightSliderCardEditor extends LitElement {
@@ -50,7 +57,9 @@ export class LightSliderCardEditor extends LitElement {
       icon: c.icon ?? '',
       show_color_temp: c.show_color_temp ?? DEFAULTS.show_color_temp,
       show_color: c.show_color ?? DEFAULTS.show_color,
+      show_scenes: c.show_scenes ?? DEFAULTS.show_scenes,
       expanded: c.expanded ?? DEFAULTS.expanded,
+      scenes: c.scenes ?? [],
     };
   }
 
@@ -88,6 +97,9 @@ export class LightSliderCardEditor extends LitElement {
       if (data[key]) config[key] = data[key];
       else delete config[key];
     }
+    if (data.scenes?.length) config.scenes = data.scenes;
+    else delete config.scenes;
+
     for (const key of Object.keys(DEFAULTS) as BoolKey[]) {
       const value = data[key];
       if (value === undefined || value === DEFAULTS[key]) delete config[key];

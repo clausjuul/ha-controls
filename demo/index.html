@@ -59,16 +59,23 @@
       });
       const ICONS = {
         'mdi:chevron-down': 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z',
+        'mdi:close': 'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z',
+        'mdi:creation': 'M12,17.27L18.18,21L16.54,13.64L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.64L5.82,21L12,17.27Z',
+        'mdi:palette': 'M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M14.5,8A1.5,1.5 0 0,1 13,6.5A1.5,1.5 0 0,1 14.5,5A1.5,1.5 0 0,1 16,6.5A1.5,1.5 0 0,1 14.5,8M9.5,8A1.5,1.5 0 0,1 8,6.5A1.5,1.5 0 0,1 9.5,5A1.5,1.5 0 0,1 11,6.5A1.5,1.5 0 0,1 9.5,8M6.5,12A1.5,1.5 0 0,1 5,10.5A1.5,1.5 0 0,1 6.5,9A1.5,1.5 0 0,1 8,10.5A1.5,1.5 0 0,1 6.5,12M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A1.5,1.5 0 0,0 13.5,19.5C13.5,19.11 13.35,18.76 13.11,18.5C12.88,18.23 12.73,17.88 12.73,17.5A1.5,1.5 0 0,1 14.23,16H16A5,5 0 0,0 21,11C21,6.58 16.97,3 12,3Z',
       };
       customElements.define('ha-icon', class extends HTMLElement {
         static observedAttributes = ['icon'];
+        constructor() {
+          super();
+          this.attachShadow({ mode: 'open' });
+        }
         set icon(v) { this._icon = v; this.render(); }
         get icon() { return this._icon; }
         attributeChangedCallback(_, __, v) { this.icon = v; }
+        connectedCallback() { this.render(); }
         render() {
           const d = ICONS[this._icon] ?? 'M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z';
-          this.style.display = 'inline-flex';
-          this.innerHTML = `<svg viewBox="0 0 24 24" width="${getComputedStyle(this).getPropertyValue('--mdc-icon-size') || '24px'}" height="${getComputedStyle(this).getPropertyValue('--mdc-icon-size') || '24px'}"><path fill="currentColor" d="${d}"/></svg>`;
+          this.shadowRoot.innerHTML = `<style>:host{display:inline-flex}svg{width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}</style><svg viewBox="0 0 24 24"><path fill="currentColor" d="${d}"/></svg>`;
         }
       });
 
@@ -110,6 +117,18 @@
         'light.gang': light('light.gang', 'Gang', ['onoff']),
         'light.kontor': { entity_id: 'light.kontor', state: 'unavailable', attributes: { friendly_name: 'Kontor' } },
       };
+      const scene = (id, name, members, icon) => ({
+        entity_id: id,
+        state: '2026-11-07T20:00:00+00:00',
+        attributes: { friendly_name: name, entity_id: members, icon },
+      });
+      Object.assign(states, {
+        'scene.hygge': scene('scene.hygge', 'Hygge', ['light.stue', 'light.sofa'], 'mdi:candle'),
+        'scene.film': scene('scene.film', 'Filmaften', ['light.stue', 'light.sofa', 'light.koekken'], 'mdi:movie'),
+        'scene.morgen': scene('scene.morgen', 'Godmorgen', ['light.stue', 'light.koekken', 'light.gang']),
+        'scene.madlavning': scene('scene.madlavning', 'Madlavning', ['light.koekken']),
+        'scene.sovevaerelse': scene('scene.sovevaerelse', 'Soveværelse', ['light.sovevaerelse']),
+      });
 
       const log = (msg) => { const el = document.getElementById('log'); el.textContent = msg + '\n' + el.textContent; };
       window.serviceCalls = [];
@@ -122,6 +141,11 @@
         await new Promise((r) => setTimeout(r, 150));
         const ids = [].concat(data.entity_id);
         states = { ...states };
+        if (domain === 'scene') {
+          for (const id of ids) states[id] = { ...states[id], state: new Date().toISOString() };
+          cards.forEach((c) => (c.hass = makeHass()));
+          return;
+        }
         for (const id of ids) {
           const s = states[id];
           const a = { ...s.attributes };
@@ -154,7 +178,7 @@
         return card;
       }
 
-      addCard('single', { entity: 'light.stue', expanded: true });
+      addCard('single', { entity: 'light.stue' });
       addCard('group', {
         name: 'Stue',
         icon: 'mdi:sofa',
