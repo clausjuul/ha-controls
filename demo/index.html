@@ -65,13 +65,17 @@
       };
       customElements.define('ha-icon', class extends HTMLElement {
         static observedAttributes = ['icon'];
+        constructor() {
+          super();
+          this.attachShadow({ mode: 'open' });
+        }
         set icon(v) { this._icon = v; this.render(); }
         get icon() { return this._icon; }
         attributeChangedCallback(_, __, v) { this.icon = v; }
+        connectedCallback() { this.render(); }
         render() {
           const d = ICONS[this._icon] ?? 'M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z';
-          this.style.display = 'inline-flex';
-          this.innerHTML = `<svg viewBox="0 0 24 24" width="${getComputedStyle(this).getPropertyValue('--mdc-icon-size') || '24px'}" height="${getComputedStyle(this).getPropertyValue('--mdc-icon-size') || '24px'}"><path fill="currentColor" d="${d}"/></svg>`;
+          this.shadowRoot.innerHTML = `<style>:host{display:inline-flex}svg{width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px)}</style><svg viewBox="0 0 24 24"><path fill="currentColor" d="${d}"/></svg>`;
         }
       });
 
