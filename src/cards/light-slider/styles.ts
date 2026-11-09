@@ -29,9 +29,7 @@ export const styles = css`
     flex-direction: column;
   }
   .items > * + * {
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+    margin-top: 20px;
   }
   .row {
     --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
@@ -188,9 +186,7 @@ export const styles = css`
     display: flex;
     flex-direction: column;
     gap: 16px;
-    margin-top: 12px;
-    padding-top: 12px;
-    border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+    margin-top: 16px;
   }
 
   /* ----- popup ----- */
