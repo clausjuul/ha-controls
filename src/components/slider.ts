@@ -291,7 +291,7 @@ export class HacSlider extends LitElement {
       left: 16px;
       top: 50%;
       transform: translateY(-50%);
-      font-size: 15px;
+      font-size: 1rem;
       font-weight: 500;
       font-variant-numeric: tabular-nums;
       color: var(--hac-slider-value-color-track, var(--primary-text-color, #000));
@@ -312,7 +312,7 @@ export class HacSlider extends LitElement {
       align-items: center;
       justify-content: flex-end;
       padding-right: 16px;
-      font-size: 13px;
+      font-size: 0.875rem;
       color: var(--secondary-text-color, #727272);
       white-space: nowrap;
       pointer-events: none;

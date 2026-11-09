@@ -14,7 +14,7 @@ export const styles = css`
   .room-name {
     flex: 1;
     min-width: 0;
-    font-size: 18px;
+    font-size: 1.25rem;
     font-weight: 500;
     color: var(--primary-text-color);
     overflow: hidden;
@@ -53,7 +53,7 @@ export const styles = css`
   }
   .row.missing {
     color: var(--error-color, #db4437);
-    font-size: 14px;
+    font-size: 1rem;
   }
   .top {
     display: flex;
@@ -114,7 +114,7 @@ export const styles = css`
     cursor: pointer;
   }
   .name {
-    font-size: 16px;
+    font-size: 1rem;
     font-weight: 500;
     color: var(--primary-text-color);
     overflow: hidden;
@@ -122,10 +122,10 @@ export const styles = css`
     text-overflow: ellipsis;
   }
   .row.sub .name {
-    font-size: 14px;
+    font-size: 0.93rem;
   }
   .secondary {
-    font-size: 13px;
+    font-size: 0.875rem;
     color: var(--secondary-text-color);
     overflow: hidden;
     white-space: nowrap;
@@ -165,14 +165,14 @@ export const styles = css`
     color: var(--hac-slider-value-color, #fff);
   }
   .toggle-text {
-    font-size: 15px;
+    font-size: 1rem;
     font-weight: 500;
   }
   .toggle-bar:not(.on) .toggle-text {
     font-weight: 400;
   }
   .toggle-end {
-    font-size: 13px;
+    font-size: 0.875rem;
   }
   .toggle-bar:active:not(:disabled) {
     filter: brightness(0.95);
@@ -264,7 +264,7 @@ export const styles = css`
   .sheet-title {
     flex: 1;
     min-width: 0;
-    font-size: 18px;
+    font-size: 1.25rem;
     font-weight: 500;
     color: var(--primary-text-color);
     overflow: hidden;
@@ -281,7 +281,7 @@ export const styles = css`
     padding: 16px 0;
     text-align: center;
     color: var(--secondary-text-color);
-    font-size: 14px;
+    font-size: 1rem;
   }
   .scenes {
     display: grid;
@@ -296,7 +296,7 @@ export const styles = css`
     padding: 8px 12px;
     border-radius: 12px;
     text-align: left;
-    font-size: 14px;
+    font-size: 1rem;
     background: color-mix(in srgb, var(--primary-text-color, #000) 6%, transparent);
     transition: background 150ms;
   }
@@ -336,7 +336,7 @@ export const styles = css`
     flex: 1;
     height: 36px;
     border-radius: 9px;
-    font-size: 14px;
+    font-size: 1rem;
     font-weight: 500;
     color: var(--secondary-text-color);
     transition: background 150ms, color 150ms;
@@ -374,7 +374,7 @@ export const styles = css`
     margin: 4px auto;
   }
   .label {
-    font-size: 13px;
+    font-size: 0.875rem;
     color: var(--secondary-text-color);
   }
 `;
