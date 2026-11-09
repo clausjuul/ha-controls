@@ -179,7 +179,7 @@ export class HacColorWheel extends LitElement {
     :host {
       display: block;
       width: 100%;
-      max-width: var(--hac-color-wheel-size, 280px);
+      max-width: var(--hac-color-wheel-size, 20rem);
       margin: 0 auto;
     }
     .wheel {
@@ -215,8 +215,8 @@ export class HacColorWheel extends LitElement {
     }
     .marker {
       position: absolute;
-      width: 28px;
-      height: 28px;
+      width: 2rem;
+      height: 2rem;
       border-radius: 50%;
       border: 3px solid #fff;
       box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
@@ -226,8 +226,8 @@ export class HacColorWheel extends LitElement {
       transition: left 180ms ease-out, top 180ms ease-out;
     }
     :host([dragging]) .marker {
-      width: 36px;
-      height: 36px;
+      width: 2.571rem;
+      height: 2.571rem;
       transition: none;
     }
     :host([disabled]) .wheel {
