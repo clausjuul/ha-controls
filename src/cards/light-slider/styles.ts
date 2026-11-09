@@ -5,6 +5,34 @@ export const styles = css`
     padding: 12px;
     box-sizing: border-box;
   }
+  .room-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: -4px 0 8px 4px;
+  }
+  .room-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .power.on {
+    color: var(--state-light-active-color, #ff9800);
+  }
+  .items {
+    display: flex;
+    flex-direction: column;
+  }
+  .items > * + * {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--divider-color, rgba(127, 127, 127, 0.2));
+  }
   .row {
     --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
     --hac-slider-color: var(--_light);

@@ -26,6 +26,7 @@ import {
 } from '../../shared/color';
 import {
   normalizeConfig,
+  type Group,
   type LightEntityConfig,
   type LightSliderCardConfig,
   type NormalizedConfig,
@@ -79,7 +80,8 @@ interface RowOptions {
 export class LightSliderCard extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
   @state() private _config?: NormalizedConfig;
-  @state() private _expanded = false;
+  /** Which groups show their individual lights, by group key. */
+  @state() private _expanded: Readonly<Record<string, boolean>> = {};
   @state() private _dialog?: DialogState;
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
   @state() private _popupHs?: [number, number];
@@ -113,13 +115,16 @@ export class LightSliderCard extends LitElement {
 
   setConfig(config: LightSliderCardConfig): void {
     this._config = normalizeConfig(config);
-    this._expanded = this._config.expanded;
+    this._expanded = Object.fromEntries(this._config.groups.map((g) => [g.key, g.expanded]));
   }
 
   getCardSize(): number {
     if (!this._config) return 1;
-    const lights = this._config.entities.length;
-    return 1 + (lights > 1 && this._expanded ? lights : 0);
+    let size = this._config.mode === 'room' && this._config.name ? 1 : 0;
+    for (const g of this._config.groups) {
+      size += 2 + (g.entities.length > 1 && this._expanded[g.key] ? g.entities.length * 2 : 0);
+    }
+    return size;
   }
 
   getGridOptions() {
@@ -134,17 +139,15 @@ export class LightSliderCard extends LitElement {
     // An open popup may show scenes, so let every update through.
     if (this._dialog) return true;
     if (old.locale?.language !== this.hass.locale?.language) return true;
-    return this._config.entities.some(
-      (e) => old.states[e.entity] !== this.hass!.states[e.entity],
-    );
+    return this._config.entityIds.some((id) => old.states[id] !== this.hass!.states[id]);
   }
 
   protected willUpdate(changed: PropertyValues<this>): void {
     if (changed.has('hass') && this.hass && this._config) {
       const old = changed.get('hass') as HomeAssistant | undefined;
-      for (const { entity } of this._config.entities) {
-        const s = this.hass.states[entity];
-        if (s !== old?.states[entity]) rememberOn(s);
+      for (const id of this._config.entityIds) {
+        const s = this.hass.states[id];
+        if (s !== old?.states[id]) rememberOn(s);
       }
       this._optimistic.reconcile(this.hass.states);
     }
@@ -238,33 +241,65 @@ export class LightSliderCard extends LitElement {
   protected render() {
     if (!this._config || !this.hass) return nothing;
     const t = localize(this.hass);
-    const lights = this._config.entities;
+    const cfg = this._config;
 
     return html`
-      <ha-card>
-        ${lights.length === 1 ? this._renderSingle(lights[0], t) : this._renderGroup(lights, t)}
+      <ha-card class=${cfg.mode}>
+        ${cfg.mode === 'room'
+          ? html`${this._renderRoomHeader(t)}
+              <div class="items">${cfg.groups.map((g) => this._renderGroup(g, t))}</div>`
+          : this._renderGroup(cfg.groups[0], t)}
       </ha-card>
       ${this._renderDialog(t)}
     `;
   }
 
-  private _renderSingle(conf: LightEntityConfig, t: Localize): TemplateResult {
+  private _renderRoomHeader(t: Localize): TemplateResult | typeof nothing {
+    const cfg = this._config!;
+    if (!cfg.name) return nothing;
+    const available = this._available(cfg.entityIds);
+    const anyOn = available.some(isOn);
+    const label = anyOn ? t('room_off') : t('room_on');
+    return html`
+      <div class="room-header">
+        <span class="room-name">${cfg.name}</span>
+        <button
+          class="action power ${anyOn ? 'on' : ''}"
+          title=${label}
+          aria-label=${label}
+          ?disabled=${!available.length}
+          @click=${() => this._toggle(cfg.entityIds)}
+        >
+          <ha-icon icon="mdi:power"></ha-icon>
+        </button>
+      </div>
+    `;
+  }
+
+  /** One slider: a single light, or several lights that can be expanded. */
+  private _renderGroup(group: Group, t: Localize): TemplateResult {
+    return group.entities.length === 1
+      ? this._renderSingle(group, t)
+      : this._renderMulti(group, t);
+  }
+
+  private _renderSingle(group: Group, t: Localize): TemplateResult {
+    const conf = group.entities[0];
     const s = this._state(conf.entity);
     if (!s) return this._renderMissing(conf.entity, t);
-    const cfg = this._config!;
-    const name = cfg.name ?? conf.name ?? s.attributes.friendly_name ?? conf.entity;
+    const name = group.name ?? conf.name ?? s.attributes.friendly_name ?? conf.entity;
 
     return this._renderRow({
       ...this._lightRowBase(s, conf, t),
-      key: 'main',
+      key: group.key,
       name,
-      icon: cfg.icon ?? conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
-      target: { title: name, ids: [conf.entity], sceneOverride: cfg.scenes ?? conf.scenes },
+      icon: group.icon ?? conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
+      target: { title: name, ids: [conf.entity], sceneOverride: group.scenes ?? conf.scenes },
     });
   }
 
-  private _renderGroup(confs: LightEntityConfig[], t: Localize): TemplateResult {
-    const cfg = this._config!;
+  private _renderMulti(group: Group, t: Localize): TemplateResult {
+    const confs = group.entities;
     const ids = confs.map((c) => c.entity);
     const states = ids
       .map((id) => this._state(id))
@@ -286,36 +321,39 @@ export class LightSliderCard extends LitElement {
     const anyOn = on.length > 0;
     const count = t('lights_on', { on: on.length, total: available.length });
     const unavailable = available.length === 0;
-    const name = cfg.name ?? t('lights');
+    const name = group.name ?? t('lights');
+    const expanded = !!this._expanded[group.key];
 
     return html`
-      ${this._renderRow({
-        key: 'main',
-        name,
-        icon: cfg.icon ?? defaultIcon(anyOn, true),
-        on: anyOn,
-        unavailable,
-        secondary: unavailable ? t('unavailable') : count,
-        emptyText: t('off'),
-        // Only interesting when some, but not all, lights are on.
-        endText:
-          on.length > 0 && on.length < available.length
-            ? t('lights_on', { on: on.length, total: available.length })
-            : undefined,
-        brightness: dimmable.length ? brightness : undefined,
-        color: lightColor(on[0]),
-        lightFill: isLightColor(on[0]),
-        target: { title: name, ids, sceneOverride: cfg.scenes },
-        expander: {
-          expanded: this._expanded,
-          onExpand: () => (this._expanded = !this._expanded),
-        },
-        onToggle: () => this._toggle(ids),
-        onBrightness: (pct) => this._setBrightness(ids, pct),
-      })}
-      ${this._expanded
-        ? html`<div class="lights">${confs.map((c) => this._renderSubLight(c, t))}</div>`
-        : nothing}
+      <div class="group">
+        ${this._renderRow({
+          key: group.key,
+          name,
+          icon: group.icon ?? defaultIcon(anyOn, true),
+          on: anyOn,
+          unavailable,
+          secondary: unavailable ? t('unavailable') : count,
+          emptyText: t('off'),
+          // Only interesting when some, but not all, lights are on.
+          endText:
+            on.length > 0 && on.length < available.length
+              ? t('lights_on', { on: on.length, total: available.length })
+              : undefined,
+          brightness: dimmable.length ? brightness : undefined,
+          color: lightColor(on[0]),
+          lightFill: isLightColor(on[0]),
+          target: { title: name, ids, sceneOverride: group.scenes },
+          expander: {
+            expanded,
+            onExpand: () => (this._expanded = { ...this._expanded, [group.key]: !expanded }),
+          },
+          onToggle: () => this._toggle(ids),
+          onBrightness: (pct) => this._setBrightness(ids, pct),
+        })}
+        ${expanded
+          ? html`<div class="lights">${confs.map((c) => this._renderSubLight(c, t))}</div>`
+          : nothing}
+      </div>
     `;
   }
 

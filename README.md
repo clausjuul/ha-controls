@@ -41,19 +41,49 @@ A compact, horizontal brightness slider for one or more lights.
 - Buttons only appear when there is something to show.
 - Visual editor in the dashboard UI. English and Danish.
 
+### Single and room
+
+- **`mode: single`** (default): all the lights you choose share one slider
+  (or it's just one light). Expand to see each light.
+- **`mode: room`**: a room with several sliders. Each item under `items` is one
+  slider for one light, or for several lights that can be expanded. With a
+  `name`, the room gets a heading with a button that turns everything on/off.
+
+```yaml
+type: custom:ha-controls-light-slider-card
+mode: room
+name: Living room
+items:
+  - name: Ceiling
+    icon: mdi:ceiling-light
+    entities:
+      - light.ceiling_1
+      - light.ceiling_2
+  - entity: light.floor_lamp
+    name: Floor lamp
+  - name: Spots
+    entities: [light.spot_1, light.spot_2, light.spot_3]
+    scenes: [scene.movie_night]
+```
+
+Each item supports `entity`/`entities`, `name`, `icon`, `scenes` and
+`expanded`. The options below apply to every item in the room.
+
 ### Options
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `entities` | list | **required** | Light entity IDs, or objects with `entity`, `name`, `icon` |
-| `entity` | string | | Shorthand for a single light |
-| `name` | string | friendly name / "Lights" | Card title |
-| `icon` | string | lightbulb | Card icon |
+| `mode` | string | `single` | `single` or `room` |
+| `entities` | list | **required** (single) | Light entity IDs, or objects with `entity`, `name`, `icon`, `scenes` |
+| `entity` | string | | Shorthand for a single light (single) |
+| `items` | list | **required** (room) | The sliders in the room, see above |
+| `name` | string | friendly name / "Lights" | Slider name (single) or room heading (room) |
+| `icon` | string | lightbulb | Slider icon (single) |
 | `show_color_temp` | boolean | `true` | Show the color temperature slider (lights that support it) |
 | `show_color` | boolean | `true` | Show hue and saturation sliders (lights that support color) |
 | `show_scenes` | boolean | `true` | Show the scenes button |
-| `scenes` | list | automatic | Scenes for the card's main row. Each light entry can also have its own `scenes` |
-| `expanded` | boolean | `false` | Show the individual lights of a group by default |
+| `scenes` | list | automatic | Scenes for the main slider (single). Each light entry can also have its own `scenes` |
+| `expanded` | boolean | `false` | Show the individual lights of a slider by default |
 
 ### Examples
 

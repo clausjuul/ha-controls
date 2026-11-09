@@ -45,6 +45,8 @@
       <div id="single"></div>
       <h2>Flere lys</h2>
       <div id="group"></div>
+      <h2>Rum</h2>
+      <div id="room"></div>
       <div id="log"></div>
     </main>
 
@@ -184,6 +186,16 @@
         icon: 'mdi:sofa',
         entities: ['light.stue', { entity: 'light.sofa', name: 'Sofa' }, 'light.koekken', 'light.gang', 'light.kontor'],
         expanded: true,
+      });
+
+      addCard('room', {
+        mode: 'room',
+        name: 'Stue',
+        items: [
+          { name: 'Loft', icon: 'mdi:ceiling-light', entities: ['light.stue', 'light.koekken'] },
+          { entity: 'light.sofa', name: 'Sofa' },
+          { name: 'Gang og kontor', entities: ['light.gang', 'light.kontor'] },
+        ],
       });
 
       document.getElementById('dark').addEventListener('change', (e) =>
