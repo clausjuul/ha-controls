@@ -45,6 +45,8 @@
       <div id="single"></div>
       <h2>Flere lys</h2>
       <div id="group"></div>
+      <h2>Rum</h2>
+      <div id="room"></div>
       <div id="log"></div>
     </main>
 
@@ -59,6 +61,7 @@
       });
       const ICONS = {
         'mdi:chevron-down': 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z',
+        'mdi:power': 'M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13',
         'mdi:close': 'M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z',
         'mdi:creation': 'M12,17.27L18.18,21L16.54,13.64L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.64L5.82,21L12,17.27Z',
         'mdi:palette': 'M17.5,12A1.5,1.5 0 0,1 16,10.5A1.5,1.5 0 0,1 17.5,9A1.5,1.5 0 0,1 19,10.5A1.5,1.5 0 0,1 17.5,12M14.5,8A1.5,1.5 0 0,1 13,6.5A1.5,1.5 0 0,1 14.5,5A1.5,1.5 0 0,1 16,6.5A1.5,1.5 0 0,1 14.5,8M9.5,8A1.5,1.5 0 0,1 8,6.5A1.5,1.5 0 0,1 9.5,5A1.5,1.5 0 0,1 11,6.5A1.5,1.5 0 0,1 9.5,8M6.5,12A1.5,1.5 0 0,1 5,10.5A1.5,1.5 0 0,1 6.5,9A1.5,1.5 0 0,1 8,10.5A1.5,1.5 0 0,1 6.5,12M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A1.5,1.5 0 0,0 13.5,19.5C13.5,19.11 13.35,18.76 13.11,18.5C12.88,18.23 12.73,17.88 12.73,17.5A1.5,1.5 0 0,1 14.23,16H16A5,5 0 0,0 21,11C21,6.58 16.97,3 12,3Z',
@@ -184,6 +187,16 @@
         icon: 'mdi:sofa',
         entities: ['light.stue', { entity: 'light.sofa', name: 'Sofa' }, 'light.koekken', 'light.gang', 'light.kontor'],
         expanded: true,
+      });
+
+      addCard('room', {
+        mode: 'room',
+        name: 'Stue',
+        items: [
+          { name: 'Loft', icon: 'mdi:ceiling-light', entities: ['light.stue', 'light.koekken'] },
+          { entity: 'light.sofa', name: 'Sofa' },
+          { name: 'Gang og kontor', entities: ['light.gang', 'light.kontor'] },
+        ],
       });
 
       document.getElementById('dark').addEventListener('change', (e) =>
