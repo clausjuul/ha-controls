@@ -66,8 +66,24 @@ items:
     scenes: [scene.movie_night]
 ```
 
-Each item supports `entity`/`entities`, `name`, `icon`, `scenes` and
-`expanded`. The options below apply to every item in the room.
+Each item supports `entity`/`entities`, `main_entity`, `name`, `icon`,
+`scenes` and `expanded`. The options below apply to every item in the room.
+
+### Main light
+
+By default the top slider controls all its lights together (showing their
+average). Set `main_entity` to let it control one light instead, e.g. a
+Home Assistant light group, while `entities` are listed when you expand it:
+
+```yaml
+type: custom:ha-controls-light-slider-card
+main_entity: light.ceiling_group
+entities:
+  - light.ceiling_1
+  - light.ceiling_2
+```
+
+Works the same for each item in a room.
 
 ### Options
 
@@ -77,6 +93,7 @@ Each item supports `entity`/`entities`, `name`, `icon`, `scenes` and
 | `entities` | list | **required** (single) | Light entity IDs, or objects with `entity`, `name`, `icon`, `scenes` |
 | `entity` | string | | Shorthand for a single light (single) |
 | `items` | list | **required** (room) | The sliders in the room, see above |
+| `main_entity` | string | | Light the top slider controls; `entities` become its expandable children (single) |
 | `name` | string | friendly name / "Lights" | Slider name (single) or room heading (room) |
 | `icon` | string | lightbulb | Slider icon (single) |
 | `show_color_temp` | boolean | `true` | Show the color temperature slider (lights that support it) |

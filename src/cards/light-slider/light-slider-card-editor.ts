@@ -13,8 +13,11 @@ import {
 
 const ENTITIES = {
   name: 'entities',
-  required: true,
   selector: { entity: { multiple: true, filter: { domain: 'light' } } },
+};
+const MAIN = {
+  name: 'main_entity',
+  selector: { entity: { filter: { domain: 'light' } } },
 };
 const SCENES = {
   name: 'scenes',
@@ -35,6 +38,7 @@ const OPTIONS_SCHEMA = [
 ];
 
 const SINGLE_SCHEMA = [
+  MAIN,
   ENTITIES,
   { name: 'name', selector: { text: {} } },
   { name: 'icon', selector: { icon: {} } },
@@ -45,6 +49,7 @@ const SINGLE_SCHEMA = [
 const ROOM_SCHEMA = [{ name: 'room_name', selector: { text: {} } }, ...OPTIONS_SCHEMA];
 
 const ITEM_SCHEMA = [
+  MAIN,
   ENTITIES,
   {
     type: 'grid',
@@ -61,6 +66,7 @@ type BoolKey = keyof typeof DEFAULTS;
 type EntityList = Array<string | LightEntityConfig>;
 
 interface ListData {
+  main_entity?: string;
   entities?: string[];
   name?: string;
   icon?: string;
@@ -142,6 +148,7 @@ export class LightSliderCardEditor extends LitElement {
   private _renderSingle() {
     const c = this._config!;
     const data = {
+      main_entity: c.main_entity ?? '',
       entities: rawEntities(c).map(entityId),
       name: c.name ?? '',
       icon: c.icon ?? '',
@@ -201,6 +208,7 @@ export class LightSliderCardEditor extends LitElement {
             <ha-form
               .hass=${this.hass}
               .data=${{
+                main_entity: item.main_entity ?? '',
                 entities: rawEntities(item).map(entityId),
                 name: item.name ?? '',
                 icon: item.icon ?? '',
@@ -248,17 +256,21 @@ export class LightSliderCardEditor extends LitElement {
       const item: RoomItemConfig = {};
       setOrDelete(item, 'name', c.name);
       setOrDelete(item, 'icon', c.icon);
+      setOrDelete(item, 'main_entity', c.main_entity);
       if (entities.length) item.entities = entities;
       setOrDelete(item, 'scenes', c.scenes);
       config.mode = 'room';
       config.items = [item];
-      for (const key of ['entity', 'entities', 'name', 'icon', 'scenes'] as const) delete config[key];
+      for (const key of ['entity', 'entities', 'main_entity', 'name', 'icon', 'scenes'] as const) {
+        delete config[key];
+      }
     } else {
       // Put every light from the room under one slider.
       const seen = new Set<string>();
       const entities: EntityList = [];
       for (const item of c.items ?? []) {
-        for (const e of rawEntities(item)) {
+        const list = [...(item.main_entity ? [item.main_entity] : []), ...rawEntities(item)];
+        for (const e of list) {
           if (seen.has(entityId(e))) continue;
           seen.add(entityId(e));
           entities.push(e);
@@ -280,6 +292,7 @@ export class LightSliderCardEditor extends LitElement {
       entities: mergeEntities(rawEntities(c), data.entities),
     };
     delete config.entity;
+    setOrDelete(config, 'main_entity', data.main_entity);
     setOrDelete(config, 'name', data.name);
     setOrDelete(config, 'icon', data.icon);
     setOrDelete(config, 'scenes', data.scenes);
@@ -303,6 +316,7 @@ export class LightSliderCardEditor extends LitElement {
     const data = ev.detail.value;
     const item: RoomItemConfig = { ...old, entities: mergeEntities(rawEntities(old), data.entities) };
     delete item.entity;
+    setOrDelete(item, 'main_entity', data.main_entity);
     setOrDelete(item, 'name', data.name);
     setOrDelete(item, 'icon', data.icon);
     setOrDelete(item, 'scenes', data.scenes);
