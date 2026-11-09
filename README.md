@@ -69,6 +69,21 @@ items:
 Each item supports `entity`/`entities`, `main_entity`, `name`, `icon`,
 `scenes` and `expanded`. The options below apply to every item in the room.
 
+### On/off entities
+
+Besides lights you can add `switch` and `input_boolean` entities (e.g. a lamp
+on a smart plug). They, and lights that can only turn on/off, get a wide on/off
+button instead of a slider. To show a dimmable light as on/off only, list it
+under `toggle_only` (on the card or on a room item):
+
+```yaml
+entities:
+  - light.ceiling
+  - switch.floor_lamp_plug
+toggle_only:
+  - light.ceiling
+```
+
 ### Main light
 
 By default the top slider controls all its lights together (showing their
@@ -93,6 +108,7 @@ Works the same for each item in a room.
 | `entities` | list | **required** (single) | Light entity IDs, or objects with `entity`, `name`, `icon`, `scenes` |
 | `entity` | string | | Shorthand for a single light (single) |
 | `items` | list | **required** (room) | The sliders in the room, see above |
+| `toggle_only` | list | | Lights to show as on/off only, no slider or colors |
 | `main_entity` | string | | Light the top slider controls; `entities` become its expandable children (single) |
 | `name` | string | friendly name / "Lights" | Slider name (single) or room heading (room) |
 | `icon` | string | lightbulb | Slider icon (single) |

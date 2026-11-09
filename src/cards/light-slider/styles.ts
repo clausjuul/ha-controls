@@ -146,6 +146,37 @@ export const styles = css`
     flex: 1;
     min-width: 0;
   }
+  .toggle-bar {
+    flex: 1;
+    min-width: 0;
+    height: var(--hac-slider-height, 52px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 16px;
+    border-radius: var(--hac-slider-radius, 14px);
+    background: color-mix(in srgb, var(--primary-text-color, #000) 12%, transparent);
+    color: var(--secondary-text-color);
+    transition: background 180ms, color 180ms;
+  }
+  .toggle-bar.on {
+    background: var(--_light);
+    color: var(--hac-slider-value-color, #fff);
+  }
+  .toggle-text {
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .toggle-bar:not(.on) .toggle-text {
+    font-weight: 400;
+  }
+  .toggle-end {
+    font-size: 13px;
+  }
+  .toggle-bar:active:not(:disabled) {
+    filter: brightness(0.95);
+  }
   .expand-tile {
     flex: none;
     width: 52px;
