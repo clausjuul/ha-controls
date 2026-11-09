@@ -124,6 +124,8 @@
         state: 'on', brightness: 128, color_mode: 'color_temp', color_temp_kelvin: 3000,
         rgb_color: kelvinToRgb(3000), hs_color: [28, 55], entity_id: ['light.stue', 'light.koekken'],
       });
+      states['light.vindue'] = light('light.vindue', 'Vindueslampe (kun tænd/sluk)', ['color_temp'], { state: 'on', brightness: 200, color_temp_kelvin: 2700, rgb_color: kelvinToRgb(2700), color_mode: 'color_temp' });
+      states['switch.lampe_stik'] = { entity_id: 'switch.lampe_stik', state: 'off', attributes: { friendly_name: 'Lampe i stikkontakt' } };
       const scene = (id, name, members, icon) => ({
         entity_id: id,
         state: '2026-11-07T20:00:00+00:00',
@@ -160,6 +162,7 @@
           if (service === 'turn_off') { st = 'off'; a.brightness = null; }
           if (service === 'turn_on') {
             st = 'on';
+            if (!a.supported_color_modes) { states[id] = { ...s, state: st, attributes: a }; continue; }
             if (data.brightness_pct !== undefined) a.brightness = Math.round(data.brightness_pct * 2.55);
             else if (a.brightness == null && a.supported_color_modes.some((m) => m !== 'onoff')) a.brightness = 255;
             if (data.color_temp_kelvin) {
@@ -199,6 +202,8 @@
         items: [
           { name: 'Loft', icon: 'mdi:ceiling-light', main_entity: 'light.loft_gruppe', entities: ['light.stue', 'light.koekken'] },
           { entity: 'light.sofa', name: 'Sofa' },
+          { entity: 'switch.lampe_stik' },
+          { entity: 'light.vindue', toggle_only: ['light.vindue'] },
           { name: 'Gang og kontor', entities: ['light.gang', 'light.kontor'] },
         ],
       });

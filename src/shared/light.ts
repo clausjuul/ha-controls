@@ -29,6 +29,20 @@ export function lightColor(s?: HassEntity): string | undefined {
   return Array.isArray(rgb) && rgb.length === 3 ? rgbCss(rgb as [number, number, number]) : undefined;
 }
 
+/** Icon for an entity without its own, based on its domain. */
+export function entityIcon(s: HassEntity): string {
+  if (s.attributes.icon) return s.attributes.icon;
+  const on = isOn(s);
+  switch (s.entity_id.split('.')[0]) {
+    case 'switch':
+      return on ? 'mdi:power-plug' : 'mdi:power-plug-off';
+    case 'input_boolean':
+      return on ? 'mdi:toggle-switch' : 'mdi:toggle-switch-off';
+    default:
+      return defaultIcon(on, false);
+  }
+}
+
 export function defaultIcon(on: boolean, group: boolean): string {
   if (group) return on ? 'mdi:lightbulb-group' : 'mdi:lightbulb-group-outline';
   return on ? 'mdi:lightbulb' : 'mdi:lightbulb-outline';

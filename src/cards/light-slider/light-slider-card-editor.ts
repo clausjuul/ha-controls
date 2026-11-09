@@ -11,13 +11,18 @@ import {
   type RoomItemConfig,
 } from './config';
 
+const ON_OFF_DOMAINS = ['light', 'switch', 'input_boolean'];
 const ENTITIES = {
   name: 'entities',
+  selector: { entity: { multiple: true, filter: { domain: ON_OFF_DOMAINS } } },
+};
+const TOGGLE_ONLY = {
+  name: 'toggle_only',
   selector: { entity: { multiple: true, filter: { domain: 'light' } } },
 };
 const MAIN = {
   name: 'main_entity',
-  selector: { entity: { filter: { domain: 'light' } } },
+  selector: { entity: { filter: { domain: ON_OFF_DOMAINS } } },
 };
 const SCENES = {
   name: 'scenes',
@@ -42,6 +47,7 @@ const SINGLE_SCHEMA = [
   ENTITIES,
   { name: 'name', selector: { text: {} } },
   { name: 'icon', selector: { icon: {} } },
+  TOGGLE_ONLY,
   ...OPTIONS_SCHEMA,
   SCENES,
 ];
@@ -59,6 +65,7 @@ const ITEM_SCHEMA = [
       { name: 'icon', selector: { icon: {} } },
     ],
   },
+  TOGGLE_ONLY,
   SCENES,
 ];
 
@@ -71,6 +78,7 @@ interface ListData {
   name?: string;
   icon?: string;
   scenes?: string[];
+  toggle_only?: string[];
 }
 
 /** Map selected entity IDs back to entries, keeping per-light options. */
@@ -153,6 +161,7 @@ export class LightSliderCardEditor extends LitElement {
       name: c.name ?? '',
       icon: c.icon ?? '',
       scenes: c.scenes ?? [],
+      toggle_only: c.toggle_only ?? [],
       ...this._options(),
     };
     return html`<ha-form
@@ -213,6 +222,7 @@ export class LightSliderCardEditor extends LitElement {
                 name: item.name ?? '',
                 icon: item.icon ?? '',
                 scenes: item.scenes ?? [],
+                toggle_only: item.toggle_only ?? [],
               }}
               .schema=${ITEM_SCHEMA}
               .computeLabel=${this._label}
@@ -259,9 +269,10 @@ export class LightSliderCardEditor extends LitElement {
       setOrDelete(item, 'main_entity', c.main_entity);
       if (entities.length) item.entities = entities;
       setOrDelete(item, 'scenes', c.scenes);
+      setOrDelete(item, 'toggle_only', c.toggle_only);
       config.mode = 'room';
       config.items = [item];
-      for (const key of ['entity', 'entities', 'main_entity', 'name', 'icon', 'scenes'] as const) {
+      for (const key of ['entity', 'entities', 'main_entity', 'name', 'icon', 'scenes', 'toggle_only'] as const) {
         delete config[key];
       }
     } else {
@@ -276,9 +287,11 @@ export class LightSliderCardEditor extends LitElement {
           entities.push(e);
         }
       }
+      const toggleOnly = [...new Set((c.items ?? []).flatMap((i) => i.toggle_only ?? []))];
       delete config.mode;
       delete config.items;
       config.entities = entities;
+      setOrDelete(config, 'toggle_only', toggleOnly);
     }
     this._update(config);
   }
@@ -296,6 +309,7 @@ export class LightSliderCardEditor extends LitElement {
     setOrDelete(config, 'name', data.name);
     setOrDelete(config, 'icon', data.icon);
     setOrDelete(config, 'scenes', data.scenes);
+    setOrDelete(config, 'toggle_only', data.toggle_only);
     this._applyOptions(config, data);
     this._update(config);
   }
@@ -320,6 +334,7 @@ export class LightSliderCardEditor extends LitElement {
     setOrDelete(item, 'name', data.name);
     setOrDelete(item, 'icon', data.icon);
     setOrDelete(item, 'scenes', data.scenes);
+    setOrDelete(item, 'toggle_only', data.toggle_only);
     items[index] = item;
     this._update({ ...this._config!, items });
   }

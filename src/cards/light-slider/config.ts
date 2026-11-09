@@ -7,8 +7,15 @@ export interface LightEntityConfig {
 }
 
 /** One slider in a room: a single light or several lights under one slider. */
+/** Entity domains that can be added. Non-light ones are shown as on/off. */
+export const DOMAINS = ['light', 'switch', 'input_boolean'];
+const isAllowed = (id: unknown): id is string =>
+  typeof id === 'string' && DOMAINS.includes(id.split('.')[0]);
+
 export interface RoomItemConfig {
   name?: string;
+  /** Lights to show as plain on/off instead of a slider. */
+  toggle_only?: string[];
   icon?: string;
   /** Light that the top slider controls; `entities` are shown when expanded. */
   main_entity?: string;
@@ -31,6 +38,8 @@ export interface LightSliderCardConfig {
   main_entity?: string;
   /** Single mode: the lights. */
   entities?: Array<string | LightEntityConfig>;
+  /** Single mode: lights to show as plain on/off instead of a slider. */
+  toggle_only?: string[];
   /** Room mode: the items, each with its own slider. */
   items?: RoomItemConfig[];
   name?: string;
@@ -61,6 +70,8 @@ export interface NormalizedConfig {
   groups: Group[];
   /** Every light on the card. */
   entityIds: string[];
+  /** Lights shown as plain on/off (no slider, no colours). */
+  toggleOnly: Set<string>;
   show_color_temp: boolean;
   show_color: boolean;
   show_scenes: boolean;
@@ -93,8 +104,8 @@ function sceneList(value: unknown, where: string): string[] | undefined {
 
 function mainEntity(value: unknown, where: string): string | undefined {
   if (value === undefined || value === null || value === '') return undefined;
-  if (typeof value !== 'string' || !value.startsWith('light.')) {
-    throw new Error(`"main_entity" in ${where} must be a light entity`);
+  if (!isAllowed(value)) {
+    throw new Error(`"main_entity" in ${where} must be a light, switch or input_boolean`);
   }
   return value;
 }
@@ -122,8 +133,10 @@ function normalizeEntities(list: EntityList, where: string): LightEntityConfig[]
   const out: LightEntityConfig[] = [];
   for (const e of list) {
     const id = entityId(e);
-    if (typeof id !== 'string' || !id.startsWith('light.')) {
-      throw new Error(`"${id ?? JSON.stringify(e)}" in ${where} is not a light entity`);
+    if (!isAllowed(id)) {
+      throw new Error(
+        `"${id ?? JSON.stringify(e)}" in ${where} is not a light, switch or input_boolean`,
+      );
     }
     if (seen.has(id)) continue;
     seen.add(id);
@@ -165,10 +178,21 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
     });
   }
 
+  const toggleOnly = new Set<string>();
+  for (const src of mode === 'room' ? (config.items ?? []) : [config]) {
+    const list = src.toggle_only;
+    if (list === undefined || list === null) continue;
+    if (!Array.isArray(list) || list.some((id) => typeof id !== 'string')) {
+      throw new Error('"toggle_only" must be a list of entities');
+    }
+    list.forEach((id) => toggleOnly.add(id));
+  }
+
   return {
     mode,
     name: config.name || undefined,
     groups,
+    toggleOnly,
     entityIds: [
       ...new Set(groups.flatMap((g) => [...(g.main ? [g.main] : []), ...g.entities.map((e) => e.entity)])),
     ],

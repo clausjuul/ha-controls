@@ -5,6 +5,7 @@ import { localize, type Localize } from '../../shared/localize';
 import {
   brightnessPct,
   defaultIcon,
+  entityIcon,
   isOn,
   isUnavailable,
   isLightColor,
@@ -305,7 +306,8 @@ export class LightSliderCard extends LitElement {
           key: group.key,
           name,
           icon:
-            group.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), children.length > 0),
+            group.icon ??
+            (s.attributes.icon || !children.length ? entityIcon(s) : defaultIcon(isOn(s), true)),
           endText:
             on.length > 0 && on.length < available.length
               ? t('lights_on', { on: on.length, total: available.length })
@@ -340,7 +342,7 @@ export class LightSliderCard extends LitElement {
       ...this._lightRowBase(s, conf, t),
       key: group.key,
       name,
-      icon: group.icon ?? conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
+      icon: group.icon ?? conf.icon ?? entityIcon(s),
       target: { title: name, ids: [conf.entity], sceneOverride: group.scenes ?? conf.scenes },
     });
   }
@@ -353,7 +355,7 @@ export class LightSliderCard extends LitElement {
       .filter((s): s is HassEntity => !!s);
     const available = states.filter((s) => !isUnavailable(s));
     const on = available.filter(isOn);
-    const dimmable = available.filter(supportsBrightness);
+    const dimmable = available.filter(this._dimmable);
     const dimmableOn = dimmable.filter(isOn);
 
     let brightness = 0;
@@ -413,7 +415,7 @@ export class LightSliderCard extends LitElement {
       ...this._lightRowBase(s, conf, t),
       key: conf.entity,
       name,
-      icon: conf.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), false),
+      icon: conf.icon ?? entityIcon(s),
       target: { title: name, ids: [conf.entity], sceneOverride: conf.scenes },
       sub: true,
     });
@@ -423,7 +425,7 @@ export class LightSliderCard extends LitElement {
   private _lightRowBase(s: HassEntity, conf: LightEntityConfig, t: Localize) {
     const unavailable = isUnavailable(s);
     const on = isOn(s);
-    const dimmable = supportsBrightness(s);
+    const dimmable = this._dimmable(s);
     const pct = brightnessPct(s);
 
     let state: string;
@@ -478,9 +480,6 @@ export class LightSliderCard extends LitElement {
             @click=${o.expander ? o.expander.onExpand : undefined}
           >
             <span class="name">${o.name}</span>
-            ${o.secondary && o.brightness === undefined
-              ? html`<span class="secondary">${o.secondary}</span>`
-              : nothing}
           </div>
           <div class="actions">
             ${hasColor
@@ -504,7 +503,6 @@ export class LightSliderCard extends LitElement {
                   <ha-icon icon=${ICON_SCENES}></ha-icon>
                 </button>`
               : nothing}
-            ${o.expander && o.brightness === undefined ? expandButton('action') : nothing}
           </div>
         </div>
         ${o.brightness !== undefined
@@ -525,7 +523,21 @@ export class LightSliderCard extends LitElement {
               ></hac-slider>
               ${o.expander ? expandButton('expand-tile') : nothing}
             </div>`
-          : nothing}
+          : html`<div class="bottom">
+              <button
+                class="toggle-bar ${o.on ? 'on' : ''}"
+                aria-pressed=${o.on ? 'true' : 'false'}
+                aria-label=${`${t('toggle')}: ${o.name}`}
+                ?disabled=${o.unavailable}
+                @click=${o.onToggle}
+              >
+                <span class="toggle-text">
+                  ${o.unavailable ? t('unavailable') : o.on ? t('on') : t('off')}
+                </span>
+                ${o.endText ? html`<span class="toggle-end">${o.endText}</span>` : nothing}
+              </button>
+              ${o.expander ? expandButton('expand-tile') : nothing}
+            </div>`}
       </div>
     `;
   }
@@ -742,7 +754,9 @@ export class LightSliderCard extends LitElement {
   /** Lights among `ids` whose colour temperature / colour can be set. */
   private _colorLights(ids: string[]) {
     const cfg = this._config!;
-    const states = this._available(ids);
+    const states = this._available(ids).filter(
+      (st) => st.entity_id.startsWith('light.') && !cfg.toggleOnly.has(st.entity_id),
+    );
     const ct = cfg.show_color_temp ? states.filter(supportsColorTemp) : [];
     const color = cfg.show_color ? states.filter(supportsColor) : [];
     return { ct, color, any: ct.length > 0 || color.length > 0 };
@@ -799,9 +813,7 @@ export class LightSliderCard extends LitElement {
     if (!states.length) return;
     const turnOn = !states.some(isOn);
     for (const st of states) this._expect(st.entity_id, { state: turnOn ? 'on' : 'off' });
-    this.hass!.callService('light', turnOn ? 'turn_on' : 'turn_off', {
-      entity_id: states.map((st) => st.entity_id),
-    });
+    this._callOnOff(turnOn ? 'turn_on' : 'turn_off', states.map((st) => st.entity_id));
   }
 
   private _setBrightness(ids: string[], pct: number) {
@@ -809,11 +821,11 @@ export class LightSliderCard extends LitElement {
     if (!states.length) return;
     if (pct <= 0) {
       for (const st of states) this._expect(st.entity_id, { state: 'off' });
-      this.hass!.callService('light', 'turn_off', { entity_id: states.map((st) => st.entity_id) });
+      this._callOnOff('turn_off', states.map((st) => st.entity_id));
       return;
     }
-    const dimmable = states.filter(supportsBrightness);
-    const plain = states.filter((st) => !supportsBrightness(st));
+    const dimmable = states.filter(this._dimmable);
+    const plain = states.filter((st) => !this._dimmable(st));
     const brightness = Math.round((pct / 100) * 255);
     for (const st of dimmable) {
       this._expect(st.entity_id, { state: 'on', attributes: { brightness } });
@@ -826,9 +838,23 @@ export class LightSliderCard extends LitElement {
       });
     }
     if (plain.length) {
-      this.hass!.callService('light', 'turn_on', { entity_id: plain.map((st) => st.entity_id) });
+      this._callOnOff('turn_on', plain.map((st) => st.entity_id));
     }
   }
+
+  /** Turn entities on/off: lights via `light`, switches etc. via `homeassistant`. */
+  private _callOnOff(service: 'turn_on' | 'turn_off', ids: string[]) {
+    const lights = ids.filter((id) => id.startsWith('light.'));
+    const others = ids.filter((id) => !id.startsWith('light.'));
+    if (lights.length) this.hass!.callService('light', service, { entity_id: lights });
+    if (others.length) this.hass!.callService('homeassistant', service, { entity_id: others });
+  }
+
+  /** Can this entity's brightness be set from the card? */
+  private _dimmable = (s: HassEntity): boolean =>
+    s.entity_id.startsWith('light.') &&
+    !this._config!.toggleOnly.has(s.entity_id) &&
+    supportsBrightness(s);
 
   private _activateScene(scene: HassEntity) {
     const base = this.hass!.states[scene.entity_id];
