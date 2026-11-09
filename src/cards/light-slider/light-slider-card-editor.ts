@@ -360,23 +360,23 @@ export class LightSliderCardEditor extends LitElement {
   static styles = css`
     ha-form {
       display: block;
-      margin-bottom: 16px;
+      margin-bottom: 1.143rem;
     }
     .items-title {
       font-weight: 500;
-      margin: 8px 0;
+      margin: 0.571rem 0;
     }
     .item {
       border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
-      border-radius: 12px;
-      padding: 8px 12px 0;
-      margin-bottom: 12px;
+      border-radius: 0.857rem;
+      padding: 0.571rem 0.857rem 0;
+      margin-bottom: 0.857rem;
     }
     .item-header {
       display: flex;
       align-items: center;
-      gap: 4px;
-      margin-bottom: 8px;
+      gap: 0.286rem;
+      margin-bottom: 0.571rem;
     }
     .item-title {
       flex: 1;
@@ -389,14 +389,14 @@ export class LightSliderCardEditor extends LitElement {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 0.429rem;
       font: inherit;
       color: var(--secondary-text-color);
       background: none;
       border: none;
       border-radius: 50%;
-      width: 36px;
-      height: 36px;
+      width: 2.571rem;
+      height: 2.571rem;
       cursor: pointer;
     }
     button:hover:not(:disabled) {
@@ -408,8 +408,8 @@ export class LightSliderCardEditor extends LitElement {
     }
     .add {
       width: 100%;
-      height: 44px;
-      border-radius: 12px;
+      height: 3.143rem;
+      border-radius: 0.857rem;
       border: 1px dashed var(--divider-color, rgba(127, 127, 127, 0.5));
       color: var(--primary-color, #03a9f4);
       font-weight: 500;

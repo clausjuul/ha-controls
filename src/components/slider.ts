@@ -217,7 +217,7 @@ export class HacSlider extends LitElement {
         ${this.showValue && value > this.min
           ? html`<span
               class="value ${textOnFill ? 'on-fill' : ''}"
-              style=${textOnFill || this.mode !== 'fill' ? '' : `left: calc(${pct}% + 12px)`}
+              style=${textOnFill || this.mode !== 'fill' ? '' : `left: calc(${pct}% + 0.86rem)`}
               >${text}</span
             >`
           : this.emptyText && value <= this.min
@@ -227,8 +227,8 @@ export class HacSlider extends LitElement {
         <div
           class="thumb ${hideThumb ? 'hidden' : ''}"
           style="left: ${this.mode === 'fill'
-            ? `max(6px, calc(${pct}% - 8px))`
-            : `calc(8px + (100% - 16px) * ${f})`}"
+            ? `max(0.43rem, calc(${pct}% - 0.57rem))`
+            : `calc(0.57rem + (100% - 1.14rem) * ${f})`}"
         ></div>
       </div>
     `;
@@ -237,8 +237,8 @@ export class HacSlider extends LitElement {
   static styles = css`
     :host {
       display: block;
-      --_height: var(--hac-slider-height, 36px);
-      --_radius: var(--hac-slider-radius, 12px);
+      --_height: var(--hac-slider-height, 2.571rem);
+      --_radius: var(--hac-slider-radius, 0.857rem);
     }
     .track {
       position: relative;
@@ -268,9 +268,9 @@ export class HacSlider extends LitElement {
     .thumb {
       position: absolute;
       top: 50%;
-      width: 4px;
+      width: 0.286rem;
       height: 50%;
-      border-radius: 2px;
+      border-radius: 0.143rem;
       transform: translate(-50%, -50%);
       background: var(--hac-slider-thumb-color, #fff);
       box-shadow: 0 0 2px rgba(0, 0, 0, 0.35);
@@ -278,9 +278,9 @@ export class HacSlider extends LitElement {
       pointer-events: none;
     }
     :host([mode='cursor']) .thumb {
-      width: 6px;
-      height: calc(100% - 8px);
-      border-radius: 3px;
+      width: 0.429rem;
+      height: calc(100% - 0.571rem);
+      border-radius: 0.214rem;
       box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.3);
     }
     .thumb.hidden {
@@ -288,7 +288,7 @@ export class HacSlider extends LitElement {
     }
     .value {
       position: absolute;
-      left: 16px;
+      left: 1.143rem;
       top: 50%;
       transform: translateY(-50%);
       font-size: 1rem;
@@ -311,7 +311,7 @@ export class HacSlider extends LitElement {
       display: flex;
       align-items: center;
       justify-content: flex-end;
-      padding-right: 16px;
+      padding-right: 1.143rem;
       font-size: 0.875rem;
       color: var(--secondary-text-color, #727272);
       white-space: nowrap;

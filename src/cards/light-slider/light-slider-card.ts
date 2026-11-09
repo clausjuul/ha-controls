@@ -218,13 +218,18 @@ export class LightSliderCard extends LitElement {
     const card = this.renderRoot.querySelector('ha-card');
     if (!dialog?.open || !card) return;
 
+    // Sizes in rem, so the popup scales with the html font size like the card.
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 14;
     const margin = 8;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
     const cardRect = card.getBoundingClientRect();
     const anchor = (this._anchor?.isConnected ? this._anchor : card).getBoundingClientRect();
 
-    const width = Math.min(vw - 2 * margin, Math.max(320, Math.min(cardRect.width, 440)));
+    const width = Math.min(
+      vw - 2 * margin,
+      Math.max(23 * rem, Math.min(cardRect.width, 31.5 * rem)),
+    );
     const left = Math.min(
       vw - width - margin,
       Math.max(margin, cardRect.left + (cardRect.width - width) / 2),

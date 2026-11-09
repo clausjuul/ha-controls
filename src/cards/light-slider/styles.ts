@@ -2,14 +2,14 @@ import { css } from 'lit';
 
 export const styles = css`
   ha-card {
-    padding: 12px;
+    padding: 0.857rem;
     box-sizing: border-box;
   }
   .room-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: -4px 0 8px 4px;
+    gap: 0.571rem;
+    margin: -0.286rem 0 0.571rem 0.286rem;
   }
   .room-name {
     flex: 1;
@@ -29,16 +29,16 @@ export const styles = css`
     flex-direction: column;
   }
   .items > * + * {
-    margin-top: 20px;
+    margin-top: 1.429rem;
   }
   .row {
     --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
     --hac-slider-color: var(--_light);
-    --hac-slider-height: 52px;
-    --hac-slider-radius: 14px;
+    --hac-slider-height: 3.714rem;
+    --hac-slider-radius: 1rem;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0.857rem;
   }
   .row.on {
     --hac-slider-track-background: color-mix(in srgb, var(--_light) 22%, transparent);
@@ -47,9 +47,9 @@ export const styles = css`
     --hac-slider-value-color: rgba(0, 0, 0, 0.75);
   }
   .row.sub {
-    --hac-slider-height: 40px;
-    --hac-slider-radius: 12px;
-    gap: 8px;
+    --hac-slider-height: 2.857rem;
+    --hac-slider-radius: 0.857rem;
+    gap: 0.571rem;
   }
   .row.missing {
     color: var(--error-color, #db4437);
@@ -58,8 +58,8 @@ export const styles = css`
   .top {
     display: flex;
     align-items: center;
-    gap: 12px;
-    min-height: 40px;
+    gap: 0.857rem;
+    min-height: 2.857rem;
   }
 
   button {
@@ -85,17 +85,17 @@ export const styles = css`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 3.143rem;
+    height: 3.143rem;
     border-radius: 50%;
     color: var(--state-icon-color, var(--secondary-text-color));
     background: transparent;
     transition: background 200ms, color 200ms;
   }
   .row.sub .icon {
-    width: 40px;
-    height: 40px;
-    --mdc-icon-size: 20px;
+    width: 2.857rem;
+    height: 2.857rem;
+    --mdc-icon-size: 1.429rem;
   }
   .row.on .icon {
     color: var(--_light);
@@ -140,7 +140,7 @@ export const styles = css`
   .bottom {
     display: flex;
     align-items: stretch;
-    gap: 8px;
+    gap: 0.571rem;
   }
   .bottom hac-slider {
     flex: 1;
@@ -149,13 +149,13 @@ export const styles = css`
   .toggle-bar {
     flex: 1;
     min-width: 0;
-    height: var(--hac-slider-height, 52px);
+    height: var(--hac-slider-height, 3.714rem);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 0 16px;
-    border-radius: var(--hac-slider-radius, 14px);
+    gap: 0.571rem;
+    padding: 0 1.143rem;
+    border-radius: var(--hac-slider-radius, 1rem);
     background: color-mix(in srgb, var(--primary-text-color, #000) 12%, transparent);
     color: var(--secondary-text-color);
     transition: background 180ms, color 180ms;
@@ -179,28 +179,28 @@ export const styles = css`
   }
   .expand-tile {
     flex: none;
-    width: 52px;
+    width: 3.714rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--hac-slider-radius, 14px);
+    border-radius: var(--hac-slider-radius, 1rem);
     color: var(--secondary-text-color);
     background: color-mix(in srgb, var(--primary-text-color, #000) 8%, transparent);
-    --mdc-icon-size: 26px;
+    --mdc-icon-size: 1.857rem;
   }
   .actions {
-    gap: 4px;
+    gap: 0.286rem;
   }
   .action {
     flex: none;
-    width: 44px;
-    height: 44px;
+    width: 3.143rem;
+    height: 3.143rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
     color: var(--secondary-text-color);
-    --mdc-icon-size: 24px;
+    --mdc-icon-size: 1.714rem;
     transition: background 150ms;
   }
   .action:hover:not(:disabled) {
@@ -216,8 +216,8 @@ export const styles = css`
   .lights {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    margin-top: 16px;
+    gap: 1.143rem;
+    margin-top: 1.143rem;
   }
 
   /* ----- popup ----- */
@@ -228,13 +228,13 @@ export const styles = css`
     margin: 0;
     padding: 0;
     border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.25));
-    width: min(420px, calc(100vw - 16px));
+    width: min(30rem, calc(100vw - 1.143rem));
     max-width: none;
-    max-height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 1.143rem);
     box-sizing: border-box;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-radius: var(--ha-card-border-radius, 16px);
+    border-radius: var(--ha-card-border-radius, 1.143rem);
     background: var(--card-background-color, var(--ha-card-background, #fff));
     color: var(--primary-text-color);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -252,13 +252,13 @@ export const styles = css`
     }
   }
   .sheet {
-    padding: 8px 16px 20px;
+    padding: 0.571rem 1.143rem 1.429rem;
   }
   .sheet-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 48px;
+    gap: 0.714rem;
+    min-height: 3.429rem;
     color: var(--secondary-text-color);
   }
   .sheet-title {
@@ -274,27 +274,27 @@ export const styles = css`
   .sheet-body {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    padding-top: 8px;
+    gap: 1rem;
+    padding-top: 0.571rem;
   }
   .empty {
-    padding: 16px 0;
+    padding: 1.143rem 0;
     text-align: center;
     color: var(--secondary-text-color);
     font-size: 1rem;
   }
   .scenes {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+    gap: 0.571rem;
   }
   .scene {
     display: flex;
     align-items: center;
-    gap: 10px;
-    min-height: 48px;
-    padding: 8px 12px;
-    border-radius: 12px;
+    gap: 0.714rem;
+    min-height: 3.429rem;
+    padding: 0.571rem 0.857rem;
+    border-radius: 0.857rem;
     text-align: left;
     font-size: 1rem;
     background: color-mix(in srgb, var(--primary-text-color, #000) 6%, transparent);
@@ -306,7 +306,7 @@ export const styles = css`
   }
   .scene ha-icon {
     flex: none;
-    --mdc-icon-size: 20px;
+    --mdc-icon-size: 1.429rem;
     color: var(--secondary-text-color);
   }
   .scene:hover:not(:disabled) {
@@ -321,21 +321,21 @@ export const styles = css`
   .control {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    --hac-slider-height: 40px;
-    --hac-slider-radius: 12px;
+    gap: 0.429rem;
+    --hac-slider-height: 2.857rem;
+    --hac-slider-radius: 0.857rem;
   }
   .tabs {
     display: flex;
-    gap: 4px;
-    padding: 4px;
-    border-radius: 12px;
+    gap: 0.286rem;
+    padding: 0.286rem;
+    border-radius: 0.857rem;
     background: color-mix(in srgb, var(--primary-text-color, #000) 7%, transparent);
   }
   .tab {
     flex: 1;
-    height: 36px;
-    border-radius: 9px;
+    height: 2.571rem;
+    border-radius: 0.643rem;
     font-size: 1rem;
     font-weight: 500;
     color: var(--secondary-text-color);
@@ -350,13 +350,13 @@ export const styles = css`
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     align-items: center;
-    gap: 12px;
+    gap: 0.857rem;
     justify-items: center;
-    padding: 4px 0;
+    padding: 0.286rem 0;
   }
   .swatch {
     width: 100%;
-    max-width: 52px;
+    max-width: 3.714rem;
     aspect-ratio: 1;
     border-radius: 50%;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
@@ -371,7 +371,7 @@ export const styles = css`
       0 0 0 5px var(--primary-text-color, #000);
   }
   hac-color-wheel {
-    margin: 4px auto;
+    margin: 0.286rem auto;
   }
   .label {
     font-size: 0.875rem;
