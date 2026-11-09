@@ -120,6 +120,10 @@
         'light.gang': light('light.gang', 'Gang', ['onoff']),
         'light.kontor': { entity_id: 'light.kontor', state: 'unavailable', attributes: { friendly_name: 'Kontor' } },
       };
+      states['light.loft_gruppe'] = light('light.loft_gruppe', 'Loft (gruppe)', ['color_temp', 'hs'], {
+        state: 'on', brightness: 128, color_mode: 'color_temp', color_temp_kelvin: 3000,
+        rgb_color: kelvinToRgb(3000), hs_color: [28, 55], entity_id: ['light.stue', 'light.koekken'],
+      });
       const scene = (id, name, members, icon) => ({
         entity_id: id,
         state: '2026-11-07T20:00:00+00:00',
@@ -193,7 +197,7 @@
         mode: 'room',
         name: 'Stue',
         items: [
-          { name: 'Loft', icon: 'mdi:ceiling-light', entities: ['light.stue', 'light.koekken'] },
+          { name: 'Loft', icon: 'mdi:ceiling-light', main_entity: 'light.loft_gruppe', entities: ['light.stue', 'light.koekken'] },
           { entity: 'light.sofa', name: 'Sofa' },
           { name: 'Gang og kontor', entities: ['light.gang', 'light.kontor'] },
         ],

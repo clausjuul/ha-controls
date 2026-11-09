@@ -10,6 +10,8 @@ export interface LightEntityConfig {
 export interface RoomItemConfig {
   name?: string;
   icon?: string;
+  /** Light that the top slider controls; `entities` are shown when expanded. */
+  main_entity?: string;
   /** Shorthand for a single light. */
   entity?: string;
   entities?: Array<string | LightEntityConfig>;
@@ -25,6 +27,8 @@ export interface LightSliderCardConfig {
   mode?: CardMode;
   /** Single mode: shorthand for a single light. */
   entity?: string;
+  /** Single mode: light that the top slider controls; `entities` are shown when expanded. */
+  main_entity?: string;
   /** Single mode: the lights. */
   entities?: Array<string | LightEntityConfig>;
   /** Room mode: the items, each with its own slider. */
@@ -45,6 +49,8 @@ export interface Group {
   name?: string;
   icon?: string;
   scenes?: string[];
+  /** Light the top slider controls. Without it the slider controls all `entities`. */
+  main?: string;
   entities: LightEntityConfig[];
   expanded: boolean;
 }
@@ -85,6 +91,32 @@ function sceneList(value: unknown, where: string): string[] | undefined {
   return value.length ? (value as string[]) : undefined;
 }
 
+function mainEntity(value: unknown, where: string): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string' || !value.startsWith('light.')) {
+    throw new Error(`"main_entity" in ${where} must be a light entity`);
+  }
+  return value;
+}
+
+/** Group from a config with entities and an optional main_entity. */
+function makeGroup(
+  key: string,
+  src: { main_entity?: string; entity?: string; entities?: EntityList },
+  where: string,
+  rest: Omit<Group, 'key' | 'main' | 'entities'>,
+): Group {
+  const main = mainEntity(src.main_entity, where);
+  const list = rawEntities(src);
+  // With a main light, the other lights are optional children.
+  const entities = main
+    ? list.length
+      ? normalizeEntities(list, where).filter((e) => e.entity !== main)
+      : []
+    : normalizeEntities(list, where);
+  return { key, main, entities, ...rest };
+}
+
 function normalizeEntities(list: EntityList, where: string): LightEntityConfig[] {
   const seen = new Set<string>();
   const out: LightEntityConfig[] = [];
@@ -110,14 +142,12 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
   let groups: Group[];
   if (mode === 'single') {
     groups = [
-      {
-        key: 'main',
+      makeGroup('main', config, 'the card', {
         name: config.name || undefined,
         icon: config.icon || undefined,
         scenes: sceneList(config.scenes, 'the card'),
-        entities: normalizeEntities(rawEntities(config), 'the card'),
         expanded,
-      },
+      }),
     ];
   } else {
     if (!Array.isArray(config.items) || !config.items.length) {
@@ -126,14 +156,12 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
     groups = config.items.map((item, i) => {
       const where = item?.name ? `"${item.name}"` : `item ${i + 1}`;
       if (!item || typeof item !== 'object') throw new Error(`Invalid ${where}`);
-      return {
-        key: `item-${i}`,
+      return makeGroup(`item-${i}`, item, where, {
         name: item.name || undefined,
         icon: item.icon || undefined,
         scenes: sceneList(item.scenes, where),
-        entities: normalizeEntities(rawEntities(item), where),
         expanded: item.expanded ?? expanded,
-      };
+      });
     });
   }
 
@@ -141,7 +169,9 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
     mode,
     name: config.name || undefined,
     groups,
-    entityIds: [...new Set(groups.flatMap((g) => g.entities.map((e) => e.entity)))],
+    entityIds: [
+      ...new Set(groups.flatMap((g) => [...(g.main ? [g.main] : []), ...g.entities.map((e) => e.entity)])),
+    ],
     show_color_temp: config.show_color_temp ?? DEFAULTS.show_color_temp,
     show_color: config.show_color ?? DEFAULTS.show_color,
     show_scenes: config.show_scenes ?? DEFAULTS.show_scenes,

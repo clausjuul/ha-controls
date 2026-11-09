@@ -44,7 +44,10 @@ const ICON_SCENES = 'mdi:creation';
 /** What a row's colour / scene buttons act on. */
 interface Target {
   title: string;
+  /** Lights that colour and brightness changes apply to. */
   ids: string[];
+  /** Lights whose scenes are listed (defaults to `ids`). */
+  sceneIds?: string[];
   /** Scenes chosen in the config; undefined = find automatically. */
   sceneOverride?: string[];
 }
@@ -278,9 +281,53 @@ export class LightSliderCard extends LitElement {
 
   /** One slider: a single light, or several lights that can be expanded. */
   private _renderGroup(group: Group, t: Localize): TemplateResult {
+    if (group.main) return this._renderWithMain(group, group.main, t);
     return group.entities.length === 1
       ? this._renderSingle(group, t)
       : this._renderMulti(group, t);
+  }
+
+  /** The top slider controls one main light; the other lights are its children. */
+  private _renderWithMain(group: Group, main: string, t: Localize): TemplateResult {
+    const s = this._state(main);
+    if (!s) return this._renderMissing(main, t);
+    const children = group.entities;
+    const childIds = children.map((c) => c.entity);
+    const available = this._available(childIds);
+    const on = available.filter(isOn);
+    const name = group.name ?? s.attributes.friendly_name ?? main;
+    const expanded = !!this._expanded[group.key];
+
+    return html`
+      <div class="group">
+        ${this._renderRow({
+          ...this._lightRowBase(s, { entity: main }, t),
+          key: group.key,
+          name,
+          icon:
+            group.icon ?? s.attributes.icon ?? defaultIcon(isOn(s), children.length > 0),
+          endText:
+            on.length > 0 && on.length < available.length
+              ? t('lights_on', { on: on.length, total: available.length })
+              : undefined,
+          target: {
+            title: name,
+            ids: [main],
+            sceneIds: [main, ...childIds],
+            sceneOverride: group.scenes,
+          },
+          expander: children.length
+            ? {
+                expanded,
+                onExpand: () => (this._expanded = { ...this._expanded, [group.key]: !expanded }),
+              }
+            : undefined,
+        })}
+        ${expanded && children.length
+          ? html`<div class="lights">${children.map((c) => this._renderSubLight(c, t))}</div>`
+          : nothing}
+      </div>
+    `;
   }
 
   private _renderSingle(group: Group, t: Localize): TemplateResult {
@@ -714,7 +761,8 @@ export class LightSliderCard extends LitElement {
       if (!id.startsWith('scene.')) continue;
       const s = this._state(id);
       const members = s?.attributes.entity_id;
-      if (Array.isArray(members) && target.ids.some((l) => members.includes(l))) found.push(s!);
+      const lights = target.sceneIds ?? target.ids;
+      if (Array.isArray(members) && lights.some((l) => members.includes(l))) found.push(s!);
     }
     const name = (s: HassEntity) => String(s.attributes.friendly_name ?? s.entity_id);
     return found.sort((a, b) => name(a).localeCompare(name(b)));
