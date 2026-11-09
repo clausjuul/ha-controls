@@ -170,6 +170,20 @@ export class HacSlider extends LitElement {
     }, 400);
   }
 
+  /**
+   * Right-aligned text. In fill mode it's drawn twice and clipped at the edge
+   * of the fill, so each part has the right colour for what it sits on.
+   */
+  private _renderEndText(pct: number) {
+    if (this.mode !== 'fill') return html`<span class="end-layer">${this.endText}</span>`;
+    return html`
+      <span class="end-layer" style="clip-path: inset(0 0 0 ${pct}%)">${this.endText}</span>
+      <span class="end-layer on-fill" aria-hidden="true" style="clip-path: inset(0 ${100 - pct}% 0 0)"
+        >${this.endText}</span
+      >
+    `;
+  }
+
   protected render() {
     const value = this._shown;
     const range = this.max - this.min;
@@ -209,11 +223,7 @@ export class HacSlider extends LitElement {
           : this.emptyText && value <= this.min
             ? html`<span class="value empty">${this.emptyText}</span>`
             : nothing}
-        ${this.endText
-          ? html`<span class="end ${this.mode === 'fill' && f >= 0.75 ? 'on-fill' : ''}"
-              >${this.endText}</span
-            >`
-          : nothing}
+        ${this.endText ? this._renderEndText(pct) : nothing}
         <div
           class="thumb ${hideThumb ? 'hidden' : ''}"
           style="left: ${this.mode === 'fill'
@@ -288,18 +298,20 @@ export class HacSlider extends LitElement {
       pointer-events: none;
     }
     .value.on-fill,
-    .end.on-fill {
+    .end-layer.on-fill {
       color: var(--hac-slider-value-color, #fff);
     }
     .value.empty {
       font-weight: 400;
       color: var(--secondary-text-color, #727272);
     }
-    .end {
+    .end-layer {
       position: absolute;
-      right: 16px;
-      top: 50%;
-      transform: translateY(-50%);
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 16px;
       font-size: 13px;
       color: var(--secondary-text-color, #727272);
       white-space: nowrap;
