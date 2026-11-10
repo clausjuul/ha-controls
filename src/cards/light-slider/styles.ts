@@ -34,7 +34,7 @@ export const styles = css`
   .row {
     --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
     --hac-slider-color: var(--_light);
-    --hac-slider-height: 3.714rem;
+    --hac-slider-height: 3.143rem;
     --hac-slider-radius: 1rem;
     display: flex;
     flex-direction: column;
@@ -47,7 +47,7 @@ export const styles = css`
     --hac-slider-value-color: rgba(0, 0, 0, 0.75);
   }
   .row.sub {
-    --hac-slider-height: 2.857rem;
+    --hac-slider-height: 2.571rem;
     --hac-slider-radius: 0.857rem;
     gap: 0.571rem;
   }
@@ -149,7 +149,7 @@ export const styles = css`
   .toggle-bar {
     flex: 1;
     min-width: 0;
-    height: var(--hac-slider-height, 3.714rem);
+    height: var(--hac-slider-height, 3.143rem);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -179,7 +179,7 @@ export const styles = css`
   }
   .expand-tile {
     flex: none;
-    width: 3.714rem;
+    width: 3.143rem;
     display: flex;
     align-items: center;
     justify-content: center;
