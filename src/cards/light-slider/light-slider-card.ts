@@ -253,7 +253,7 @@ export class LightSliderCard extends LitElement {
     const cfg = this._config;
 
     return html`
-      <ha-card class=${cfg.mode}>
+      <ha-card class="${cfg.mode} ${cfg.compact ? 'compact' : ''}">
         ${cfg.mode === 'room'
           ? html`${this._renderRoomHeader(t)}
               <div class="items">${cfg.groups.map((g) => this._renderGroup(g, t))}</div>`
@@ -265,6 +265,7 @@ export class LightSliderCard extends LitElement {
 
   private _renderRoomHeader(t: Localize): TemplateResult | typeof nothing {
     const cfg = this._config!;
+    if (cfg.compact) return this._renderRoomHeaderCompact(t);
     if (!cfg.name) return nothing;
     const available = this._available(cfg.entityIds);
     const anyOn = available.some(isOn);
@@ -281,6 +282,47 @@ export class LightSliderCard extends LitElement {
         >
           <ha-icon icon="mdi:power"></ha-icon>
         </button>
+      </div>
+    `;
+  }
+
+  /** Compact room heading: icon (toggles the room), name, brightness and count. */
+  private _renderRoomHeaderCompact(t: Localize): TemplateResult {
+    const cfg = this._config!;
+    const available = this._available(cfg.entityIds);
+    const on = available.filter(isOn);
+    const dimOn = on.filter(this._dimmable);
+    const anyOn = on.length > 0;
+    let pct = 0;
+    if (dimOn.length) pct = Math.round(dimOn.reduce((sum, s) => sum + brightnessPct(s), 0) / dimOn.length);
+    else if (anyOn) pct = 100;
+    const name = cfg.name ?? t('lights');
+    const secondary = !available.length
+      ? t('unavailable')
+      : anyOn
+        ? `${pct}% · ${t('lights_on_short', { on: on.length, total: available.length })}`
+        : t('off');
+    const label = anyOn ? t('room_off') : t('room_on');
+    const color = lightColor(on[0]);
+
+    return html`
+      <div
+        class="room-header compact ${anyOn ? 'on' : ''}"
+        style=${color ? `--hac-light-color: ${color}` : ''}
+      >
+        <button
+          class="icon"
+          title=${label}
+          aria-label=${label}
+          ?disabled=${!available.length}
+          @click=${() => this._toggle(cfg.entityIds)}
+        >
+          <ha-icon .icon=${cfg.icon ?? defaultIcon(anyOn, true)}></ha-icon>
+        </button>
+        <div class="info">
+          <span class="room-name">${name}</span>
+          <span class="secondary">${secondary}</span>
+        </div>
       </div>
     `;
   }
@@ -464,6 +506,82 @@ export class LightSliderCard extends LitElement {
       >
         <ha-icon icon="mdi:chevron-down"></ha-icon>
       </button>`;
+    const colorButton = () =>
+      html`<button
+        class="action"
+        title=${t('color')}
+        aria-label=${`${t('color')}: ${o.name}`}
+        ?disabled=${o.unavailable}
+        @click=${(e: Event) => this._openDialog('color', o.target, e)}
+      >
+        <ha-icon icon=${ICON_COLOR}></ha-icon>
+      </button>`;
+    const scenesButton = () =>
+      html`<button
+        class="action"
+        title=${t('scenes')}
+        aria-label=${`${t('scenes')}: ${o.name}`}
+        @click=${(e: Event) => this._openDialog('scenes', o.target, e)}
+      >
+        <ha-icon icon=${ICON_SCENES}></ha-icon>
+      </button>`;
+
+    if (this._config!.compact) {
+      return html`
+        <div
+          class="row compact ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''} ${o.lightFill
+            ? 'light-fill'
+            : ''}"
+          style=${o.color ? `--hac-light-color: ${o.color}` : ''}
+        >
+          <button
+            class="icon"
+            title=${t('toggle')}
+            aria-label=${`${t('toggle')}: ${o.name}`}
+            ?disabled=${o.unavailable}
+            @click=${o.onToggle}
+          >
+            <ha-icon .icon=${o.icon}></ha-icon>
+          </button>
+          <span
+            class="name ${o.expander ? 'clickable' : ''}"
+            title=${o.name}
+            @click=${o.expander ? o.expander.onExpand : undefined}
+            >${o.name}</span
+          >
+          ${o.brightness !== undefined
+            ? html`<hac-slider
+                show-value
+                value-at="end"
+                .thumb=${false}
+                .value=${o.brightness}
+                .min=${0}
+                .max=${100}
+                .emptyText=${o.emptyText ?? ''}
+                .startText=${o.endText ?? ''}
+                .label=${`${t('brightness')}: ${o.name}`}
+                .formatValue=${(v: number) => `${v}%`}
+                ?disabled=${o.unavailable}
+                @value-changed=${(e: CustomEvent<{ value: number }>) =>
+                  o.onBrightness(e.detail.value)}
+              ></hac-slider>`
+            : html`<button
+                class="toggle-bar ${o.on ? 'on' : ''}"
+                aria-pressed=${o.on ? 'true' : 'false'}
+                aria-label=${`${t('toggle')}: ${o.name}`}
+                ?disabled=${o.unavailable}
+                @click=${o.onToggle}
+              >
+                <span class="toggle-end">${o.endText ?? ''}</span>
+                <span class="toggle-text">
+                  ${o.unavailable ? t('unavailable') : o.on ? t('on') : t('off')}
+                </span>
+              </button>`}
+          ${hasColor ? colorButton() : nothing} ${hasScenes ? scenesButton() : nothing}
+          ${o.expander ? expandButton('action') : nothing}
+        </div>
+      `;
+    }
 
     return html`
       <div
@@ -487,27 +605,7 @@ export class LightSliderCard extends LitElement {
             <span class="name">${o.name}</span>
           </div>
           <div class="actions">
-            ${hasColor
-              ? html`<button
-                  class="action"
-                  title=${t('color')}
-                  aria-label=${`${t('color')}: ${o.name}`}
-                  ?disabled=${o.unavailable}
-                  @click=${(e: Event) => this._openDialog('color', o.target, e)}
-                >
-                  <ha-icon icon=${ICON_COLOR}></ha-icon>
-                </button>`
-              : nothing}
-            ${hasScenes
-              ? html`<button
-                  class="action"
-                  title=${t('scenes')}
-                  aria-label=${`${t('scenes')}: ${o.name}`}
-                  @click=${(e: Event) => this._openDialog('scenes', o.target, e)}
-                >
-                  <ha-icon icon=${ICON_SCENES}></ha-icon>
-                </button>`
-              : nothing}
+            ${hasColor ? colorButton() : nothing} ${hasScenes ? scenesButton() : nothing}
           </div>
         </div>
         ${o.brightness !== undefined

@@ -38,6 +38,7 @@ const OPTIONS_SCHEMA = [
       { name: 'show_color', selector: { boolean: {} } },
       { name: 'show_scenes', selector: { boolean: {} } },
       { name: 'expanded', selector: { boolean: {} } },
+      { name: 'compact', selector: { boolean: {} } },
     ],
   },
 ];
@@ -52,7 +53,17 @@ const SINGLE_SCHEMA = [
   SCENES,
 ];
 
-const ROOM_SCHEMA = [{ name: 'room_name', selector: { text: {} } }, ...OPTIONS_SCHEMA];
+const ROOM_SCHEMA = [
+  {
+    type: 'grid',
+    name: '',
+    schema: [
+      { name: 'room_name', selector: { text: {} } },
+      { name: 'icon', selector: { icon: {} } },
+    ],
+  },
+  ...OPTIONS_SCHEMA,
+];
 
 const ITEM_SCHEMA = [
   MAIN,
@@ -117,6 +128,7 @@ export class LightSliderCardEditor extends LitElement {
       show_color: c.show_color ?? DEFAULTS.show_color,
       show_scenes: c.show_scenes ?? DEFAULTS.show_scenes,
       expanded: c.expanded ?? DEFAULTS.expanded,
+      compact: c.compact ?? DEFAULTS.compact,
     };
   }
 
@@ -180,7 +192,7 @@ export class LightSliderCardEditor extends LitElement {
     return html`
       <ha-form
         .hass=${this.hass}
-        .data=${{ room_name: c.name ?? '', ...this._options() }}
+        .data=${{ room_name: c.name ?? '', icon: c.icon ?? '', ...this._options() }}
         .schema=${ROOM_SCHEMA}
         .computeLabel=${this._label}
         @value-changed=${this._roomChanged}
@@ -314,11 +326,14 @@ export class LightSliderCardEditor extends LitElement {
     this._update(config);
   }
 
-  private _roomChanged(ev: CustomEvent<{ value: { room_name?: string } & Record<BoolKey, boolean> }>) {
+  private _roomChanged(
+    ev: CustomEvent<{ value: { room_name?: string; icon?: string } & Record<BoolKey, boolean> }>,
+  ) {
     ev.stopPropagation();
     const data = ev.detail.value;
     const config: LightSliderCardConfig = { ...this._config! };
     setOrDelete(config, 'name', data.room_name);
+    setOrDelete(config, 'icon', data.icon);
     this._applyOptions(config, data);
     this._update(config);
   }

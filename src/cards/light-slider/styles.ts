@@ -220,6 +220,76 @@ export const styles = css`
     margin-top: 1.143rem;
   }
 
+  /* ----- compact ----- */
+  ha-card.compact {
+    padding: 0.857rem 1rem;
+  }
+  .row.compact {
+    --hac-slider-height: 2.286rem;
+    --hac-slider-radius: 0.571rem;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.571rem;
+  }
+  .row.compact .icon {
+    width: 2.286rem;
+    height: 2.286rem;
+    --mdc-icon-size: 1.286rem;
+  }
+  .row.compact .name {
+    flex: 0 0 6.5rem;
+    font-size: 0.93rem;
+    font-weight: 400;
+  }
+  .row.compact .name.clickable {
+    cursor: pointer;
+  }
+  .row.compact hac-slider,
+  .row.compact .toggle-bar {
+    flex: 1;
+    min-width: 0;
+  }
+  .row.compact .toggle-bar {
+    padding: 0 1.143rem;
+  }
+  .row.compact .toggle-text {
+    font-size: 0.93rem;
+  }
+  .row.compact .action {
+    width: 2.286rem;
+    height: 2.286rem;
+    --mdc-icon-size: 1.286rem;
+  }
+  .row.compact .expand ha-icon {
+    --mdc-icon-size: 1.571rem;
+  }
+  ha-card.compact .items {
+    gap: 0.571rem;
+  }
+  ha-card.compact .items > * + * {
+    margin-top: 0;
+  }
+  ha-card.compact .lights {
+    margin: 0.571rem 0 0 1rem;
+    gap: 0.571rem;
+  }
+  .room-header.compact {
+    --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
+    gap: 0.857rem;
+    margin: 0 0 0.857rem;
+  }
+  .room-header.compact .icon {
+    width: 2.857rem;
+    height: 2.857rem;
+  }
+  .room-header.compact.on .icon {
+    color: var(--_light);
+    background: color-mix(in srgb, var(--_light) 22%, transparent);
+  }
+  .room-header.compact .room-name {
+    font-size: 1.143rem;
+  }
+
   /* ----- popup ----- */
   dialog {
     /* Positioned next to the card from script */

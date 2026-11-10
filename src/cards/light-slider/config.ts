@@ -50,6 +50,8 @@ export interface LightSliderCardConfig {
   show_color?: boolean;
   show_scenes?: boolean;
   expanded?: boolean;
+  /** One line per light: icon, name and a thin bar. */
+  compact?: boolean;
 }
 
 /** A slider with its lights, ready to render. */
@@ -67,6 +69,9 @@ export interface Group {
 export interface NormalizedConfig {
   mode: CardMode;
   name?: string;
+  /** Room mode: icon in the room heading. */
+  icon?: string;
+  compact: boolean;
   groups: Group[];
   /** Every light on the card. */
   entityIds: string[];
@@ -82,6 +87,7 @@ export const DEFAULTS = {
   show_color: true,
   show_scenes: true,
   expanded: false,
+  compact: false,
 } as const;
 
 type EntityList = Array<string | LightEntityConfig>;
@@ -191,6 +197,8 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
   return {
     mode,
     name: config.name || undefined,
+    icon: mode === 'room' ? config.icon || undefined : undefined,
+    compact: config.compact ?? DEFAULTS.compact,
     groups,
     toggleOnly,
     entityIds: [

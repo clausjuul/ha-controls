@@ -10,6 +10,7 @@ const en = {
   saturation: 'Saturation',
   lights: 'Lights',
   lights_on: '{on} of {total} on',
+  lights_on_short: '{on}/{total} on',
   not_found: 'Entity not found: {entity}',
   toggle: 'Toggle',
   expand: 'Show more',
@@ -40,6 +41,7 @@ const en = {
   'editor.show_color': 'Show color',
   'editor.show_scenes': 'Show scenes',
   'editor.expanded': 'Lights expanded by default',
+  'editor.compact': 'Compact',
   'editor.scenes': 'Scenes (empty = find automatically)',
 };
 
@@ -55,6 +57,7 @@ const da: Record<Key, string> = {
   saturation: 'Mætning',
   lights: 'Lys',
   lights_on: '{on} af {total} tændt',
+  lights_on_short: '{on}/{total} tændt',
   not_found: 'Enhed ikke fundet: {entity}',
   toggle: 'Tænd/sluk',
   expand: 'Vis mere',
@@ -85,6 +88,7 @@ const da: Record<Key, string> = {
   'editor.show_color': 'Vis farve',
   'editor.show_scenes': 'Vis scener',
   'editor.expanded': 'Vis enkelte lys som standard',
+  'editor.compact': 'Kompakt',
   'editor.scenes': 'Scener (tom = find automatisk)',
 };
 

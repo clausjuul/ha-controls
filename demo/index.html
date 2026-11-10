@@ -47,6 +47,10 @@
       <div id="group"></div>
       <h2>Rum</h2>
       <div id="room"></div>
+      <h2>Rum (kompakt)</h2>
+      <div id="room-compact"></div>
+      <h2>Flere lys (kompakt)</h2>
+      <div id="group-compact"></div>
       <div id="log"></div>
     </main>
 
@@ -206,6 +210,24 @@
           { entity: 'light.vindue', toggle_only: ['light.vindue'] },
           { name: 'Gang og kontor', entities: ['light.gang', 'light.kontor'] },
         ],
+      });
+
+      addCard('room-compact', {
+        mode: 'room',
+        name: 'Stue',
+        icon: 'mdi:sofa',
+        compact: true,
+        items: [
+          { name: 'Loft', main_entity: 'light.loft_gruppe', entities: ['light.stue', 'light.koekken'] },
+          { entity: 'light.sofa', name: 'Sofa' },
+          { entity: 'switch.lampe_stik', name: 'Stikkontakt' },
+          { name: 'Gang og kontor', entities: ['light.gang', 'light.kontor'] },
+        ],
+      });
+      addCard('group-compact', {
+        name: 'Køkken',
+        compact: true,
+        entities: ['light.stue', 'light.sofa', 'light.koekken'],
       });
 
       document.getElementById('dark').addEventListener('change', (e) =>
