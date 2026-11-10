@@ -92,6 +92,8 @@ export class LightSliderCard extends LitElement {
   @state() private _colorTab?: 'white' | 'color';
   @query('dialog') private _dialogEl?: HTMLDialogElement;
 
+  /** Compact button columns for the current render. */
+  private _columns?: { color: boolean; scenes: boolean; expand: boolean };
   /** Expected states after our own service calls, so the UI reacts instantly. */
   private _optimistic = new OptimisticStates(() => this.requestUpdate());
   private _popupHsTimer?: number;
@@ -251,12 +253,12 @@ export class LightSliderCard extends LitElement {
     if (!this._config || !this.hass) return nothing;
     const t = localize(this.hass);
     const cfg = this._config;
+    this._columns = cfg.compact ? this._compactColumns() : undefined;
 
     return html`
       <ha-card
         class="${cfg.mode} ${cfg.compact ? 'compact' : ''}"
-        style=${cfg.compact ? `--hac-slots: ${this._compactSlots()}` : ''}
-      >
+>
         ${cfg.mode === 'room'
           ? html`${this._renderRoomHeader(t)}
               <div class="items">${cfg.groups.map((g) => this._renderGroup(g, t))}</div>`
@@ -290,30 +292,31 @@ export class LightSliderCard extends LitElement {
   }
 
   /**
-   * Most buttons on any visible compact row, so every row can reserve the
-   * same space and the bars line up.
+   * Which button columns any visible compact row uses, so every row can keep
+   * the same columns and the bars and buttons line up.
    */
-  private _compactSlots(): number {
+  private _compactColumns(): { color: boolean; scenes: boolean; expand: boolean } {
     const cfg = this._config!;
-    const count = (target: Target, expander: boolean) =>
-      (this._colorLights(target.ids).any ? 1 : 0) +
-      (cfg.show_scenes && this._scenes(target).length ? 1 : 0) +
-      (expander ? 1 : 0);
-    let max = 0;
+    const cols = { color: false, scenes: false, expand: false };
+    const add = (target: Target, expander: boolean) => {
+      cols.color ||= this._colorLights(target.ids).any;
+      cols.scenes ||= cfg.show_scenes && this._scenes(target).length > 0;
+      cols.expand ||= expander;
+    };
     for (const g of cfg.groups) {
       const ids = g.entities.map((e) => e.entity);
       const multi = g.main ? ids.length > 0 : ids.length > 1;
-      const top: Target = g.main
-        ? { title: '', ids: [g.main], sceneIds: [g.main, ...ids], sceneOverride: g.scenes }
-        : { title: '', ids, sceneOverride: g.scenes ?? (multi ? undefined : g.entities[0].scenes) };
-      max = Math.max(max, count(top, multi));
+      add(
+        g.main
+          ? { title: '', ids: [g.main], sceneIds: [g.main, ...ids], sceneOverride: g.scenes }
+          : { title: '', ids, sceneOverride: g.scenes ?? (multi ? undefined : g.entities[0].scenes) },
+        multi,
+      );
       if (multi && this._expanded[g.key]) {
-        for (const e of g.entities) {
-          max = Math.max(max, count({ title: '', ids: [e.entity], sceneOverride: e.scenes }, false));
-        }
+        for (const e of g.entities) add({ title: '', ids: [e.entity], sceneOverride: e.scenes }, false);
       }
     }
-    return max;
+    return cols;
   }
 
   /** Compact room heading: icon (toggles the room), name, brightness and count. */
@@ -557,6 +560,8 @@ export class LightSliderCard extends LitElement {
       </button>`;
 
     if (this._config!.compact) {
+      const cols = this._columns ?? { color: hasColor, scenes: hasScenes, expand: !!o.expander };
+      const spacer = html`<span class="action-spacer"></span>`;
       return html`
         <div
           class="row compact ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''} ${o.lightFill
@@ -607,8 +612,9 @@ export class LightSliderCard extends LitElement {
                 </span>
               </button>`}
           <div class="actions">
-            ${hasColor ? colorButton() : nothing} ${hasScenes ? scenesButton() : nothing}
-            ${o.expander ? expandButton('action') : nothing}
+            ${cols.color ? (hasColor ? colorButton() : spacer) : nothing}
+            ${cols.scenes ? (hasScenes ? scenesButton() : spacer) : nothing}
+            ${cols.expand ? (o.expander ? expandButton('action') : spacer) : nothing}
           </div>
         </div>
       `;

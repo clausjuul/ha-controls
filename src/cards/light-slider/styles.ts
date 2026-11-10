@@ -258,10 +258,10 @@ export const styles = css`
   .row.compact .actions {
     flex: none;
     gap: 0;
-    justify-content: flex-end;
-    width: calc(var(--hac-slots, 0) * 2.286rem);
   }
-  .row.compact .action {
+  .row.compact .action,
+  .row.compact .action-spacer {
+    flex: none;
     width: 2.286rem;
     height: 2.286rem;
     --mdc-icon-size: 1.286rem;
