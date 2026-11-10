@@ -148,7 +148,7 @@ The card uses Home Assistant theme variables. You can also override:
 | Variable | Description |
 | --- | --- |
 | `--state-light-active-color` | Fallback color for lights that don't report a color |
-| `--hac-slider-height` | Height of the brightness slider (default `52px`) |
+| `--hac-slider-height` | Height of the brightness slider (default `3.143rem`, 44px at a 14px html font size) |
 | `--hac-slider-radius` | Corner radius of the sliders |
 | `--hac-slider-track-background` | Track background |
 
