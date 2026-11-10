@@ -29,6 +29,10 @@ export class HacSlider extends LitElement {
   @property() emptyText = '';
   /** Text shown right-aligned inside the track. */
   @property() endText = '';
+  /** Text shown left-aligned inside the track (used when the value is at the end). */
+  @property() startText = '';
+  /** Where the value / empty text goes: `start` (default) or `end`. */
+  @property({ attribute: 'value-at', reflect: true }) valueAt: 'start' | 'end' = 'start';
   /** Show the small handle. */
   @property({ type: Boolean }) thumb = true;
 
@@ -171,15 +175,18 @@ export class HacSlider extends LitElement {
   }
 
   /**
-   * Right-aligned text. In fill mode it's drawn twice and clipped at the edge
-   * of the fill, so each part has the right colour for what it sits on.
+   * Text inside the track. In fill mode it's drawn twice and clipped at the
+   * edge of the fill, so each part has the right colour for what it sits on.
    */
-  private _renderEndText(pct: number) {
-    if (this.mode !== 'fill') return html`<span class="end-layer">${this.endText}</span>`;
+  private _layered(text: string, side: 'start' | 'end', pct: number, cls = '') {
+    if (this.mode !== 'fill') return html`<span class="text-layer ${side} ${cls}">${text}</span>`;
     return html`
-      <span class="end-layer" style="clip-path: inset(0 0 0 ${pct}%)">${this.endText}</span>
-      <span class="end-layer on-fill" aria-hidden="true" style="clip-path: inset(0 ${100 - pct}% 0 0)"
-        >${this.endText}</span
+      <span class="text-layer ${side} ${cls}" style="clip-path: inset(0 0 0 ${pct}%)">${text}</span>
+      <span
+        class="text-layer ${side} ${cls} on-fill"
+        aria-hidden="true"
+        style="clip-path: inset(0 ${100 - pct}% 0 0)"
+        >${text}</span
       >
     `;
   }
@@ -214,16 +221,25 @@ export class HacSlider extends LitElement {
         ${this.mode === 'fill'
           ? html`<div class="fill" style="width: ${pct}%"></div>`
           : nothing}
-        ${this.showValue && value > this.min
-          ? html`<span
-              class="value ${textOnFill ? 'on-fill' : ''}"
-              style=${textOnFill || this.mode !== 'fill' ? '' : `left: calc(${pct}% + 0.86rem)`}
-              >${text}</span
-            >`
-          : this.emptyText && value <= this.min
-            ? html`<span class="value empty">${this.emptyText}</span>`
-            : nothing}
-        ${this.endText ? this._renderEndText(pct) : nothing}
+        ${this.valueAt === 'end'
+          ? html`${this.showValue && value > this.min
+                ? this._layered(text, 'end', pct, 'strong')
+                : this.emptyText && value <= this.min
+                  ? this._layered(this.emptyText, 'end', pct)
+                  : nothing}
+              ${this.startText ? this._layered(this.startText, 'start', pct) : nothing}`
+          : html`${this.showValue && value > this.min
+                ? html`<span
+                    class="value ${textOnFill ? 'on-fill' : ''}"
+                    style=${textOnFill || this.mode !== 'fill'
+                      ? ''
+                      : `left: calc(${pct}% + 0.86rem)`}
+                    >${text}</span
+                  >`
+                : this.emptyText && value <= this.min
+                  ? html`<span class="value empty">${this.emptyText}</span>`
+                  : nothing}
+              ${this.endText ? this._layered(this.endText, 'end', pct) : nothing}`}
         <div
           class="thumb ${hideThumb ? 'hidden' : ''}"
           style="left: ${this.mode === 'fill'
@@ -297,25 +313,38 @@ export class HacSlider extends LitElement {
       color: var(--hac-slider-value-color-track, var(--primary-text-color, #000));
       pointer-events: none;
     }
-    .value.on-fill,
-    .end-layer.on-fill {
+    .value.on-fill {
       color: var(--hac-slider-value-color, #fff);
     }
     .value.empty {
       font-weight: 400;
       color: var(--secondary-text-color, #727272);
     }
-    .end-layer {
+    .text-layer {
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
-      justify-content: flex-end;
-      padding-right: 1.143rem;
+      padding: 0 1.143rem;
       font-size: 0.875rem;
       color: var(--secondary-text-color, #727272);
       white-space: nowrap;
       pointer-events: none;
+    }
+    .text-layer.start {
+      justify-content: flex-start;
+    }
+    .text-layer.end {
+      justify-content: flex-end;
+    }
+    .text-layer.strong {
+      font-size: 0.93rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+      color: var(--hac-slider-value-color-track, var(--primary-text-color, #000));
+    }
+    .text-layer.on-fill {
+      color: var(--hac-slider-value-color, #fff);
     }
     :host([dragging]) .fill,
     :host([dragging]) .thumb {

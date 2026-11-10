@@ -84,6 +84,13 @@ toggle_only:
   - light.ceiling
 ```
 
+### Compact
+
+Set `compact: true` (single or room) for one line per light: icon, name and
+a thin bar with the percentage. In a room, the heading shows the room's icon
+(tap to turn everything on/off), its name, the average brightness and how many
+lights are on. Use `icon` to choose the room icon.
+
 ### Main light
 
 By default the top slider controls all its lights together (showing their
@@ -111,12 +118,13 @@ Works the same for each item in a room.
 | `toggle_only` | list | | Lights to show as on/off only, no slider or colors |
 | `main_entity` | string | | Light the top slider controls; `entities` become its expandable children (single) |
 | `name` | string | friendly name / "Lights" | Slider name (single) or room heading (room) |
-| `icon` | string | lightbulb | Slider icon (single) |
+| `icon` | string | lightbulb | Slider icon (single) or room icon in compact (room) |
 | `show_color_temp` | boolean | `true` | Show the color temperature slider (lights that support it) |
 | `show_color` | boolean | `true` | Show hue and saturation sliders (lights that support color) |
 | `show_scenes` | boolean | `true` | Show the scenes button |
 | `scenes` | list | automatic | Scenes for the main slider (single). Each light entry can also have its own `scenes` |
 | `expanded` | boolean | `false` | Show the individual lights of a slider by default |
+| `compact` | boolean | `false` | One line per light with a thin bar |
 
 ### Examples
 
