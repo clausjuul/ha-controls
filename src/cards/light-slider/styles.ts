@@ -255,10 +255,19 @@ export const styles = css`
   .row.compact .toggle-text {
     font-size: 0.93rem;
   }
+  .row.compact .actions {
+    flex: none;
+    gap: 0;
+    justify-content: flex-end;
+    width: calc(var(--hac-slots, 0) * 2.286rem);
+  }
   .row.compact .action {
     width: 2.286rem;
     height: 2.286rem;
     --mdc-icon-size: 1.286rem;
+  }
+  ha-card.compact .lights .row.compact .name {
+    flex-basis: 5.5rem;
   }
   .row.compact .expand ha-icon {
     --mdc-icon-size: 1.571rem;

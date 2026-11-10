@@ -253,7 +253,10 @@ export class LightSliderCard extends LitElement {
     const cfg = this._config;
 
     return html`
-      <ha-card class="${cfg.mode} ${cfg.compact ? 'compact' : ''}">
+      <ha-card
+        class="${cfg.mode} ${cfg.compact ? 'compact' : ''}"
+        style=${cfg.compact ? `--hac-slots: ${this._compactSlots()}` : ''}
+      >
         ${cfg.mode === 'room'
           ? html`${this._renderRoomHeader(t)}
               <div class="items">${cfg.groups.map((g) => this._renderGroup(g, t))}</div>`
@@ -284,6 +287,33 @@ export class LightSliderCard extends LitElement {
         </button>
       </div>
     `;
+  }
+
+  /**
+   * Most buttons on any visible compact row, so every row can reserve the
+   * same space and the bars line up.
+   */
+  private _compactSlots(): number {
+    const cfg = this._config!;
+    const count = (target: Target, expander: boolean) =>
+      (this._colorLights(target.ids).any ? 1 : 0) +
+      (cfg.show_scenes && this._scenes(target).length ? 1 : 0) +
+      (expander ? 1 : 0);
+    let max = 0;
+    for (const g of cfg.groups) {
+      const ids = g.entities.map((e) => e.entity);
+      const multi = g.main ? ids.length > 0 : ids.length > 1;
+      const top: Target = g.main
+        ? { title: '', ids: [g.main], sceneIds: [g.main, ...ids], sceneOverride: g.scenes }
+        : { title: '', ids, sceneOverride: g.scenes ?? (multi ? undefined : g.entities[0].scenes) };
+      max = Math.max(max, count(top, multi));
+      if (multi && this._expanded[g.key]) {
+        for (const e of g.entities) {
+          max = Math.max(max, count({ title: '', ids: [e.entity], sceneOverride: e.scenes }, false));
+        }
+      }
+    }
+    return max;
   }
 
   /** Compact room heading: icon (toggles the room), name, brightness and count. */
@@ -558,7 +588,6 @@ export class LightSliderCard extends LitElement {
                 .min=${0}
                 .max=${100}
                 .emptyText=${o.emptyText ?? ''}
-                .startText=${o.endText ?? ''}
                 .label=${`${t('brightness')}: ${o.name}`}
                 .formatValue=${(v: number) => `${v}%`}
                 ?disabled=${o.unavailable}
@@ -572,13 +601,15 @@ export class LightSliderCard extends LitElement {
                 ?disabled=${o.unavailable}
                 @click=${o.onToggle}
               >
-                <span class="toggle-end">${o.endText ?? ''}</span>
+                <span></span>
                 <span class="toggle-text">
                   ${o.unavailable ? t('unavailable') : o.on ? t('on') : t('off')}
                 </span>
               </button>`}
-          ${hasColor ? colorButton() : nothing} ${hasScenes ? scenesButton() : nothing}
-          ${o.expander ? expandButton('action') : nothing}
+          <div class="actions">
+            ${hasColor ? colorButton() : nothing} ${hasScenes ? scenesButton() : nothing}
+            ${o.expander ? expandButton('action') : nothing}
+          </div>
         </div>
       `;
     }
