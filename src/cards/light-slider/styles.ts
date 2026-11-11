@@ -222,7 +222,7 @@ export const styles = css`
 
   /* ----- compact ----- */
   ha-card.compact {
-    padding: 1.143rem 1.143rem;
+    padding: 0.857rem 1rem;
   }
   .row.compact {
     --hac-slider-height: 2.286rem;
@@ -257,7 +257,7 @@ export const styles = css`
   }
   .row.compact .actions {
     flex: none;
-    gap: 0.286rem;
+    gap: 0;
   }
   .row.compact .action,
   .row.compact .action-spacer {
