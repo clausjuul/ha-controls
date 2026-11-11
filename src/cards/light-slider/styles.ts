@@ -222,14 +222,14 @@ export const styles = css`
 
   /* ----- compact ----- */
   ha-card.compact {
-    padding: 0.857rem 1rem;
+    padding: 1.143rem 1.143rem;
   }
   .row.compact {
     --hac-slider-height: 2.286rem;
     --hac-slider-radius: 0.571rem;
     flex-direction: row;
     align-items: center;
-    gap: 0.571rem;
+    gap: 0.857rem;
   }
   .row.compact .icon {
     width: 2.286rem;
@@ -257,7 +257,7 @@ export const styles = css`
   }
   .row.compact .actions {
     flex: none;
-    gap: 0;
+    gap: 0.286rem;
   }
   .row.compact .action,
   .row.compact .action-spacer {
@@ -273,19 +273,19 @@ export const styles = css`
     --mdc-icon-size: 1.571rem;
   }
   ha-card.compact .items {
-    gap: 0.571rem;
+    gap: 0.857rem;
   }
   ha-card.compact .items > * + * {
     margin-top: 0;
   }
   ha-card.compact .lights {
-    margin: 0.571rem 0 0 1rem;
-    gap: 0.571rem;
+    margin: 0.857rem 0 0 1rem;
+    gap: 0.857rem;
   }
   .room-header.compact {
     --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
     gap: 0.857rem;
-    margin: 0 0 0.857rem;
+    margin: 0 0 1.143rem;
   }
   .room-header.compact .icon {
     width: 2.857rem;
