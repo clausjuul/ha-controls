@@ -392,7 +392,7 @@ export class HacSlider extends LitElement {
     .thin {
       display: flex;
       align-items: center;
-      gap: 0.571rem;
+      gap: 0.429rem;
     }
     :host([mode='thin']) .track {
       flex: 1;
@@ -445,7 +445,9 @@ export class HacSlider extends LitElement {
     }
     .thin-value {
       flex: none;
-      width: 4.286rem;
+      width: 3.5rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
       text-align: right;
       font-size: 0.93rem;
       font-variant-numeric: tabular-nums;

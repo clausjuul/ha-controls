@@ -98,7 +98,7 @@ export class LightSliderCard extends LitElement {
   @query('dialog') private _dialogEl?: HTMLDialogElement;
 
   /** Compact button columns for the current render. */
-  private _columns?: { icon: boolean; menu: boolean; expand: boolean };
+  private _columns?: { icon: boolean; menu: boolean };
   /** Expected states after our own service calls, so the UI reacts instantly. */
   private _optimistic = new OptimisticStates(() => this.requestUpdate());
   private _popupHsTimer?: number;
@@ -300,14 +300,13 @@ export class LightSliderCard extends LitElement {
    * Which button columns any visible compact row uses, so every row can keep
    * the same columns and the bars and buttons line up.
    */
-  private _compactColumns(): { icon: boolean; menu: boolean; expand: boolean } {
+  private _compactColumns(): { icon: boolean; menu: boolean } {
     const cfg = this._config!;
-    const cols = { icon: false, menu: false, expand: false };
-    const add = (target: Target, expander: boolean, showIcon: boolean) => {
+    const cols = { icon: false, menu: false };
+    const add = (target: Target, _expander: boolean, showIcon: boolean) => {
       cols.icon ||= showIcon;
       cols.menu ||=
         this._colorLights(target.ids).any || (cfg.show_scenes && this._scenes(target).length > 0);
-      cols.expand ||= expander;
     };
     for (const g of cfg.groups) {
       const ids = g.entities.map((e) => e.entity);
@@ -586,7 +585,7 @@ export class LightSliderCard extends LitElement {
 
     if (this._config!.compact) {
       const hasMenu = hasColor || hasScenes;
-      const cols = this._columns ?? { icon: showIcon, menu: hasMenu, expand: !!o.expander };
+      const cols = this._columns ?? { icon: showIcon, menu: hasMenu };
       const spacer = html`<span class="action-spacer"></span>`;
       return html`
         <div
@@ -594,12 +593,17 @@ export class LightSliderCard extends LitElement {
           style=${o.color ? `--hac-light-color: ${o.color}` : ''}
         >
           ${cols.icon ? (showIcon ? iconButton() : html`<span class="icon-spacer"></span>`) : nothing}
-          <span
-            class="name ${o.expander ? 'clickable' : ''}"
-            title=${o.name}
-            @click=${o.expander ? o.expander.onExpand : undefined}
-            >${o.name}</span
-          >
+          ${o.expander
+            ? html`<button
+                class="name name-button ${o.expander.expanded ? 'open' : ''}"
+                title=${o.name}
+                aria-expanded=${o.expander.expanded ? 'true' : 'false'}
+                @click=${o.expander.onExpand}
+              >
+                <span class="name-text">${o.name}</span>
+                <ha-icon icon="mdi:chevron-down"></ha-icon>
+              </button>`
+            : html`<span class="name" title=${o.name}><span class="name-text">${o.name}</span></span>`}
           ${o.brightness !== undefined
             ? html`<hac-slider
                 mode="thin"
@@ -630,7 +634,6 @@ export class LightSliderCard extends LitElement {
                   </button>`
                 : spacer
               : nothing}
-            ${cols.expand ? (o.expander ? expandButton('action') : spacer) : nothing}
             <button
               class="switch ${o.on ? 'on' : ''}"
               role="switch"

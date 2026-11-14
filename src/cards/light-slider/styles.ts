@@ -227,25 +227,49 @@ export const styles = css`
   .row.compact {
     flex-direction: row;
     align-items: center;
-    gap: 0.857rem;
+    gap: 0.714rem;
     min-height: 2.857rem;
   }
   .row.compact .icon,
   .row.compact .icon-spacer {
     flex: none;
-    width: 2.571rem;
-    height: 2.571rem;
-    --mdc-icon-size: 1.429rem;
+    width: 2.286rem;
+    height: 2.286rem;
+    --mdc-icon-size: 1.286rem;
   }
   .row.compact .name {
-    flex: 0 0 6.5rem;
+    flex: 0 1 6rem;
+    min-width: 2.857rem;
+    display: flex;
+    align-items: center;
+    gap: 0.143rem;
     font-size: 0.93rem;
     font-weight: 400;
+    text-align: left;
   }
-  .row.compact .name.clickable {
-    cursor: pointer;
+  .name-text {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
-  .row.compact hac-slider,
+  .row.compact .name-button {
+    height: 2.286rem;
+    color: var(--primary-text-color);
+  }
+  .name-button ha-icon {
+    flex: none;
+    --mdc-icon-size: 1.143rem;
+    color: var(--secondary-text-color);
+    transition: transform 200ms ease;
+  }
+  .name-button.open ha-icon {
+    transform: rotate(180deg);
+  }
+  .row.compact hac-slider {
+    flex: 1 1 8rem;
+    min-width: 5.714rem;
+  }
   .row.compact .grow {
     flex: 1;
     min-width: 0;
@@ -257,14 +281,14 @@ export const styles = css`
   }
   .row.compact .actions {
     flex: none;
-    gap: 0.143rem;
+    gap: 0.286rem;
   }
   .row.compact .action,
   .row.compact .action-spacer {
     flex: none;
-    width: 2.571rem;
-    height: 2.571rem;
-    --mdc-icon-size: 1.429rem;
+    width: 2.286rem;
+    height: 2.286rem;
+    --mdc-icon-size: 1.286rem;
   }
   .row.compact .expand ha-icon {
     --mdc-icon-size: 1.714rem;
@@ -274,7 +298,6 @@ export const styles = css`
     position: relative;
     width: 2.857rem;
     height: 1.714rem;
-    margin-left: 0.286rem;
     border-radius: 0.857rem;
     background: color-mix(in srgb, var(--primary-text-color, #000) 22%, transparent);
     transition: background 180ms;
@@ -303,7 +326,7 @@ export const styles = css`
     transform: translateX(1.143rem);
   }
   ha-card.compact .lights .row.compact .name {
-    flex-basis: 5.5rem;
+    flex-basis: 5rem;
   }
   ha-card.compact .items {
     gap: 0.857rem;
