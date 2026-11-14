@@ -7,6 +7,7 @@ import {
   LightSliderCard,
 } from './cards/light-slider/light-slider-card';
 import { LightSliderCardEditor } from './cards/light-slider/light-slider-card-editor';
+import { HacEntitiesEditor } from './cards/light-slider/entities-editor';
 
 declare const __VERSION__: string;
 
@@ -19,6 +20,7 @@ define('hac-color-wheel', HacColorWheel);
 // Cards
 define(CARD_TAG, LightSliderCard);
 define(EDITOR_TAG, LightSliderCardEditor);
+define('hac-entities-editor', HacEntitiesEditor);
 
 window.customCards = window.customCards ?? [];
 const cards = [

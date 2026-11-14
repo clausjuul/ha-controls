@@ -54,8 +54,11 @@ interface Target {
 }
 
 interface DialogState extends Target {
-  kind: 'color' | 'scenes';
+  /** `controls` = colour and scenes together, in tabs (compact rows). */
+  kind: 'color' | 'scenes' | 'controls';
 }
+
+type PopupTab = 'white' | 'color' | 'scenes';
 
 interface RowOptions {
   key: string;
@@ -77,6 +80,8 @@ interface RowOptions {
   /** Show the chevron that expands the individual lights (group main row). */
   expander?: { expanded: boolean; onExpand: () => void };
   sub?: boolean;
+  /** Show the icon in front of the row (default true). */
+  showIcon?: boolean;
   onToggle: () => void;
   onBrightness: (pct: number) => void;
 }
@@ -89,11 +94,11 @@ export class LightSliderCard extends LitElement {
   @state() private _dialog?: DialogState;
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
   @state() private _popupHs?: [number, number];
-  @state() private _colorTab?: 'white' | 'color';
+  @state() private _colorTab?: PopupTab;
   @query('dialog') private _dialogEl?: HTMLDialogElement;
 
   /** Compact button columns for the current render. */
-  private _columns?: { color: boolean; scenes: boolean; expand: boolean };
+  private _columns?: { icon: boolean; menu: boolean; expand: boolean };
   /** Expected states after our own service calls, so the UI reacts instantly. */
   private _optimistic = new OptimisticStates(() => this.requestUpdate());
   private _popupHsTimer?: number;
@@ -295,12 +300,13 @@ export class LightSliderCard extends LitElement {
    * Which button columns any visible compact row uses, so every row can keep
    * the same columns and the bars and buttons line up.
    */
-  private _compactColumns(): { color: boolean; scenes: boolean; expand: boolean } {
+  private _compactColumns(): { icon: boolean; menu: boolean; expand: boolean } {
     const cfg = this._config!;
-    const cols = { color: false, scenes: false, expand: false };
-    const add = (target: Target, expander: boolean) => {
-      cols.color ||= this._colorLights(target.ids).any;
-      cols.scenes ||= cfg.show_scenes && this._scenes(target).length > 0;
+    const cols = { icon: false, menu: false, expand: false };
+    const add = (target: Target, expander: boolean, showIcon: boolean) => {
+      cols.icon ||= showIcon;
+      cols.menu ||=
+        this._colorLights(target.ids).any || (cfg.show_scenes && this._scenes(target).length > 0);
       cols.expand ||= expander;
     };
     for (const g of cfg.groups) {
@@ -311,9 +317,12 @@ export class LightSliderCard extends LitElement {
           ? { title: '', ids: [g.main], sceneIds: [g.main, ...ids], sceneOverride: g.scenes }
           : { title: '', ids, sceneOverride: g.scenes ?? (multi ? undefined : g.entities[0].scenes) },
         multi,
+        g.showIcon && (multi || g.main ? true : g.entities[0].show_icon !== false),
       );
       if (multi && this._expanded[g.key]) {
-        for (const e of g.entities) add({ title: '', ids: [e.entity], sceneOverride: e.scenes }, false);
+        for (const e of g.entities) {
+          add({ title: '', ids: [e.entity], sceneOverride: e.scenes }, false, e.show_icon !== false);
+        }
       }
     }
     return cols;
@@ -385,6 +394,7 @@ export class LightSliderCard extends LitElement {
           ...this._lightRowBase(s, { entity: main }, t),
           key: group.key,
           name,
+          showIcon: group.showIcon,
           icon:
             group.icon ??
             (s.attributes.icon || !children.length ? entityIcon(s) : defaultIcon(isOn(s), true)),
@@ -422,6 +432,7 @@ export class LightSliderCard extends LitElement {
       ...this._lightRowBase(s, conf, t),
       key: group.key,
       name,
+      showIcon: group.showIcon && conf.show_icon !== false,
       icon: group.icon ?? conf.icon ?? entityIcon(s),
       target: { title: name, ids: [conf.entity], sceneOverride: group.scenes ?? conf.scenes },
     });
@@ -458,6 +469,7 @@ export class LightSliderCard extends LitElement {
         ${this._renderRow({
           key: group.key,
           name,
+          showIcon: group.showIcon,
           icon: group.icon ?? defaultIcon(anyOn, true),
           on: anyOn,
           unavailable,
@@ -495,6 +507,7 @@ export class LightSliderCard extends LitElement {
       ...this._lightRowBase(s, conf, t),
       key: conf.entity,
       name,
+      showIcon: conf.show_icon !== false,
       icon: conf.icon ?? entityIcon(s),
       target: { title: name, ids: [conf.entity], sceneOverride: conf.scenes },
       sub: true,
@@ -559,25 +572,28 @@ export class LightSliderCard extends LitElement {
         <ha-icon icon=${ICON_SCENES}></ha-icon>
       </button>`;
 
+    const showIcon = o.showIcon !== false;
+    const iconButton = () =>
+      html`<button
+        class="icon"
+        title=${t('toggle')}
+        aria-label=${`${t('toggle')}: ${o.name}`}
+        ?disabled=${o.unavailable}
+        @click=${o.onToggle}
+      >
+        <ha-icon .icon=${o.icon}></ha-icon>
+      </button>`;
+
     if (this._config!.compact) {
-      const cols = this._columns ?? { color: hasColor, scenes: hasScenes, expand: !!o.expander };
+      const hasMenu = hasColor || hasScenes;
+      const cols = this._columns ?? { icon: showIcon, menu: hasMenu, expand: !!o.expander };
       const spacer = html`<span class="action-spacer"></span>`;
       return html`
         <div
-          class="row compact ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''} ${o.lightFill
-            ? 'light-fill'
-            : ''}"
+          class="row compact ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''}"
           style=${o.color ? `--hac-light-color: ${o.color}` : ''}
         >
-          <button
-            class="icon"
-            title=${t('toggle')}
-            aria-label=${`${t('toggle')}: ${o.name}`}
-            ?disabled=${o.unavailable}
-            @click=${o.onToggle}
-          >
-            <ha-icon .icon=${o.icon}></ha-icon>
-          </button>
+          ${cols.icon ? (showIcon ? iconButton() : html`<span class="icon-spacer"></span>`) : nothing}
           <span
             class="name ${o.expander ? 'clickable' : ''}"
             title=${o.name}
@@ -586,35 +602,45 @@ export class LightSliderCard extends LitElement {
           >
           ${o.brightness !== undefined
             ? html`<hac-slider
+                mode="thin"
                 show-value
-                value-at="end"
-                .thumb=${false}
                 .value=${o.brightness}
                 .min=${0}
                 .max=${100}
                 .emptyText=${o.emptyText ?? ''}
                 .label=${`${t('brightness')}: ${o.name}`}
-                .formatValue=${(v: number) => `${v}%`}
+                .formatValue=${(v: number) => `${v} %`}
                 ?disabled=${o.unavailable}
                 @value-changed=${(e: CustomEvent<{ value: number }>) =>
                   o.onBrightness(e.detail.value)}
               ></hac-slider>`
-            : html`<button
-                class="toggle-bar ${o.on ? 'on' : ''}"
-                aria-pressed=${o.on ? 'true' : 'false'}
-                aria-label=${`${t('toggle')}: ${o.name}`}
-                ?disabled=${o.unavailable}
-                @click=${o.onToggle}
-              >
-                <span></span>
-                <span class="toggle-text">
-                  ${o.unavailable ? t('unavailable') : o.on ? t('on') : t('off')}
-                </span>
-              </button>`}
+            : html`<span class="grow">${o.unavailable ? t('unavailable') : ''}</span>`}
           <div class="actions">
-            ${cols.color ? (hasColor ? colorButton() : spacer) : nothing}
-            ${cols.scenes ? (hasScenes ? scenesButton() : spacer) : nothing}
+            ${cols.menu
+              ? hasMenu
+                ? html`<button
+                    class="action"
+                    title=${hasColor ? t('color') : t('scenes')}
+                    aria-label=${`${hasColor ? t('color') : t('scenes')}: ${o.name}`}
+                    ?disabled=${o.unavailable && !hasScenes}
+                    @click=${(e: Event) =>
+                      this._openDialog(hasColor ? 'controls' : 'scenes', o.target, e)}
+                  >
+                    <ha-icon icon=${hasColor ? ICON_COLOR : ICON_SCENES}></ha-icon>
+                  </button>`
+                : spacer
+              : nothing}
             ${cols.expand ? (o.expander ? expandButton('action') : spacer) : nothing}
+            <button
+              class="switch ${o.on ? 'on' : ''}"
+              role="switch"
+              aria-checked=${o.on ? 'true' : 'false'}
+              aria-label=${`${t('toggle')}: ${o.name}`}
+              ?disabled=${o.unavailable}
+              @click=${o.onToggle}
+            >
+              <span class="switch-knob"></span>
+            </button>
           </div>
         </div>
       `;
@@ -626,15 +652,7 @@ export class LightSliderCard extends LitElement {
         style=${o.color ? `--hac-light-color: ${o.color}` : ''}
       >
         <div class="top">
-          <button
-            class="icon"
-            title=${t('toggle')}
-            aria-label=${`${t('toggle')}: ${o.name}`}
-            ?disabled=${o.unavailable}
-            @click=${o.onToggle}
-          >
-            <ha-icon .icon=${o.icon}></ha-icon>
-          </button>
+          ${showIcon ? iconButton() : nothing}
           <div
             class="info ${o.expander ? 'clickable' : ''}"
             @click=${o.expander ? o.expander.onExpand : undefined}
@@ -692,21 +710,31 @@ export class LightSliderCard extends LitElement {
     const d = this._dialog;
     return html`
       <dialog
-        aria-label=${d ? `${t(d.kind)}: ${d.title}` : nothing}
+        aria-label=${d ? `${t(d.kind === 'scenes' ? 'scenes' : 'color')}: ${d.title}` : nothing}
         @close=${this._closeDialog}
         @click=${this._onDialogClick}
       >
         ${d
           ? html`<div class="sheet">
               <div class="sheet-header">
-                <ha-icon icon=${d.kind === 'color' ? ICON_COLOR : ICON_SCENES}></ha-icon>
+                <ha-icon icon=${d.kind === 'scenes' ? ICON_SCENES : ICON_COLOR}></ha-icon>
                 <span class="sheet-title">${d.title}</span>
                 <button class="action" aria-label=${t('close')} @click=${this._closeDialog}>
                   <ha-icon icon="mdi:close"></ha-icon>
                 </button>
               </div>
               <div class="sheet-body">
-                ${d.kind === 'color' ? this._renderColorControls(d.ids, t) : this._renderScenes(d, t)}
+                ${d.kind === 'color'
+                  ? this._renderColorControls(d.ids, t)
+                  : d.kind === 'scenes'
+                    ? this._renderScenes(d, t)
+                    : this._renderColorControls(
+                        d.ids,
+                        t,
+                        this._config!.show_scenes && this._scenes(d).length
+                          ? this._renderScenes(d, t)
+                          : undefined,
+                      )}
               </div>
             </div>`
           : nothing}
@@ -733,7 +761,11 @@ export class LightSliderCard extends LitElement {
     if (ev.target === ev.currentTarget) this._closeDialog();
   }
 
-  private _renderColorControls(ids: string[], t: Localize): TemplateResult {
+  private _renderColorControls(
+    ids: string[],
+    t: Localize,
+    scenesTab?: TemplateResult,
+  ): TemplateResult {
     const { ct, color } = this._colorLights(ids);
     const pickRef = (list: HassEntity[]) => list.find(isOn) ?? list[0];
 
@@ -833,23 +865,28 @@ export class LightSliderCard extends LitElement {
         </div>
       `;
     }
-    if (!whiteTab || !colorTab) return whiteTab ?? colorTab ?? html``;
+    const tabs: Array<{ key: PopupTab; label: string; content: TemplateResult }> = [];
+    if (whiteTab) tabs.push({ key: 'white', label: t('white'), content: whiteTab });
+    if (colorTab) tabs.push({ key: 'color', label: t('hue'), content: colorTab });
+    if (scenesTab) tabs.push({ key: 'scenes', label: t('scenes'), content: scenesTab });
+    if (tabs.length <= 1) return tabs[0]?.content ?? html``;
 
-    const tab = this._colorTab ?? this._defaultColorTab(ids);
+    const wanted = this._colorTab ?? this._defaultColorTab(ids);
+    const current = tabs.find((x) => x.key === wanted) ?? tabs[0];
     return html`
       <div class="tabs" role="tablist">
-        ${(['white', 'color'] as const).map(
-          (k) => html`<button
-            class="tab ${tab === k ? 'selected' : ''}"
+        ${tabs.map(
+          (x) => html`<button
+            class="tab ${x === current ? 'selected' : ''}"
             role="tab"
-            aria-selected=${tab === k ? 'true' : 'false'}
-            @click=${() => (this._colorTab = k)}
+            aria-selected=${x === current ? 'true' : 'false'}
+            @click=${() => (this._colorTab = x.key)}
           >
-            ${t(k === 'white' ? 'white' : 'hue')}
+            ${x.label}
           </button>`,
         )}
       </div>
-      ${tab === 'white' ? whiteTab : colorTab}
+      ${current.content}
     `;
   }
 

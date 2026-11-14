@@ -12,10 +12,6 @@ import {
 } from './config';
 
 const ON_OFF_DOMAINS = ['light', 'switch', 'input_boolean'];
-const ENTITIES = {
-  name: 'entities',
-  selector: { entity: { multiple: true, filter: { domain: ON_OFF_DOMAINS } } },
-};
 const TOGGLE_ONLY = {
   name: 'toggle_only',
   selector: { entity: { multiple: true, filter: { domain: 'light' } } },
@@ -45,9 +41,15 @@ const OPTIONS_SCHEMA = [
 
 const SINGLE_SCHEMA = [
   MAIN,
-  ENTITIES,
-  { name: 'name', selector: { text: {} } },
-  { name: 'icon', selector: { icon: {} } },
+  {
+    type: 'grid',
+    name: '',
+    schema: [
+      { name: 'name', selector: { text: {} } },
+      { name: 'icon', selector: { icon: {} } },
+    ],
+  },
+  { name: 'show_icon', selector: { boolean: {} } },
   TOGGLE_ONLY,
   ...OPTIONS_SCHEMA,
   SCENES,
@@ -67,7 +69,6 @@ const ROOM_SCHEMA = [
 
 const ITEM_SCHEMA = [
   MAIN,
-  ENTITIES,
   {
     type: 'grid',
     name: '',
@@ -76,6 +77,7 @@ const ITEM_SCHEMA = [
       { name: 'icon', selector: { icon: {} } },
     ],
   },
+  { name: 'show_icon', selector: { boolean: {} } },
   TOGGLE_ONLY,
   SCENES,
 ];
@@ -85,17 +87,11 @@ type EntityList = Array<string | LightEntityConfig>;
 
 interface ListData {
   main_entity?: string;
-  entities?: string[];
+  show_icon?: boolean;
   name?: string;
   icon?: string;
   scenes?: string[];
   toggle_only?: string[];
-}
-
-/** Map selected entity IDs back to entries, keeping per-light options. */
-function mergeEntities(previous: EntityList, ids: string[] = []): EntityList {
-  const existing = new Map(previous.map((e) => [entityId(e), e]));
-  return ids.map((id) => existing.get(id) ?? id);
 }
 
 function setOrDelete<T extends object, K extends keyof T>(obj: T, key: K, value: T[K] | undefined) {
@@ -169,20 +165,28 @@ export class LightSliderCardEditor extends LitElement {
     const c = this._config!;
     const data = {
       main_entity: c.main_entity ?? '',
-      entities: rawEntities(c).map(entityId),
+      show_icon: c.show_icon !== false,
       name: c.name ?? '',
       icon: c.icon ?? '',
       scenes: c.scenes ?? [],
       toggle_only: c.toggle_only ?? [],
       ...this._options(),
     };
-    return html`<ha-form
-      .hass=${this.hass}
-      .data=${data}
-      .schema=${SINGLE_SCHEMA}
-      .computeLabel=${this._label}
-      @value-changed=${this._singleChanged}
-    ></ha-form>`;
+    return html`
+      <hac-entities-editor
+        .hass=${this.hass}
+        .entities=${rawEntities(c)}
+        .label=${this._t('editor.entities')}
+        @entities-changed=${this._singleEntitiesChanged}
+      ></hac-entities-editor>
+      <ha-form
+        .hass=${this.hass}
+        .data=${data}
+        .schema=${SINGLE_SCHEMA}
+        .computeLabel=${this._label}
+        @value-changed=${this._singleChanged}
+      ></ha-form>
+    `;
   }
 
   private _renderRoom() {
@@ -226,11 +230,18 @@ export class LightSliderCardEditor extends LitElement {
                 <ha-icon icon="mdi:delete-outline"></ha-icon>
               </button>
             </div>
+            <hac-entities-editor
+              .hass=${this.hass}
+              .entities=${rawEntities(item)}
+              .label=${t('editor.entities')}
+              @entities-changed=${(ev: CustomEvent<{ entities: EntityList }>) =>
+                this._itemEntitiesChanged(i, ev)}
+            ></hac-entities-editor>
             <ha-form
               .hass=${this.hass}
               .data=${{
                 main_entity: item.main_entity ?? '',
-                entities: rawEntities(item).map(entityId),
+                show_icon: item.show_icon !== false,
                 name: item.name ?? '',
                 icon: item.icon ?? '',
                 scenes: item.scenes ?? [],
@@ -279,12 +290,13 @@ export class LightSliderCardEditor extends LitElement {
       setOrDelete(item, 'name', c.name);
       setOrDelete(item, 'icon', c.icon);
       setOrDelete(item, 'main_entity', c.main_entity);
+      if (c.show_icon === false) item.show_icon = false;
       if (entities.length) item.entities = entities;
       setOrDelete(item, 'scenes', c.scenes);
       setOrDelete(item, 'toggle_only', c.toggle_only);
       config.mode = 'room';
       config.items = [item];
-      for (const key of ['entity', 'entities', 'main_entity', 'name', 'icon', 'scenes', 'toggle_only'] as const) {
+      for (const key of ['entity', 'entities', 'main_entity', 'name', 'icon', 'scenes', 'toggle_only', 'show_icon'] as const) {
         delete config[key];
       }
     } else {
@@ -312,18 +324,32 @@ export class LightSliderCardEditor extends LitElement {
     ev.stopPropagation();
     const c = this._config!;
     const data = ev.detail.value;
-    const config: LightSliderCardConfig = {
-      ...c,
-      entities: mergeEntities(rawEntities(c), data.entities),
-    };
-    delete config.entity;
+    const config: LightSliderCardConfig = { ...c };
     setOrDelete(config, 'main_entity', data.main_entity);
+    if (data.show_icon === false) config.show_icon = false;
+    else delete config.show_icon;
     setOrDelete(config, 'name', data.name);
     setOrDelete(config, 'icon', data.icon);
     setOrDelete(config, 'scenes', data.scenes);
     setOrDelete(config, 'toggle_only', data.toggle_only);
     this._applyOptions(config, data);
     this._update(config);
+  }
+
+  private _singleEntitiesChanged(ev: CustomEvent<{ entities: EntityList }>) {
+    ev.stopPropagation();
+    const config: LightSliderCardConfig = { ...this._config!, entities: ev.detail.entities };
+    delete config.entity;
+    this._update(config);
+  }
+
+  private _itemEntitiesChanged(index: number, ev: CustomEvent<{ entities: EntityList }>) {
+    ev.stopPropagation();
+    const items = [...(this._config!.items ?? [])];
+    const item: RoomItemConfig = { ...(items[index] ?? {}), entities: ev.detail.entities };
+    delete item.entity;
+    items[index] = item;
+    this._update({ ...this._config!, items });
   }
 
   private _roomChanged(
@@ -343,9 +369,10 @@ export class LightSliderCardEditor extends LitElement {
     const items = [...(this._config!.items ?? [])];
     const old = items[index] ?? {};
     const data = ev.detail.value;
-    const item: RoomItemConfig = { ...old, entities: mergeEntities(rawEntities(old), data.entities) };
-    delete item.entity;
+    const item: RoomItemConfig = { ...old };
     setOrDelete(item, 'main_entity', data.main_entity);
+    if (data.show_icon === false) item.show_icon = false;
+    else delete item.show_icon;
     setOrDelete(item, 'name', data.name);
     setOrDelete(item, 'icon', data.icon);
     setOrDelete(item, 'scenes', data.scenes);

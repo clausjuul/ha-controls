@@ -225,16 +225,17 @@ export const styles = css`
     padding: 0.857rem 1rem;
   }
   .row.compact {
-    --hac-slider-height: 2.286rem;
-    --hac-slider-radius: 0.571rem;
     flex-direction: row;
     align-items: center;
     gap: 0.857rem;
+    min-height: 2.857rem;
   }
-  .row.compact .icon {
-    width: 2.286rem;
-    height: 2.286rem;
-    --mdc-icon-size: 1.286rem;
+  .row.compact .icon,
+  .row.compact .icon-spacer {
+    flex: none;
+    width: 2.571rem;
+    height: 2.571rem;
+    --mdc-icon-size: 1.429rem;
   }
   .row.compact .name {
     flex: 0 0 6.5rem;
@@ -245,32 +246,64 @@ export const styles = css`
     cursor: pointer;
   }
   .row.compact hac-slider,
-  .row.compact .toggle-bar {
+  .row.compact .grow {
     flex: 1;
     min-width: 0;
   }
-  .row.compact .toggle-bar {
-    padding: 0 1.143rem;
-  }
-  .row.compact .toggle-text {
+  .row.compact .grow {
+    text-align: right;
     font-size: 0.93rem;
+    color: var(--secondary-text-color);
   }
   .row.compact .actions {
     flex: none;
-    gap: 0;
+    gap: 0.143rem;
   }
   .row.compact .action,
   .row.compact .action-spacer {
     flex: none;
-    width: 2.286rem;
-    height: 2.286rem;
-    --mdc-icon-size: 1.286rem;
+    width: 2.571rem;
+    height: 2.571rem;
+    --mdc-icon-size: 1.429rem;
+  }
+  .row.compact .expand ha-icon {
+    --mdc-icon-size: 1.714rem;
+  }
+  .switch {
+    flex: none;
+    position: relative;
+    width: 2.857rem;
+    height: 1.714rem;
+    margin-left: 0.286rem;
+    border-radius: 0.857rem;
+    background: color-mix(in srgb, var(--primary-text-color, #000) 22%, transparent);
+    transition: background 180ms;
+  }
+  .switch::before {
+    /* Bigger tap target than the switch itself */
+    content: '';
+    position: absolute;
+    inset: -0.571rem -0.286rem;
+  }
+  .switch-knob {
+    position: absolute;
+    top: 0.214rem;
+    left: 0.214rem;
+    width: 1.286rem;
+    height: 1.286rem;
+    border-radius: 50%;
+    background: var(--card-background-color, var(--ha-card-background, #fff));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: transform 180ms ease;
+  }
+  .switch.on {
+    background: var(--_light);
+  }
+  .switch.on .switch-knob {
+    transform: translateX(1.143rem);
   }
   ha-card.compact .lights .row.compact .name {
     flex-basis: 5.5rem;
-  }
-  .row.compact .expand ha-icon {
-    --mdc-icon-size: 1.571rem;
   }
   ha-card.compact .items {
     gap: 0.857rem;
