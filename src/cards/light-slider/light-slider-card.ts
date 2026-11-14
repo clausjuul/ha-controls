@@ -1,6 +1,6 @@
 import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
 import { property, state, query } from 'lit/decorators.js';
-import type { HassEntity, HomeAssistant } from '../../shared/types';
+import { fireEvent, type HassEntity, type HomeAssistant } from '../../shared/types';
 import { localize, type Localize } from '../../shared/localize';
 import {
   brightnessPct,
@@ -78,7 +78,12 @@ interface RowOptions {
   lightFill?: boolean;
   target: Target;
   /** Show the chevron that expands the individual lights (group main row). */
-  expander?: { expanded: boolean; onExpand: () => void };
+  expander?: {
+    expanded: boolean;
+    onExpand: () => void;
+    /** Opens Home Assistant's more-info dialog instead of expanding. */
+    opensDialog?: boolean;
+  };
   sub?: boolean;
   /** Show the icon in front of the row (default true). */
   showIcon?: boolean;
@@ -407,14 +412,21 @@ export class LightSliderCard extends LitElement {
             sceneIds: [main, ...childIds],
             sceneOverride: group.scenes,
           },
-          expander: children.length
-            ? {
-                expanded,
-                onExpand: () => (this._expanded = { ...this._expanded, [group.key]: !expanded }),
-              }
-            : undefined,
+          expander:
+            this._config!.groupAction === 'more-info'
+              ? {
+                  expanded: false,
+                  opensDialog: true,
+                  onExpand: () => fireEvent(this, 'hass-more-info', { entityId: main }),
+                }
+              : children.length
+                ? {
+                    expanded,
+                    onExpand: () => (this._expanded = { ...this._expanded, [group.key]: !expanded }),
+                  }
+                : undefined,
         })}
-        ${expanded && children.length
+        ${expanded && children.length && this._config!.groupAction !== 'more-info'
           ? html`<div class="lights">${children.map((c) => this._renderSubLight(c, t))}</div>`
           : nothing}
       </div>
@@ -542,14 +554,17 @@ export class LightSliderCard extends LitElement {
     const t = localize(this.hass);
     const hasColor = this._colorLights(o.target.ids).any;
     const hasScenes = this._config!.show_scenes && this._scenes(o.target).length > 0;
+    const opensDialog = !!o.expander?.opensDialog;
+    const expandIcon = opensDialog ? 'mdi:chevron-right' : 'mdi:chevron-down';
     const expandButton = (cls: string) =>
       html`<button
         class="${cls} expand ${o.expander!.expanded ? 'open' : ''}"
-        aria-label=${t('expand')}
-        aria-expanded=${o.expander!.expanded ? 'true' : 'false'}
+        aria-label=${opensDialog ? t('details') : t('expand')}
+        aria-haspopup=${opensDialog ? 'dialog' : nothing}
+        aria-expanded=${opensDialog ? nothing : o.expander!.expanded ? 'true' : 'false'}
         @click=${o.expander!.onExpand}
       >
-        <ha-icon icon="mdi:chevron-down"></ha-icon>
+        <ha-icon icon=${expandIcon}></ha-icon>
       </button>`;
     const colorButton = () =>
       html`<button
@@ -597,11 +612,12 @@ export class LightSliderCard extends LitElement {
             ? html`<button
                 class="name name-button ${o.expander.expanded ? 'open' : ''}"
                 title=${o.name}
-                aria-expanded=${o.expander.expanded ? 'true' : 'false'}
+                aria-haspopup=${opensDialog ? 'dialog' : nothing}
+                aria-expanded=${opensDialog ? nothing : o.expander.expanded ? 'true' : 'false'}
                 @click=${o.expander.onExpand}
               >
                 <span class="name-text">${o.name}</span>
-                <ha-icon icon="mdi:chevron-down"></ha-icon>
+                <ha-icon icon=${expandIcon}></ha-icon>
               </button>`
             : html`<span class="name" title=${o.name}><span class="name-text">${o.name}</span></span>`}
           ${o.brightness !== undefined

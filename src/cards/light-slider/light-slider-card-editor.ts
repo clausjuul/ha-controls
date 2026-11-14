@@ -39,6 +39,19 @@ const OPTIONS_SCHEMA = [
   },
 ];
 
+const GROUP_ACTION = {
+  name: 'group_action',
+  selector: {
+    select: {
+      mode: 'dropdown',
+      options: [
+        { value: 'expand', label: 'expand' },
+        { value: 'more-info', label: 'more-info' },
+      ],
+    },
+  },
+};
+
 const SINGLE_SCHEMA = [
   MAIN,
   {
@@ -52,6 +65,7 @@ const SINGLE_SCHEMA = [
   { name: 'show_icon', selector: { boolean: {} } },
   TOGGLE_ONLY,
   ...OPTIONS_SCHEMA,
+  GROUP_ACTION,
   SCENES,
 ];
 
@@ -65,6 +79,7 @@ const ROOM_SCHEMA = [
     ],
   },
   ...OPTIONS_SCHEMA,
+  GROUP_ACTION,
 ];
 
 const ITEM_SCHEMA = [
@@ -117,6 +132,27 @@ export class LightSliderCardEditor extends LitElement {
     return isEditorKey(key) ? this._t(key) : schema.name;
   };
 
+  /** Schema with translated option labels for the group action. */
+  private _localized<T>(schema: readonly T[]): T[] {
+    const t = this._t;
+    return schema.map((x) =>
+      x === (GROUP_ACTION as unknown)
+        ? ({
+            ...GROUP_ACTION,
+            selector: {
+              select: {
+                mode: 'dropdown',
+                options: [
+                  { value: 'expand', label: t('editor.group_expand') },
+                  { value: 'more-info', label: t('editor.group_more_info') },
+                ],
+              },
+            },
+          } as unknown as T)
+        : x,
+    );
+  }
+
   private _options() {
     const c = this._config!;
     return {
@@ -125,6 +161,7 @@ export class LightSliderCardEditor extends LitElement {
       show_scenes: c.show_scenes ?? DEFAULTS.show_scenes,
       expanded: c.expanded ?? DEFAULTS.expanded,
       compact: c.compact ?? DEFAULTS.compact,
+      group_action: c.group_action ?? 'expand',
     };
   }
 
@@ -182,7 +219,7 @@ export class LightSliderCardEditor extends LitElement {
       <ha-form
         .hass=${this.hass}
         .data=${data}
-        .schema=${SINGLE_SCHEMA}
+        .schema=${this._localized(SINGLE_SCHEMA)}
         .computeLabel=${this._label}
         @value-changed=${this._singleChanged}
       ></ha-form>
@@ -197,7 +234,7 @@ export class LightSliderCardEditor extends LitElement {
       <ha-form
         .hass=${this.hass}
         .data=${{ room_name: c.name ?? '', icon: c.icon ?? '', ...this._options() }}
-        .schema=${ROOM_SCHEMA}
+        .schema=${this._localized(ROOM_SCHEMA)}
         .computeLabel=${this._label}
         @value-changed=${this._roomChanged}
       ></ha-form>
@@ -267,7 +304,12 @@ export class LightSliderCardEditor extends LitElement {
     fireEvent(this, 'config-changed', { config });
   }
 
-  private _applyOptions(config: LightSliderCardConfig, data: Partial<Record<BoolKey, boolean>>) {
+  private _applyOptions(
+    config: LightSliderCardConfig,
+    data: Partial<Record<BoolKey, boolean>> & { group_action?: string },
+  ) {
+    if (data.group_action === 'more-info') config.group_action = 'more-info';
+    else delete config.group_action;
     for (const key of Object.keys(DEFAULTS) as BoolKey[]) {
       const value = data[key];
       if (value === undefined || value === DEFAULTS[key]) delete config[key];

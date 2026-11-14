@@ -58,6 +58,11 @@ export interface LightSliderCardConfig {
   expanded?: boolean;
   /** One line per light: icon, name and a thin bar. */
   compact?: boolean;
+  /**
+   * What opening a group with a `main_entity` does: `expand` (default) shows its
+   * lights in the card, `more-info` opens Home Assistant's dialog for the group.
+   */
+  group_action?: 'expand' | 'more-info';
 }
 
 /** A slider with its lights, ready to render. */
@@ -79,6 +84,7 @@ export interface NormalizedConfig {
   /** Room mode: icon in the room heading. */
   icon?: string;
   compact: boolean;
+  groupAction: 'expand' | 'more-info';
   groups: Group[];
   /** Every light on the card. */
   entityIds: string[];
@@ -208,6 +214,7 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
     name: config.name || undefined,
     icon: mode === 'room' ? config.icon || undefined : undefined,
     compact: config.compact ?? DEFAULTS.compact,
+    groupAction: config.group_action === 'more-info' ? 'more-info' : 'expand',
     groups,
     toggleOnly,
     entityIds: [

@@ -14,6 +14,7 @@ const en = {
   not_found: 'Entity not found: {entity}',
   toggle: 'Toggle',
   expand: 'Show more',
+  details: 'Show details',
   color: 'Color',
   custom_color: 'Custom color',
   white: 'White',
@@ -45,6 +46,9 @@ const en = {
   'editor.show_scenes': 'Show scenes',
   'editor.expanded': 'Lights expanded by default',
   'editor.compact': 'Compact',
+  'editor.group_action': 'Opening a group with a main light',
+  'editor.group_expand': 'Show its lights in the card',
+  'editor.group_more_info': "Open Home Assistant's light dialog",
   'editor.scenes': 'Scenes (empty = find automatically)',
 };
 
@@ -64,6 +68,7 @@ const da: Record<Key, string> = {
   not_found: 'Enhed ikke fundet: {entity}',
   toggle: 'Tænd/sluk',
   expand: 'Vis mere',
+  details: 'Vis detaljer',
   color: 'Farve',
   custom_color: 'Vælg selv farve',
   white: 'Hvid',
@@ -95,6 +100,9 @@ const da: Record<Key, string> = {
   'editor.show_scenes': 'Vis scener',
   'editor.expanded': 'Vis enkelte lys som standard',
   'editor.compact': 'Kompakt',
+  'editor.group_action': 'Når en gruppe med hovedlys åbnes',
+  'editor.group_expand': 'Vis lysene i kortet',
+  'editor.group_more_info': 'Åbn Home Assistants lysvindue',
   'editor.scenes': 'Scener (tom = find automatisk)',
 };
 

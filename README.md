@@ -119,6 +119,10 @@ entities:
 
 Works the same for each item in a room.
 
+Set `group_action: more-info` to open Home Assistant's own dialog for the main
+light (the big slider with the group's lights) instead of expanding it in the
+card. Groups without a `main_entity` still expand.
+
 ### Options
 
 | Option | Type | Default | Description |
@@ -137,6 +141,7 @@ Works the same for each item in a room.
 | `scenes` | list | automatic | Scenes for the main slider (single). Each light entry can also have its own `scenes` |
 | `expanded` | boolean | `false` | Show the individual lights of a slider by default |
 | `compact` | boolean | `false` | One line per light with a thin slider and a switch |
+| `group_action` | string | `expand` | `expand` or `more-info`: what opening a group with a `main_entity` does |
 | `show_icon` | boolean | `true` | Show the icon of the top slider (single, room item, or per light) |
 
 ### Examples
