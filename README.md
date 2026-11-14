@@ -67,7 +67,7 @@ items:
 ```
 
 Each item supports `entity`/`entities`, `main_entity`, `name`, `icon`,
-`scenes` and `expanded`. The options below apply to every item in the room.
+`show_icon`, `group_action`, `scenes` and `expanded`. The options below apply to every item in the room.
 
 ### On/off entities
 
@@ -121,7 +121,8 @@ Works the same for each item in a room.
 
 Set `group_action: more-info` to open Home Assistant's own dialog for the main
 light (the big slider with the group's lights) instead of expanding it in the
-card. Groups without a `main_entity` still expand.
+card. In a room, set it per item; a card-level value is the default for all
+items. Groups without a `main_entity` still expand.
 
 ### Options
 

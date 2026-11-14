@@ -321,7 +321,7 @@ export class LightSliderCard extends LitElement {
         g.main
           ? { title: '', ids: [g.main], sceneIds: [g.main, ...ids], sceneOverride: g.scenes }
           : { title: '', ids, sceneOverride: g.scenes ?? (multi ? undefined : g.entities[0].scenes) },
-        multi || (!!g.main && cfg.groupAction === 'more-info'),
+        multi || (!!g.main && g.groupAction === 'more-info'),
         g.showIcon && (multi || g.main ? true : g.entities[0].show_icon !== false),
       );
       if (multi && this._expanded[g.key]) {
@@ -414,7 +414,7 @@ export class LightSliderCard extends LitElement {
             sceneOverride: group.scenes,
           },
           expander:
-            this._config!.groupAction === 'more-info'
+            group.groupAction === 'more-info'
               ? {
                   expanded: false,
                   opensDialog: true,
@@ -427,7 +427,7 @@ export class LightSliderCard extends LitElement {
                   }
                 : undefined,
         })}
-        ${expanded && children.length && this._config!.groupAction !== 'more-info'
+        ${expanded && children.length && group.groupAction !== 'more-info'
           ? html`<div class="lights">${children.map((c) => this._renderSubLight(c, t))}</div>`
           : nothing}
       </div>
