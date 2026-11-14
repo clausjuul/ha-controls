@@ -19,8 +19,11 @@ export class HacSlider extends LitElement {
   @property({ type: Number }) max = 100;
   @property({ type: Number }) step = 1;
   @property({ type: Boolean, reflect: true }) disabled = false;
-  /** `fill` = bar fills up to the value. `cursor` = only a handle (for gradients). */
-  @property({ reflect: true }) mode: 'fill' | 'cursor' = 'fill';
+  /**
+   * `fill` = bar fills up to the value. `cursor` = only a handle (for gradients).
+   * `thin` = a thin rail with a round knob and the value beside it.
+   */
+  @property({ reflect: true }) mode: 'fill' | 'cursor' | 'thin' = 'fill';
   @property() label = '';
   @property({ attribute: false }) formatValue?: (value: number) => string;
   /** Show the formatted value inside the track (hidden at the minimum). */
@@ -201,6 +204,42 @@ export class HacSlider extends LitElement {
     // Text sits on the fill once the fill is wide enough to hold it.
     const textOnFill = this.mode === 'fill' && f >= 0.2;
 
+    if (this.mode === 'thin') {
+      const off = value <= this.min;
+      return html`
+        <div class="thin">
+          <div
+            class="track"
+            role="slider"
+            tabindex=${this.disabled ? -1 : 0}
+            aria-label=${this.label || nothing}
+            aria-valuemin=${this.min}
+            aria-valuemax=${this.max}
+            aria-valuenow=${value}
+            aria-valuetext=${off && this.emptyText ? this.emptyText : text}
+            aria-disabled=${this.disabled ? 'true' : 'false'}
+            @pointerdown=${this._onPointerDown}
+            @pointermove=${this._onPointerMove}
+            @pointerup=${this._onPointerUp}
+            @pointercancel=${this._onPointerCancel}
+            @keydown=${this._onKeyDown}
+          >
+            <div class="rail"></div>
+            <div class="rail-fill" style="width: ${pct}%"></div>
+            <div
+              class="knob ${off ? 'off' : ''}"
+              style="left: calc(${pct}% - ${f} * var(--_knob))"
+            ></div>
+          </div>
+          ${this.showValue
+            ? html`<span class="thin-value ${off ? 'empty' : ''}"
+                >${off && this.emptyText ? this.emptyText : text}</span
+              >`
+            : nothing}
+        </div>
+      `;
+    }
+
     return html`
       <div
         class="track"
@@ -346,6 +385,80 @@ export class HacSlider extends LitElement {
     .text-layer.on-fill {
       color: var(--hac-slider-value-color, #fff);
     }
+    /* ----- thin ----- */
+    :host([mode='thin']) {
+      --_knob: 1.143rem;
+    }
+    .thin {
+      display: flex;
+      align-items: center;
+      gap: 0.429rem;
+    }
+    :host([mode='thin']) .track {
+      flex: 1;
+      min-width: 0;
+      height: 2.286rem;
+      background: transparent;
+      border-radius: 0;
+      overflow: visible;
+    }
+    :host([mode='thin']) .track:focus-visible {
+      box-shadow: none;
+      outline: 2px solid var(--primary-color, #03a9f4);
+      outline-offset: 2px;
+      border-radius: 0.286rem;
+    }
+    .rail,
+    .rail-fill {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      height: 0.286rem;
+      margin-top: -0.143rem;
+      border-radius: 0.143rem;
+    }
+    .rail {
+      right: 0;
+      background: var(
+        --hac-slider-track-background,
+        color-mix(in srgb, var(--primary-text-color, #000) 15%, transparent)
+      );
+    }
+    .rail-fill {
+      background: var(--hac-slider-color, var(--primary-color, #03a9f4));
+      transition: width 180ms ease-out;
+    }
+    .knob {
+      position: absolute;
+      top: 50%;
+      width: var(--_knob);
+      height: var(--_knob);
+      margin-top: calc(var(--_knob) / -2);
+      border-radius: 50%;
+      background: var(--hac-slider-color, var(--primary-color, #03a9f4));
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+      transition: left 180ms ease-out;
+      pointer-events: none;
+    }
+    .knob.off {
+      background: color-mix(in srgb, var(--primary-text-color, #000) 40%, transparent);
+    }
+    .thin-value {
+      flex: none;
+      width: 3rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: right;
+      font-size: 0.857rem;
+      font-variant-numeric: tabular-nums;
+      color: var(--primary-text-color);
+      white-space: nowrap;
+    }
+    .thin-value.empty {
+      color: var(--secondary-text-color, #727272);
+    }
+    :host([dragging]) .rail-fill,
+    :host([dragging]) .knob,
     :host([dragging]) .fill,
     :host([dragging]) .thumb {
       transition: none;

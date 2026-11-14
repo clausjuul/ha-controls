@@ -2,6 +2,8 @@ export interface LightEntityConfig {
   entity: string;
   name?: string;
   icon?: string;
+  /** Hide the icon in front of this light (default shown). */
+  show_icon?: boolean;
   /** Scenes for this light. Omit to find scenes containing the light automatically. */
   scenes?: string[];
 }
@@ -14,6 +16,8 @@ const isAllowed = (id: unknown): id is string =>
 
 export interface RoomItemConfig {
   name?: string;
+  /** Hide the icon in front of this slider (default shown). */
+  show_icon?: boolean;
   /** Lights to show as plain on/off instead of a slider. */
   toggle_only?: string[];
   icon?: string;
@@ -36,6 +40,8 @@ export interface LightSliderCardConfig {
   entity?: string;
   /** Single mode: light that the top slider controls; `entities` are shown when expanded. */
   main_entity?: string;
+  /** Single mode: hide the icon in front of the top slider (default shown). */
+  show_icon?: boolean;
   /** Single mode: the lights. */
   entities?: Array<string | LightEntityConfig>;
   /** Single mode: lights to show as plain on/off instead of a slider. */
@@ -52,6 +58,11 @@ export interface LightSliderCardConfig {
   expanded?: boolean;
   /** One line per light: icon, name and a thin bar. */
   compact?: boolean;
+  /**
+   * What opening a group with a `main_entity` does: `expand` (default) shows its
+   * lights in the card, `more-info` opens Home Assistant's dialog for the group.
+   */
+  group_action?: 'expand' | 'more-info';
 }
 
 /** A slider with its lights, ready to render. */
@@ -59,6 +70,7 @@ export interface Group {
   key: string;
   name?: string;
   icon?: string;
+  showIcon: boolean;
   scenes?: string[];
   /** Light the top slider controls. Without it the slider controls all `entities`. */
   main?: string;
@@ -72,6 +84,7 @@ export interface NormalizedConfig {
   /** Room mode: icon in the room heading. */
   icon?: string;
   compact: boolean;
+  groupAction: 'expand' | 'more-info';
   groups: Group[];
   /** Every light on the card. */
   entityIds: string[];
@@ -164,6 +177,7 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
       makeGroup('main', config, 'the card', {
         name: config.name || undefined,
         icon: config.icon || undefined,
+        showIcon: config.show_icon !== false,
         scenes: sceneList(config.scenes, 'the card'),
         expanded,
       }),
@@ -178,6 +192,7 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
       return makeGroup(`item-${i}`, item, where, {
         name: item.name || undefined,
         icon: item.icon || undefined,
+        showIcon: item.show_icon !== false,
         scenes: sceneList(item.scenes, where),
         expanded: item.expanded ?? expanded,
       });
@@ -199,6 +214,7 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
     name: config.name || undefined,
     icon: mode === 'room' ? config.icon || undefined : undefined,
     compact: config.compact ?? DEFAULTS.compact,
+    groupAction: config.group_action === 'more-info' ? 'more-info' : 'expand',
     groups,
     toggleOnly,
     entityIds: [

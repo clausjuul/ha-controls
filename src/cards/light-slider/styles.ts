@@ -225,39 +225,63 @@ export const styles = css`
     padding: 0.857rem 1rem;
   }
   .row.compact {
-    --hac-slider-height: 2.286rem;
-    --hac-slider-radius: 0.571rem;
     flex-direction: row;
     align-items: center;
-    gap: 0.857rem;
+    gap: 0.714rem;
+    min-height: 2.857rem;
   }
-  .row.compact .icon {
+  .row.compact .icon,
+  .row.compact .icon-spacer {
+    flex: none;
     width: 2.286rem;
     height: 2.286rem;
     --mdc-icon-size: 1.286rem;
   }
   .row.compact .name {
-    flex: 0 0 6.5rem;
+    flex: 0 1 5rem;
+    min-width: 2.857rem;
+    display: flex;
+    align-items: center;
+    gap: 0.143rem;
     font-size: 0.93rem;
     font-weight: 400;
+    text-align: left;
   }
-  .row.compact .name.clickable {
-    cursor: pointer;
+  .name-text {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
-  .row.compact hac-slider,
-  .row.compact .toggle-bar {
+  .row.compact .name-button {
+    height: 2.286rem;
+    color: var(--primary-text-color);
+  }
+  .name-button ha-icon {
+    flex: none;
+    --mdc-icon-size: 1.143rem;
+    color: var(--secondary-text-color);
+    transition: transform 200ms ease;
+  }
+  .name-button.open ha-icon {
+    transform: rotate(180deg);
+  }
+  .row.compact hac-slider {
+    flex: 1 1 9rem;
+    min-width: 7.143rem;
+  }
+  .row.compact .grow {
     flex: 1;
     min-width: 0;
   }
-  .row.compact .toggle-bar {
-    padding: 0 1.143rem;
-  }
-  .row.compact .toggle-text {
+  .row.compact .grow {
+    text-align: right;
     font-size: 0.93rem;
+    color: var(--secondary-text-color);
   }
   .row.compact .actions {
     flex: none;
-    gap: 0;
+    gap: 0.286rem;
   }
   .row.compact .action,
   .row.compact .action-spacer {
@@ -266,11 +290,43 @@ export const styles = css`
     height: 2.286rem;
     --mdc-icon-size: 1.286rem;
   }
-  ha-card.compact .lights .row.compact .name {
-    flex-basis: 5.5rem;
-  }
   .row.compact .expand ha-icon {
-    --mdc-icon-size: 1.571rem;
+    --mdc-icon-size: 1.714rem;
+  }
+  .switch {
+    flex: none;
+    position: relative;
+    width: 2.857rem;
+    height: 1.714rem;
+    border-radius: 0.857rem;
+    background: color-mix(in srgb, var(--primary-text-color, #000) 22%, transparent);
+    transition: background 180ms;
+  }
+  .switch::before {
+    /* Bigger tap target than the switch itself */
+    content: '';
+    position: absolute;
+    inset: -0.571rem -0.286rem;
+  }
+  .switch-knob {
+    position: absolute;
+    top: 0.214rem;
+    left: 0.214rem;
+    width: 1.286rem;
+    height: 1.286rem;
+    border-radius: 50%;
+    background: var(--card-background-color, var(--ha-card-background, #fff));
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transition: transform 180ms ease;
+  }
+  .switch.on {
+    background: var(--_light);
+  }
+  .switch.on .switch-knob {
+    transform: translateX(1.143rem);
+  }
+  ha-card.compact .lights .row.compact .name {
+    flex-basis: 4rem;
   }
   ha-card.compact .items {
     gap: 0.857rem;

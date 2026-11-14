@@ -218,7 +218,7 @@
         icon: 'mdi:sofa',
         compact: true,
         items: [
-          { name: 'Loft', main_entity: 'light.loft_gruppe', entities: ['light.stue', 'light.koekken'] },
+          { name: 'Loft', main_entity: 'light.loft_gruppe', entities: ['light.stue', { entity: 'light.koekken', name: 'Spots', show_icon: false }] },
           { entity: 'light.sofa', name: 'Sofa' },
           { entity: 'switch.lampe_stik', name: 'Stikkontakt' },
           { name: 'Gang og kontor', entities: ['light.gang', 'light.kontor'] },
