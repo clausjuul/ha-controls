@@ -321,7 +321,7 @@ export class LightSliderCard extends LitElement {
         g.main
           ? { title: '', ids: [g.main], sceneIds: [g.main, ...ids], sceneOverride: g.scenes }
           : { title: '', ids, sceneOverride: g.scenes ?? (multi ? undefined : g.entities[0].scenes) },
-        multi || (!!g.main && g.groupAction === 'more-info'),
+        multi && !(g.main && g.groupAction === 'more-info'),
         g.showIcon && (multi || g.main ? true : g.entities[0].show_icon !== false),
       );
       if (multi && this._expanded[g.key]) {
@@ -601,7 +601,10 @@ export class LightSliderCard extends LitElement {
 
     if (this._config!.compact) {
       const hasMenu = hasColor || hasScenes;
-      const cols = this._columns ?? { icon: showIcon || !!o.expander, menu: hasMenu };
+      const cols = this._columns ?? {
+        icon: showIcon || (!!o.expander && !opensDialog),
+        menu: hasMenu,
+      };
       const spacer = html`<span class="action-spacer"></span>`;
       return html`
         <div
@@ -609,7 +612,7 @@ export class LightSliderCard extends LitElement {
           style=${o.color ? `--hac-light-color: ${o.color}` : ''}
         >
           ${cols.icon
-            ? o.expander
+            ? o.expander && !opensDialog
               ? html`<button
                   class="icon chevron ${o.expander.expanded ? 'open' : ''}"
                   aria-label=${opensDialog ? t('details') : t('expand')}
@@ -686,12 +689,16 @@ export class LightSliderCard extends LitElement {
       >
         <div class="top">
           ${showIcon ? iconButton() : nothing}
-          <div
-            class="info ${o.expander ? 'clickable' : ''}"
-            @click=${o.expander ? o.expander.onExpand : undefined}
-          >
-            <span class="name">${o.name}</span>
-          </div>
+          ${o.expander
+            ? html`<button
+                class="info clickable"
+                aria-haspopup=${opensDialog ? 'dialog' : nothing}
+                aria-expanded=${opensDialog ? nothing : o.expander.expanded ? 'true' : 'false'}
+                @click=${o.expander.onExpand}
+              >
+                <span class="name">${o.name}</span>
+              </button>`
+            : html`<div class="info"><span class="name">${o.name}</span></div>`}
           <div class="actions">
             ${hasColor ? colorButton() : nothing} ${hasScenes ? scenesButton() : nothing}
           </div>
@@ -712,7 +719,7 @@ export class LightSliderCard extends LitElement {
                 @value-changed=${(e: CustomEvent<{ value: number }>) =>
                   o.onBrightness(e.detail.value)}
               ></hac-slider>
-              ${o.expander ? expandButton('expand-tile') : nothing}
+              ${o.expander && !opensDialog ? expandButton('expand-tile') : nothing}
             </div>`
           : html`<div class="bottom">
               <button
@@ -727,7 +734,7 @@ export class LightSliderCard extends LitElement {
                 </span>
                 ${o.endText ? html`<span class="toggle-end">${o.endText}</span>` : nothing}
               </button>
-              ${o.expander ? expandButton('expand-tile') : nothing}
+              ${o.expander && !opensDialog ? expandButton('expand-tile') : nothing}
             </div>`}
       </div>
     `;

@@ -112,6 +112,8 @@ export const styles = css`
   }
   .info.clickable {
     cursor: pointer;
+    text-align: left;
+    min-height: 2.857rem;
   }
   .name {
     font-size: 1rem;
