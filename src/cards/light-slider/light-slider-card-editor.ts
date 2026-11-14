@@ -79,7 +79,6 @@ const ROOM_SCHEMA = [
     ],
   },
   ...OPTIONS_SCHEMA,
-  GROUP_ACTION,
 ];
 
 const ITEM_SCHEMA = [
@@ -93,6 +92,7 @@ const ITEM_SCHEMA = [
     ],
   },
   { name: 'show_icon', selector: { boolean: {} } },
+  GROUP_ACTION,
   TOGGLE_ONLY,
   SCENES,
 ];
@@ -102,6 +102,7 @@ type EntityList = Array<string | LightEntityConfig>;
 
 interface ListData {
   main_entity?: string;
+  group_action?: string;
   show_icon?: boolean;
   name?: string;
   icon?: string;
@@ -279,12 +280,13 @@ export class LightSliderCardEditor extends LitElement {
               .data=${{
                 main_entity: item.main_entity ?? '',
                 show_icon: item.show_icon !== false,
+                group_action: item.group_action ?? this._config!.group_action ?? 'expand',
                 name: item.name ?? '',
                 icon: item.icon ?? '',
                 scenes: item.scenes ?? [],
                 toggle_only: item.toggle_only ?? [],
               }}
-              .schema=${ITEM_SCHEMA}
+              .schema=${this._localized(ITEM_SCHEMA)}
               .computeLabel=${this._label}
               @value-changed=${(ev: CustomEvent<{ value: ListData }>) => this._itemChanged(i, ev)}
             ></ha-form>
@@ -308,8 +310,11 @@ export class LightSliderCardEditor extends LitElement {
     config: LightSliderCardConfig,
     data: Partial<Record<BoolKey, boolean>> & { group_action?: string },
   ) {
-    if (data.group_action === 'more-info') config.group_action = 'more-info';
-    else delete config.group_action;
+    // Only the single-mode form has this field; room forms leave it alone.
+    if ('group_action' in data) {
+      if (data.group_action === 'more-info') config.group_action = 'more-info';
+      else delete config.group_action;
+    }
     for (const key of Object.keys(DEFAULTS) as BoolKey[]) {
       const value = data[key];
       if (value === undefined || value === DEFAULTS[key]) delete config[key];
@@ -413,6 +418,13 @@ export class LightSliderCardEditor extends LitElement {
     const data = ev.detail.value;
     const item: RoomItemConfig = { ...old };
     setOrDelete(item, 'main_entity', data.main_entity);
+    // Store it only when it differs from the card's default.
+    const cardDefault = this._config!.group_action ?? 'expand';
+    if (data.group_action && data.group_action !== cardDefault) {
+      item.group_action = data.group_action as RoomItemConfig['group_action'];
+    } else {
+      delete item.group_action;
+    }
     if (data.show_icon === false) item.show_icon = false;
     else delete item.show_icon;
     setOrDelete(item, 'name', data.name);

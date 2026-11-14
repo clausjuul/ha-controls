@@ -112,6 +112,8 @@ export const styles = css`
   }
   .info.clickable {
     cursor: pointer;
+    text-align: left;
+    min-height: 2.857rem;
   }
   .name {
     font-size: 1rem;
@@ -343,8 +345,13 @@ export const styles = css`
     margin-top: 0;
   }
   ha-card.compact .lights {
-    margin: 0.857rem 0 0;
+    /* A faint panel behind the expanded lights. The negative margin lets it
+       reach into the card padding, so the rows stay aligned with the rest. */
+    margin: 0.571rem -0.571rem 0;
+    padding: 0.429rem 0.571rem;
     gap: 0.857rem;
+    border-radius: 0.857rem;
+    background: color-mix(in srgb, var(--primary-text-color, #000) 5%, transparent);
   }
   .room-header.compact {
     --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));

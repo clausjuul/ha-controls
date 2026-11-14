@@ -16,6 +16,8 @@ const isAllowed = (id: unknown): id is string =>
 
 export interface RoomItemConfig {
   name?: string;
+  /** What opening this group does when it has a `main_entity` (see the card option). */
+  group_action?: 'expand' | 'more-info';
   /** Hide the icon in front of this slider (default shown). */
   show_icon?: boolean;
   /** Lights to show as plain on/off instead of a slider. */
@@ -66,11 +68,15 @@ export interface LightSliderCardConfig {
 }
 
 /** A slider with its lights, ready to render. */
+export type GroupAction = 'expand' | 'more-info';
+
 export interface Group {
   key: string;
   name?: string;
   icon?: string;
   showIcon: boolean;
+  /** What opening the group does when it has a main light. */
+  groupAction: GroupAction;
   scenes?: string[];
   /** Light the top slider controls. Without it the slider controls all `entities`. */
   main?: string;
@@ -84,7 +90,6 @@ export interface NormalizedConfig {
   /** Room mode: icon in the room heading. */
   icon?: string;
   compact: boolean;
-  groupAction: 'expand' | 'more-info';
   groups: Group[];
   /** Every light on the card. */
   entityIds: string[];
@@ -170,6 +175,10 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
   const mode: CardMode = config.mode ?? 'single';
   if (mode !== 'single' && mode !== 'room') throw new Error(`Unknown mode "${mode}"`);
   const expanded = config.expanded ?? DEFAULTS.expanded;
+  const action = (value: unknown): GroupAction | undefined =>
+    value === 'more-info' || value === 'expand' ? value : undefined;
+  // The card-level value is the default for every group (and the only one in single mode).
+  const cardAction = action(config.group_action) ?? 'expand';
 
   let groups: Group[];
   if (mode === 'single') {
@@ -178,6 +187,7 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
         name: config.name || undefined,
         icon: config.icon || undefined,
         showIcon: config.show_icon !== false,
+        groupAction: cardAction,
         scenes: sceneList(config.scenes, 'the card'),
         expanded,
       }),
@@ -193,6 +203,7 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
         name: item.name || undefined,
         icon: item.icon || undefined,
         showIcon: item.show_icon !== false,
+        groupAction: action(item.group_action) ?? cardAction,
         scenes: sceneList(item.scenes, where),
         expanded: item.expanded ?? expanded,
       });
@@ -214,7 +225,6 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
     name: config.name || undefined,
     icon: mode === 'room' ? config.icon || undefined : undefined,
     compact: config.compact ?? DEFAULTS.compact,
-    groupAction: config.group_action === 'more-info' ? 'more-info' : 'expand',
     groups,
     toggleOnly,
     entityIds: [
