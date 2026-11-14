@@ -445,11 +445,11 @@ export class HacSlider extends LitElement {
     }
     .thin-value {
       flex: none;
-      width: 3.5rem;
+      width: 3rem;
       overflow: hidden;
       text-overflow: ellipsis;
       text-align: right;
-      font-size: 0.93rem;
+      font-size: 0.857rem;
       font-variant-numeric: tabular-nums;
       color: var(--primary-text-color);
       white-space: nowrap;

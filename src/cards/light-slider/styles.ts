@@ -238,7 +238,7 @@ export const styles = css`
     --mdc-icon-size: 1.286rem;
   }
   .row.compact .name {
-    flex: 0 1 6rem;
+    flex: 0 1 5rem;
     min-width: 2.857rem;
     display: flex;
     align-items: center;
@@ -267,8 +267,8 @@ export const styles = css`
     transform: rotate(180deg);
   }
   .row.compact hac-slider {
-    flex: 1 1 8rem;
-    min-width: 5.714rem;
+    flex: 1 1 9rem;
+    min-width: 7.143rem;
   }
   .row.compact .grow {
     flex: 1;
@@ -326,7 +326,7 @@ export const styles = css`
     transform: translateX(1.143rem);
   }
   ha-card.compact .lights .row.compact .name {
-    flex-basis: 5rem;
+    flex-basis: 4rem;
   }
   ha-card.compact .items {
     gap: 0.857rem;
