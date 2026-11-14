@@ -253,6 +253,17 @@ export const styles = css`
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+  .row.compact .icon.chevron {
+    background: transparent;
+    color: var(--secondary-text-color);
+    --mdc-icon-size: 1.857rem;
+  }
+  .row.compact .icon.chevron ha-icon {
+    transition: transform 200ms ease;
+  }
+  .row.compact .icon.chevron.open ha-icon {
+    transform: rotate(180deg);
+  }
   .row.compact .name-button {
     height: 2.286rem;
     color: var(--primary-text-color);
@@ -325,9 +336,6 @@ export const styles = css`
   .switch.on .switch-knob {
     transform: translateX(1.143rem);
   }
-  ha-card.compact .lights .row.compact .name {
-    flex-basis: 4rem;
-  }
   ha-card.compact .items {
     gap: 0.857rem;
   }
@@ -335,7 +343,7 @@ export const styles = css`
     margin-top: 0;
   }
   ha-card.compact .lights {
-    margin: 0.857rem 0 0 1rem;
+    margin: 0.857rem 0 0;
     gap: 0.857rem;
   }
   .room-header.compact {

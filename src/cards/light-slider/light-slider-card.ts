@@ -308,8 +308,9 @@ export class LightSliderCard extends LitElement {
   private _compactColumns(): { icon: boolean; menu: boolean } {
     const cfg = this._config!;
     const cols = { icon: false, menu: false };
-    const add = (target: Target, _expander: boolean, showIcon: boolean) => {
-      cols.icon ||= showIcon;
+    const add = (target: Target, expander: boolean, showIcon: boolean) => {
+      // A row that can be expanded shows its chevron in the icon column.
+      cols.icon ||= showIcon || expander;
       cols.menu ||=
         this._colorLights(target.ids).any || (cfg.show_scenes && this._scenes(target).length > 0);
     };
@@ -320,7 +321,7 @@ export class LightSliderCard extends LitElement {
         g.main
           ? { title: '', ids: [g.main], sceneIds: [g.main, ...ids], sceneOverride: g.scenes }
           : { title: '', ids, sceneOverride: g.scenes ?? (multi ? undefined : g.entities[0].scenes) },
-        multi,
+        multi || (!!g.main && cfg.groupAction === 'more-info'),
         g.showIcon && (multi || g.main ? true : g.entities[0].show_icon !== false),
       );
       if (multi && this._expanded[g.key]) {
@@ -600,14 +601,28 @@ export class LightSliderCard extends LitElement {
 
     if (this._config!.compact) {
       const hasMenu = hasColor || hasScenes;
-      const cols = this._columns ?? { icon: showIcon, menu: hasMenu };
+      const cols = this._columns ?? { icon: showIcon || !!o.expander, menu: hasMenu };
       const spacer = html`<span class="action-spacer"></span>`;
       return html`
         <div
           class="row compact ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''}"
           style=${o.color ? `--hac-light-color: ${o.color}` : ''}
         >
-          ${cols.icon ? (showIcon ? iconButton() : html`<span class="icon-spacer"></span>`) : nothing}
+          ${cols.icon
+            ? o.expander
+              ? html`<button
+                  class="icon chevron ${o.expander.expanded ? 'open' : ''}"
+                  aria-label=${opensDialog ? t('details') : t('expand')}
+                  aria-haspopup=${opensDialog ? 'dialog' : nothing}
+                  aria-expanded=${opensDialog ? nothing : o.expander.expanded ? 'true' : 'false'}
+                  @click=${o.expander.onExpand}
+                >
+                  <ha-icon icon=${expandIcon}></ha-icon>
+                </button>`
+              : showIcon
+                ? iconButton()
+                : html`<span class="icon-spacer"></span>`
+            : nothing}
           ${o.expander
             ? html`<button
                 class="name name-button ${o.expander.expanded ? 'open' : ''}"
@@ -617,7 +632,6 @@ export class LightSliderCard extends LitElement {
                 @click=${o.expander.onExpand}
               >
                 <span class="name-text">${o.name}</span>
-                <ha-icon icon=${expandIcon}></ha-icon>
               </button>`
             : html`<span class="name" title=${o.name}><span class="name-text">${o.name}</span></span>`}
           ${o.brightness !== undefined
