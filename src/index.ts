@@ -8,6 +8,12 @@ import {
 } from './cards/light-slider/light-slider-card';
 import { LightSliderCardEditor } from './cards/light-slider/light-slider-card-editor';
 import { HacEntitiesEditor } from './cards/light-slider/entities-editor';
+import {
+  GROUPED_EDITOR_TAG,
+  GROUPED_TAG,
+  GroupedLightsCard,
+} from './cards/grouped-lights/grouped-lights-card';
+import { GroupedLightsCardEditor } from './cards/grouped-lights/grouped-lights-card-editor';
 
 declare const __VERSION__: string;
 
@@ -21,6 +27,8 @@ define('hac-color-wheel', HacColorWheel);
 define(CARD_TAG, LightSliderCard);
 define(EDITOR_TAG, LightSliderCardEditor);
 define('hac-entities-editor', HacEntitiesEditor);
+define(GROUPED_TAG, GroupedLightsCard);
+define(GROUPED_EDITOR_TAG, GroupedLightsCardEditor);
 
 window.customCards = window.customCards ?? [];
 const cards = [
@@ -30,6 +38,13 @@ const cards = [
     description: 'Horizontal brightness slider for one or more lights, with color temperature and color.',
     preview: true,
     documentationURL: `${REPO_URL}#light-slider-card`,
+  },
+  {
+    type: GROUPED_TAG,
+    name: 'Grouped Lights Card',
+    description: 'Rooms with a row of scenes and a bar per light or group of lights.',
+    preview: true,
+    documentationURL: `${REPO_URL}#grouped-lights-card`,
   },
 ];
 for (const card of cards) {

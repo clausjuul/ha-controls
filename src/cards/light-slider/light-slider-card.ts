@@ -1,4 +1,11 @@
-import { LitElement, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
+import {
+  LitElement,
+  html,
+  nothing,
+  type CSSResultGroup,
+  type PropertyValues,
+  type TemplateResult,
+} from 'lit';
 import { property, state, query } from 'lit/decorators.js';
 import { fireEvent, type HassEntity, type HomeAssistant } from '../../shared/types';
 import { localize, type Localize } from '../../shared/localize';
@@ -43,7 +50,7 @@ const ICON_COLOR = 'mdi:palette';
 const ICON_SCENES = 'mdi:creation';
 
 /** What a row's colour / scene buttons act on. */
-interface Target {
+export interface Target {
   title: string;
   /** Lights that colour and brightness changes apply to. */
   ids: string[];
@@ -53,9 +60,12 @@ interface Target {
   sceneOverride?: string[];
 }
 
-interface DialogState extends Target {
-  /** `controls` = colour and scenes together, in tabs (compact rows). */
-  kind: 'color' | 'scenes' | 'controls';
+export interface DialogState extends Target {
+  /**
+   * `controls` = colour and scenes together, in tabs (compact rows).
+   * `lights` = the lights of a group, rendered by a subclass.
+   */
+  kind: 'color' | 'scenes' | 'controls' | 'lights';
 }
 
 type PopupTab = 'white' | 'color' | 'scenes';
@@ -93,24 +103,24 @@ interface RowOptions {
 
 export class LightSliderCard extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
-  @state() private _config?: NormalizedConfig;
+  @state() protected _config?: NormalizedConfig;
   /** Which groups show their individual lights, by group key. */
-  @state() private _expanded: Readonly<Record<string, boolean>> = {};
-  @state() private _dialog?: DialogState;
+  @state() protected _expanded: Readonly<Record<string, boolean>> = {};
+  @state() protected _dialog?: DialogState;
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
-  @state() private _popupHs?: [number, number];
-  @state() private _colorTab?: PopupTab;
-  @query('dialog') private _dialogEl?: HTMLDialogElement;
+  @state() protected _popupHs?: [number, number];
+  @state() protected _colorTab?: PopupTab;
+  @query('dialog') protected _dialogEl?: HTMLDialogElement;
 
   /** Compact button columns for the current render. */
-  private _columns?: { icon: boolean; menu: boolean };
+  protected _columns?: { icon: boolean; menu: boolean };
   /** Expected states after our own service calls, so the UI reacts instantly. */
-  private _optimistic = new OptimisticStates(() => this.requestUpdate());
-  private _popupHsTimer?: number;
-  private _liveTimer?: number;
-  private _lastLive = 0;
+  protected _optimistic = new OptimisticStates(() => this.requestUpdate());
+  protected _popupHsTimer?: number;
+  protected _liveTimer?: number;
+  protected _lastLive = 0;
 
-  static styles = styles;
+  static styles: CSSResultGroup = styles;
 
   static getConfigElement(): HTMLElement {
     return document.createElement(EDITOR_TAG);
@@ -174,7 +184,7 @@ export class LightSliderCard extends LitElement {
    * off gets its last known look as a hint, so it doesn't flash 100 % / the
    * default colour while turning on.
    */
-  private _expect(id: string, patch: Patch) {
+  protected _expect(id: string, patch: Patch) {
     const base = this.hass!.states[id];
     if (!base) return;
     const hints = patch.state === 'on' && base.state !== 'on' ? lastOn(id) : undefined;
@@ -182,7 +192,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** An entity's state, including changes we've just asked for. */
-  private _state(id: string): HassEntity | undefined {
+  protected _state(id: string): HassEntity | undefined {
     return this._optimistic.get(this.hass!.states[id]);
   }
 
@@ -202,11 +212,11 @@ export class LightSliderCard extends LitElement {
   // ------------------------------------------------------- popup position
 
   /** The row whose button opened the popup. */
-  private _anchor?: HTMLElement;
-  private _resizeObserver?: ResizeObserver;
-  private _reposition = () => this._position();
+  protected _anchor?: HTMLElement;
+  protected _resizeObserver?: ResizeObserver;
+  protected _reposition = () => this._position();
 
-  private _watchPosition(on: boolean) {
+  protected _watchPosition(on: boolean) {
     if (on) {
       if (this._resizeObserver) return;
       this._resizeObserver = new ResizeObserver(this._reposition);
@@ -225,7 +235,7 @@ export class LightSliderCard extends LitElement {
    * Place the popup next to the card: below the row that opened it, above it
    * if there's no room, otherwise as close as the screen allows.
    */
-  private _position() {
+  protected _position() {
     const dialog = this._dialogEl;
     const card = this.renderRoot.querySelector('ha-card');
     if (!dialog?.open || !card) return;
@@ -278,7 +288,7 @@ export class LightSliderCard extends LitElement {
     `;
   }
 
-  private _renderRoomHeader(t: Localize): TemplateResult | typeof nothing {
+  protected _renderRoomHeader(t: Localize): TemplateResult | typeof nothing {
     const cfg = this._config!;
     if (cfg.compact) return this._renderRoomHeaderCompact(t);
     if (!cfg.name) return nothing;
@@ -305,7 +315,7 @@ export class LightSliderCard extends LitElement {
    * Which button columns any visible compact row uses, so every row can keep
    * the same columns and the bars and buttons line up.
    */
-  private _compactColumns(): { icon: boolean; menu: boolean } {
+  protected _compactColumns(): { icon: boolean; menu: boolean } {
     const cfg = this._config!;
     const cols = { icon: false, menu: false };
     const add = (target: Target, expander: boolean, showIcon: boolean) => {
@@ -334,7 +344,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** Compact room heading: icon (toggles the room), name, brightness and count. */
-  private _renderRoomHeaderCompact(t: Localize): TemplateResult {
+  protected _renderRoomHeaderCompact(t: Localize): TemplateResult {
     const cfg = this._config!;
     const available = this._available(cfg.entityIds);
     const on = available.filter(isOn);
@@ -375,7 +385,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** One slider: a single light, or several lights that can be expanded. */
-  private _renderGroup(group: Group, t: Localize): TemplateResult {
+  protected _renderGroup(group: Group, t: Localize): TemplateResult {
     if (group.main) return this._renderWithMain(group, group.main, t);
     return group.entities.length === 1
       ? this._renderSingle(group, t)
@@ -383,7 +393,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** The top slider controls one main light; the other lights are its children. */
-  private _renderWithMain(group: Group, main: string, t: Localize): TemplateResult {
+  protected _renderWithMain(group: Group, main: string, t: Localize): TemplateResult {
     const s = this._state(main);
     if (!s) return this._renderMissing(main, t);
     const children = group.entities;
@@ -434,7 +444,7 @@ export class LightSliderCard extends LitElement {
     `;
   }
 
-  private _renderSingle(group: Group, t: Localize): TemplateResult {
+  protected _renderSingle(group: Group, t: Localize): TemplateResult {
     const conf = group.entities[0];
     const s = this._state(conf.entity);
     if (!s) return this._renderMissing(conf.entity, t);
@@ -450,7 +460,7 @@ export class LightSliderCard extends LitElement {
     });
   }
 
-  private _renderMulti(group: Group, t: Localize): TemplateResult {
+  protected _renderMulti(group: Group, t: Localize): TemplateResult {
     const confs = group.entities;
     const ids = confs.map((c) => c.entity);
     const states = ids
@@ -510,7 +520,7 @@ export class LightSliderCard extends LitElement {
     `;
   }
 
-  private _renderSubLight(conf: LightEntityConfig, t: Localize): TemplateResult {
+  protected _renderSubLight(conf: LightEntityConfig, t: Localize): TemplateResult {
     const s = this._state(conf.entity);
     if (!s) return this._renderMissing(conf.entity, t);
     const name = conf.name ?? s.attributes.friendly_name ?? conf.entity;
@@ -527,7 +537,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** Row fields shared by single and sub-rows for one light. */
-  private _lightRowBase(s: HassEntity, conf: LightEntityConfig, t: Localize) {
+  protected _lightRowBase(s: HassEntity, conf: LightEntityConfig, t: Localize) {
     const unavailable = isUnavailable(s);
     const on = isOn(s);
     const dimmable = this._dimmable(s);
@@ -551,7 +561,7 @@ export class LightSliderCard extends LitElement {
     };
   }
 
-  private _renderRow(o: RowOptions): TemplateResult {
+  protected _renderRow(o: RowOptions): TemplateResult {
     const t = localize(this.hass);
     const hasColor = this._colorLights(o.target.ids).any;
     const hasScenes = this._config!.show_scenes && this._scenes(o.target).length > 0;
@@ -740,31 +750,41 @@ export class LightSliderCard extends LitElement {
     `;
   }
 
-  private _renderMissing(entity: string, t: Localize): TemplateResult {
+  protected _renderMissing(entity: string, t: Localize): TemplateResult {
     return html`<div class="row missing">${t('not_found', { entity })}</div>`;
   }
 
   // ---------------------------------------------------------------- dialog
 
-  private _renderDialog(t: Localize): TemplateResult {
+  protected _renderDialog(t: Localize): TemplateResult {
     const d = this._dialog;
     return html`
       <dialog
-        aria-label=${d ? `${t(d.kind === 'scenes' ? 'scenes' : 'color')}: ${d.title}` : nothing}
+        aria-label=${d
+          ? `${t(d.kind === 'scenes' ? 'scenes' : d.kind === 'lights' ? 'lights' : 'color')}: ${d.title}`
+          : nothing}
         @close=${this._closeDialog}
         @click=${this._onDialogClick}
       >
         ${d
           ? html`<div class="sheet">
               <div class="sheet-header">
-                <ha-icon icon=${d.kind === 'scenes' ? ICON_SCENES : ICON_COLOR}></ha-icon>
+                <ha-icon
+                  icon=${d.kind === 'scenes'
+                    ? ICON_SCENES
+                    : d.kind === 'lights'
+                      ? 'mdi:lightbulb-group'
+                      : ICON_COLOR}
+                ></ha-icon>
                 <span class="sheet-title">${d.title}</span>
                 <button class="action" aria-label=${t('close')} @click=${this._closeDialog}>
                   <ha-icon icon="mdi:close"></ha-icon>
                 </button>
               </div>
               <div class="sheet-body">
-                ${d.kind === 'color'
+                ${d.kind === 'lights'
+                  ? this._renderLightsDialog(d, t)
+                  : d.kind === 'color'
                   ? this._renderColorControls(d.ids, t)
                   : d.kind === 'scenes'
                     ? this._renderScenes(d, t)
@@ -782,14 +802,19 @@ export class LightSliderCard extends LitElement {
     `;
   }
 
-  private _openDialog(kind: DialogState['kind'], target: Target, ev: Event) {
+  /** Content of a `lights` popup; subclasses that open one override this. */
+  protected _renderLightsDialog(_d: DialogState, _t: Localize): TemplateResult {
+    return html``;
+  }
+
+  protected _openDialog(kind: DialogState['kind'], target: Target, ev: Event) {
     this._anchor = (ev.currentTarget as HTMLElement).closest<HTMLElement>('.row') ?? undefined;
     this._popupHs = undefined;
     this._colorTab = undefined;
     this._dialog = { kind, ...target };
   }
 
-  private _closeDialog = () => {
+  protected _closeDialog = () => {
     this._dialog = undefined;
     this._anchor = undefined;
     this._popupHs = undefined;
@@ -797,11 +822,11 @@ export class LightSliderCard extends LitElement {
   };
 
   /** Clicks on the backdrop land on the <dialog> itself. */
-  private _onDialogClick(ev: MouseEvent) {
+  protected _onDialogClick(ev: MouseEvent) {
     if (ev.target === ev.currentTarget) this._closeDialog();
   }
 
-  private _renderColorControls(
+  protected _renderColorControls(
     ids: string[],
     t: Localize,
     scenesTab?: TemplateResult,
@@ -931,7 +956,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** Open on the tab matching what the lights are doing now. */
-  private _defaultColorTab(ids: string[]): 'white' | 'color' {
+  protected _defaultColorTab(ids: string[]): 'white' | 'color' {
     const on = this._available(ids).find(isOn);
     const mode = on?.attributes.color_mode;
     return mode && mode !== 'color_temp' && mode !== 'brightness' && mode !== 'onoff' && mode !== 'white'
@@ -939,7 +964,7 @@ export class LightSliderCard extends LitElement {
       : 'white';
   }
 
-  private _renderScenes(target: Target, t: Localize): TemplateResult {
+  protected _renderScenes(target: Target, t: Localize): TemplateResult {
     const scenes = this._scenes(target);
     if (!scenes.length) return html`<div class="empty">${t('no_scenes')}</div>`;
 
@@ -969,7 +994,7 @@ export class LightSliderCard extends LitElement {
   // --------------------------------------------------------------- helpers
 
   /** Lights among `ids` whose colour temperature / colour can be set. */
-  private _colorLights(ids: string[]) {
+  protected _colorLights(ids: string[]) {
     const cfg = this._config!;
     const states = this._available(ids).filter(
       (st) => st.entity_id.startsWith('light.') && !cfg.toggleOnly.has(st.entity_id),
@@ -980,7 +1005,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** Scenes chosen in the config, or every scene that includes one of the lights. */
-  private _scenes(target: Target): HassEntity[] {
+  protected _scenes(target: Target): HassEntity[] {
     const states = this.hass!.states;
     if (target.sceneOverride) {
       return target.sceneOverride
@@ -999,14 +1024,14 @@ export class LightSliderCard extends LitElement {
     return found.sort((a, b) => name(a).localeCompare(name(b)));
   }
 
-  private _setPopupHs(hs: [number, number]) {
+  protected _setPopupHs(hs: [number, number]) {
     this._popupHs = hs;
     window.clearTimeout(this._popupHsTimer);
     this._popupHsTimer = window.setTimeout(() => (this._popupHs = undefined), 5000);
   }
 
   /** Update the lights while the wheel is dragged, at most every 300 ms. */
-  private _applyLive(ids: string[], hs: [number, number]) {
+  protected _applyLive(ids: string[], hs: [number, number]) {
     window.clearTimeout(this._liveTimer);
     const send = () => {
       this._lastLive = Date.now();
@@ -1019,13 +1044,13 @@ export class LightSliderCard extends LitElement {
 
   // -------------------------------------------------------------- services
 
-  private _available(ids: string[]): HassEntity[] {
+  protected _available(ids: string[]): HassEntity[] {
     return ids
       .map((id) => this._state(id))
       .filter((s): s is HassEntity => !!s && !isUnavailable(s));
   }
 
-  private _toggle(ids: string[]) {
+  protected _toggle(ids: string[]) {
     const states = this._available(ids);
     if (!states.length) return;
     const turnOn = !states.some(isOn);
@@ -1033,7 +1058,7 @@ export class LightSliderCard extends LitElement {
     this._callOnOff(turnOn ? 'turn_on' : 'turn_off', states.map((st) => st.entity_id));
   }
 
-  private _setBrightness(ids: string[], pct: number) {
+  protected _setBrightness(ids: string[], pct: number) {
     const states = this._available(ids);
     if (!states.length) return;
     if (pct <= 0) {
@@ -1060,7 +1085,7 @@ export class LightSliderCard extends LitElement {
   }
 
   /** Turn entities on/off: lights via `light`, switches etc. via `homeassistant`. */
-  private _callOnOff(service: 'turn_on' | 'turn_off', ids: string[]) {
+  protected _callOnOff(service: 'turn_on' | 'turn_off', ids: string[]) {
     const lights = ids.filter((id) => id.startsWith('light.'));
     const others = ids.filter((id) => !id.startsWith('light.'));
     if (lights.length) this.hass!.callService('light', service, { entity_id: lights });
@@ -1068,18 +1093,18 @@ export class LightSliderCard extends LitElement {
   }
 
   /** Can this entity's brightness be set from the card? */
-  private _dimmable = (s: HassEntity): boolean =>
+  protected _dimmable = (s: HassEntity): boolean =>
     s.entity_id.startsWith('light.') &&
     !this._config!.toggleOnly.has(s.entity_id) &&
     supportsBrightness(s);
 
-  private _activateScene(scene: HassEntity) {
+  protected _activateScene(scene: HassEntity) {
     const base = this.hass!.states[scene.entity_id];
     if (base) this._optimistic.set(base, { state: new Date().toISOString() }, { untilChanged: true });
     this.hass!.callService('scene', 'turn_on', { entity_id: scene.entity_id });
   }
 
-  private _turnOn(ids: string[], data: Record<string, unknown>) {
+  protected _turnOn(ids: string[], data: Record<string, unknown>) {
     if (!ids.length) return;
     const attributes: Record<string, unknown> = {};
     if (typeof data.color_temp_kelvin === 'number') {
