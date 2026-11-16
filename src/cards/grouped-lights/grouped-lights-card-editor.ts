@@ -176,7 +176,7 @@ export class GroupedLightsCardEditor extends LitElement {
     const header = this._header(
       key,
       g.name || `${t('editor.group')} ${gi + 1}`,
-      t('editor.rows_count', { count: subs.length }),
+      subs.length === 1 ? t('editor.rows_count_one') : t('editor.rows_count', { count: subs.length }),
       gi,
       this._groups.length,
       (d) => {
@@ -240,7 +240,7 @@ export class GroupedLightsCardEditor extends LitElement {
     const header = this._header(
       key,
       String(title),
-      count ? t('editor.lights_count', { count }) : '',
+      count === 1 ? t('editor.lights_count_one') : count ? t('editor.lights_count', { count }) : '',
       si,
       subs.length,
       (d) => {
@@ -356,6 +356,10 @@ export class GroupedLightsCardEditor extends LitElement {
     .box > .box,
     .box > .add {
       margin-left: 8px;
+    }
+    .box > .add {
+      width: calc(100% - 8px);
+      margin-bottom: 8px;
     }
     .box > .header + * {
       margin-top: 8px;
