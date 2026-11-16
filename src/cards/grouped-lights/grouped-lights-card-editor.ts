@@ -62,6 +62,8 @@ function setOrDelete<T extends object, K extends keyof T>(obj: T, key: K, value:
 export class GroupedLightsCardEditor extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
   @state() private _config?: GroupedLightsCardConfig;
+  /** Open boxes: `g0` for a group, `g0-s1` for one of its rows. Closed by default. */
+  @state() private _open: ReadonlySet<string> = new Set();
 
   setConfig(config: GroupedLightsCardConfig): void {
     this._config = config;
@@ -114,23 +116,36 @@ export class GroupedLightsCardEditor extends LitElement {
         @value-changed=${this._optionsChanged}
       ></ha-form>
       ${this._groups.map((g, gi) => this._renderGroup(g, gi))}
-      <button class="add" @click=${() => this._setGroups([...this._groups, { name: '', subgroups: [] }])}>
+      <button
+        class="add"
+        @click=${() => {
+          this._openKey(`g${this._groups.length}`);
+          this._setGroups([...this._groups, { name: '', subgroups: [] }]);
+        }}
+      >
         <ha-icon icon="mdi:plus"></ha-icon>${t('editor.add_group')}
       </button>
     `;
   }
 
   private _header(
+    key: string,
     title: string,
+    summary: string,
     index: number,
     count: number,
     onMove: (delta: number) => void,
     onRemove: () => void,
   ): TemplateResult {
     const t = this._t;
+    const open = this._open.has(key);
     return html`
       <div class="header">
-        <span class="title">${title}</span>
+        <button class="toggle ${open ? 'open' : ''}" aria-expanded=${open ? 'true' : 'false'} @click=${() => this._toggle(key)}>
+          <ha-icon icon="mdi:chevron-down"></ha-icon>
+          <span class="title">${title}</span>
+          ${summary ? html`<span class="summary">${summary}</span>` : nothing}
+        </button>
         <button
           title=${t('editor.move_up')}
           aria-label=${t('editor.move_up')}
@@ -157,15 +172,26 @@ export class GroupedLightsCardEditor extends LitElement {
   private _renderGroup(g: GroupConfig, gi: number): TemplateResult {
     const t = this._t;
     const subs = g.subgroups ?? [];
+    const key = `g${gi}`;
+    const header = this._header(
+      key,
+      g.name || `${t('editor.group')} ${gi + 1}`,
+      t('editor.rows_count', { count: subs.length }),
+      gi,
+      this._groups.length,
+      (d) => {
+        this._remapGroups((i) => (i === gi ? gi + d : i === gi + d ? gi : i));
+        this._setGroups(move(this._groups, gi, d));
+      },
+      () => {
+        this._remapGroups((i) => (i === gi ? undefined : i > gi ? i - 1 : i));
+        this._setGroups(this._groups.filter((_, i) => i !== gi));
+      },
+    );
+    if (!this._open.has(key)) return html`<div class="box group">${header}</div>`;
     return html`
       <div class="box group">
-        ${this._header(
-          g.name || `${t('editor.group')} ${gi + 1}`,
-          gi,
-          this._groups.length,
-          (d) => this._setGroups(move(this._groups, gi, d)),
-          () => this._setGroups(this._groups.filter((_, i) => i !== gi)),
-        )}
+        ${header}
         <ha-form
           .hass=${this.hass}
           .data=${{ name: g.name ?? '', icon: g.icon ?? '', group_scenes: g.scenes ?? [] }}
@@ -183,7 +209,13 @@ export class GroupedLightsCardEditor extends LitElement {
         ></ha-form>
         <div class="subtitle">${t('rows')}</div>
         ${subs.map((sg, si) => this._renderSubgroup(g, gi, sg, si))}
-        <button class="add small" @click=${() => this._setGroup(gi, { ...g, subgroups: [...subs, {}] })}>
+        <button
+          class="add small"
+          @click=${() => {
+            this._openKey(`g${gi}-s${subs.length}`);
+            this._setGroup(gi, { ...g, subgroups: [...subs, {}] });
+          }}
+        >
           <ha-icon icon="mdi:plus"></ha-icon>${t('editor.add_row')}
         </button>
       </div>
@@ -203,15 +235,27 @@ export class GroupedLightsCardEditor extends LitElement {
       `${t('editor.row')} ${si + 1}`;
     const setSubs = (list: SubgroupConfig[]) => this._setGroup(gi, { ...g, subgroups: list });
 
+    const key = `g${gi}-s${si}`;
+    const count = entities.length + (sg.main_entity ? 1 : 0);
+    const header = this._header(
+      key,
+      String(title),
+      count ? t('editor.lights_count', { count }) : '',
+      si,
+      subs.length,
+      (d) => {
+        this._remapRows(gi, (i) => (i === si ? si + d : i === si + d ? si : i));
+        setSubs(move(subs, si, d));
+      },
+      () => {
+        this._remapRows(gi, (i) => (i === si ? undefined : i > si ? i - 1 : i));
+        setSubs(subs.filter((_, i) => i !== si));
+      },
+    );
+    if (!this._open.has(key)) return html`<div class="box">${header}</div>`;
     return html`
       <div class="box">
-        ${this._header(
-          String(title),
-          si,
-          subs.length,
-          (d) => setSubs(move(subs, si, d)),
-          () => setSubs(subs.filter((_, i) => i !== si)),
-        )}
+        ${header}
         <ha-form
           .hass=${this.hass}
           .data=${{
@@ -246,6 +290,46 @@ export class GroupedLightsCardEditor extends LitElement {
     `;
   }
 
+  // ------------------------------------------------------------ open/close
+
+  private _toggle(key: string) {
+    const next = new Set(this._open);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    this._open = next;
+  }
+
+  private _openKey(key: string) {
+    this._open = new Set([...this._open, key]);
+  }
+
+  /** Keep the right groups open when groups move or are removed. */
+  private _remapGroups(map: (index: number) => number | undefined) {
+    const next = new Set<string>();
+    for (const key of this._open) {
+      const m = /^g(\d+)(.*)$/.exec(key);
+      if (!m) continue;
+      const i = map(Number(m[1]));
+      if (i !== undefined) next.add(`g${i}${m[2]}`);
+    }
+    this._open = next;
+  }
+
+  /** Keep the right rows of group `gi` open when rows move or are removed. */
+  private _remapRows(gi: number, map: (index: number) => number | undefined) {
+    const prefix = `g${gi}-s`;
+    const next = new Set<string>();
+    for (const key of this._open) {
+      if (!key.startsWith(prefix)) {
+        next.add(key);
+        continue;
+      }
+      const i = map(Number(key.slice(prefix.length)));
+      if (i !== undefined) next.add(`${prefix}${i}`);
+    }
+    this._open = next;
+  }
+
   private _optionsChanged(ev: CustomEvent<{ value: Partial<Record<OptionKey, boolean>> }>) {
     ev.stopPropagation();
     const config: GroupedLightsCardConfig = { ...this._config! };
@@ -264,24 +348,55 @@ export class GroupedLightsCardEditor extends LitElement {
     .box {
       border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
       border-radius: 12px;
-      padding: 8px 12px 4px;
+      padding: 4px 8px 4px 4px;
       margin-bottom: 12px;
     }
-    .group {
-      padding-bottom: 12px;
+    .box > ha-form,
+    .box > .subtitle,
+    .box > .box,
+    .box > .add {
+      margin-left: 8px;
+    }
+    .box > .header + * {
+      margin-top: 8px;
     }
     .header {
       display: flex;
       align-items: center;
       gap: 4px;
-      margin-bottom: 8px;
+    }
+    .header .toggle {
+      flex: 1;
+      min-width: 0;
+      width: auto;
+      height: 40px;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 0 4px;
+      border-radius: 8px;
+      color: var(--primary-text-color);
+      text-align: left;
+    }
+    .toggle ha-icon {
+      flex: none;
+      color: var(--secondary-text-color);
+      transform: rotate(-90deg);
+      transition: transform 150ms ease;
+    }
+    .toggle.open ha-icon {
+      transform: none;
     }
     .title {
-      flex: 1;
+      min-width: 0;
       font-weight: 500;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+    .summary {
+      flex: none;
+      font-size: 0.9em;
+      color: var(--secondary-text-color);
     }
     .subtitle {
       font-weight: 500;
