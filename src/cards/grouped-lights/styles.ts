@@ -54,6 +54,8 @@ export const styles = css`
     display: flex;
     gap: 0.571rem;
     overflow-x: auto;
+    /* Don't let the chips' total width make the card wider: scroll instead. */
+    contain: inline-size;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
     /* Reach the card edges so chips scroll out under the padding. */
