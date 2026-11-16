@@ -6,6 +6,7 @@ JavaScript bundle.
 | Card | Type |
 | --- | --- |
 | [Light Slider Card](#light-slider-card) | `custom:ha-controls-light-slider-card` |
+| [Grouped Lights Card](#grouped-lights-card) | `custom:ha-controls-grouped-lights-card` |
 
 ## Installation
 
@@ -178,6 +179,56 @@ The card uses Home Assistant theme variables. You can also override:
 | `--hac-slider-height` | Height of the brightness slider (default `3.143rem`, 44px at a 14px html font size) |
 | `--hac-slider-radius` | Corner radius of the sliders |
 | `--hac-slider-track-background` | Track background |
+
+## Grouped Lights Card
+
+Rooms in one card. Each **group** (a room or area) has a heading with its icon
+(tap to turn everything on/off), name, average brightness and how many rows are
+on, then an optional row of **scenes** that scrolls sideways, then its **rows**.
+
+Each **row** (subgroup) is one bar:
+
+- a single entity: a light, or an on/off entity such as a smart plug
+  (`switch`, `input_boolean`), which gets an on/off bar;
+- several lights under one bar (it shows their average and sets them all);
+- or a `main_entity` (e.g. a light group) that the bar controls, with
+  `entities` as its lights.
+
+Tap the name to turn a row on/off, drag the bar to set the brightness. Buttons
+at the end of a row (only when they apply): **color** (white and color tabs),
+**scenes** (found automatically, or `scenes`), and **show lights**: Home
+Assistant's own dialog when the row has a `main_entity`, otherwise the card's
+popup with a bar per light.
+
+```yaml
+type: custom:ha-controls-grouped-lights-card
+groups:
+  - name: Living room
+    icon: mdi:sofa
+    scenes: [scene.bright, scene.dim, scene.movie]
+    subgroups:
+      - name: Downlights
+        main_entity: light.downlights
+        entities: [light.downlight_1, light.downlight_2]
+      - entity: light.led_strip
+        name: LED strip
+  - name: Office
+    icon: mdi:desk
+    subgroups:
+      - name: Ceiling
+        entities: [light.ceiling_1, light.ceiling_2]
+      - entity: switch.desk_lamp
+        name: Desk lamp
+```
+
+| Option | Type | Default | Description |
+| --- | --- | --- | --- |
+| `groups` | list | **required** | Groups, each with `name`, `icon`, `scenes` and `subgroups` |
+| `subgroups[].entity` / `entities` | string / list | | The row's entities |
+| `subgroups[].main_entity` | string | | Entity the bar controls; `entities` are its lights |
+| `subgroups[].name`, `icon` | string | | Row name (defaults to the entity's name) and icon |
+| `subgroups[].scenes` | list | automatic | Scenes for the row's scene button |
+| `show_color_temp`, `show_color`, `show_scenes` | boolean | `true` | Which buttons rows get |
 
 ## Development
 
