@@ -13,6 +13,7 @@ import {
   brightnessPct,
   defaultIcon,
   entityIcon,
+  withoutRoomName,
   isOn,
   isUnavailable,
   isLightColor,
@@ -56,6 +57,8 @@ export interface Target {
   ids: string[];
   /** Lights whose scenes are listed (defaults to `ids`). */
   sceneIds?: string[];
+  /** Room name to leave out of scene names in the scene popup. */
+  room?: string;
   /** Scenes chosen in the config; undefined = find automatically. */
   sceneOverride?: string[];
 }
@@ -984,7 +987,7 @@ export class LightSliderCard extends LitElement {
             @click=${() => this._activateScene(s)}
           >
             <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
-            <span>${s.attributes.friendly_name ?? s.entity_id}</span>
+            <span>${withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), target.room)}</span>
           </button>`,
         )}
       </div>

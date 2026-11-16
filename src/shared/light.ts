@@ -59,3 +59,21 @@ export function isLightColor(s?: HassEntity): boolean {
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45;
 }
+
+/**
+ * A scene name without the room's name, e.g. "Kontor fræk" in "Kontor" → "Fræk".
+ * Returns the name unchanged when the room isn't in it or nothing would be left.
+ */
+export function withoutRoomName(name: string, room?: string): string {
+  if (!room) return name;
+  const esc = room.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!esc) return name;
+  // The room must be a whole word: "Kontor fræk" yes, "Kontorlys" no.
+  const sep = '[\\s:·\\-–—]+';
+  const out = name
+    .replace(new RegExp(`^\\s*${esc}(?:${sep}|$)`, 'i'), '')
+    .replace(new RegExp(`${sep}${esc}\\s*$`, 'i'), '')
+    .trim();
+  if (!out || out === name.trim()) return name;
+  return out.charAt(0).toLocaleUpperCase() + out.slice(1);
+}

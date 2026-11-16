@@ -24,6 +24,8 @@ export interface GroupConfig {
 
 export interface GroupedLightsCardConfig {
   type: string;
+  /** Scenes for everything, shown as a scrollable row at the very top. */
+  scenes?: string[];
   groups?: GroupConfig[];
   show_color_temp?: boolean;
   show_color?: boolean;
@@ -64,6 +66,8 @@ function sceneList(value: unknown, where: string): string[] | undefined {
 
 export function normalizeGrouped(config: GroupedLightsCardConfig): {
   groups: NormalizedGroup[];
+  /** Scenes shown above all groups. */
+  scenes: string[];
   /** The same lights in the shape the light slider card's helpers use. */
   base: NormalizedConfig;
 } {
@@ -125,6 +129,7 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
   const entityIds = [...new Set(groups.flatMap((g) => g.entityIds))];
   return {
     groups,
+    scenes: sceneList(config.scenes, 'the card') ?? [],
     base: {
       mode: 'room',
       compact: false,

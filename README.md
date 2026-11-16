@@ -200,8 +200,12 @@ at the end of a row (only when they apply): **color** (white and color tabs),
 Assistant's own dialog when the row has a `main_entity`, otherwise the card's
 popup with a bar per light.
 
+Scene names leave out the group's name, so "Office cozy" in the group "Office"
+shows as "Cozy". Card-level `scenes` appear above all groups.
+
 ```yaml
 type: custom:ha-controls-grouped-lights-card
+scenes: [scene.all_off, scene.evening]
 groups:
   - name: Living room
     icon: mdi:sofa
@@ -223,6 +227,7 @@ groups:
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
+| `scenes` | list | | Scenes for everything, shown as a row at the very top |
 | `groups` | list | **required** | Groups, each with `name`, `icon`, `scenes` and `subgroups` |
 | `subgroups[].entity` / `entities` | string / list | | The row's entities |
 | `subgroups[].main_entity` | string | | Entity the bar controls; `entities` are its lights |
