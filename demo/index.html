@@ -143,6 +143,8 @@
         'scene.morgen': scene('scene.morgen', 'Godmorgen', ['light.stue', 'light.koekken', 'light.gang']),
         'scene.madlavning': scene('scene.madlavning', 'Madlavning', ['light.koekken']),
         'scene.sovevaerelse': scene('scene.sovevaerelse', 'Soveværelse', ['light.sovevaerelse']),
+        'scene.stue_fraek': scene('scene.stue_fraek', 'Stue fræk', ['light.stue', 'light.sofa'], 'mdi:heart'),
+        'scene.alt_slukket': scene('scene.alt_slukket', 'Alt slukket', ['light.stue', 'light.sofa', 'light.koekken'], 'mdi:power'),
       });
 
       const log = (msg) => { const el = document.getElementById('log'); el.textContent = msg + '\n' + el.textContent; };
@@ -236,11 +238,12 @@
         const card = document.createElement('ha-controls-grouped-lights-card');
         card.setConfig({
           type: 'custom:ha-controls-grouped-lights-card',
+          scenes: ['scene.alt_slukket', 'scene.morgen'],
           groups: [
             {
               name: 'Stue',
               icon: 'mdi:sofa',
-              scenes: ['scene.hygge', 'scene.film', 'scene.morgen', 'scene.madlavning'],
+              scenes: ['scene.stue_fraek', 'scene.hygge', 'scene.film', 'scene.madlavning'],
               subgroups: [
                 { name: 'Loft', main_entity: 'light.loft_gruppe', entities: ['light.stue', 'light.koekken'] },
                 { name: 'LED-strip', entity: 'light.sofa' },

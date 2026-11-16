@@ -6,6 +6,7 @@ import { DOMAINS } from '../light-slider/config';
 import type { GroupConfig, GroupedLightsCardConfig, SubgroupConfig } from './config';
 
 const OPTIONS_SCHEMA = [
+  { name: 'top_scenes', selector: { entity: { multiple: true, filter: { domain: 'scene' } } } },
   {
     type: 'grid',
     name: '',
@@ -107,6 +108,7 @@ export class GroupedLightsCardEditor extends LitElement {
       <ha-form
         .hass=${this.hass}
         .data=${{
+          top_scenes: c.scenes ?? [],
           show_color_temp: c.show_color_temp ?? true,
           show_color: c.show_color ?? true,
           show_scenes: c.show_scenes ?? true,
@@ -330,9 +332,12 @@ export class GroupedLightsCardEditor extends LitElement {
     this._open = next;
   }
 
-  private _optionsChanged(ev: CustomEvent<{ value: Partial<Record<OptionKey, boolean>> }>) {
+  private _optionsChanged(
+    ev: CustomEvent<{ value: Partial<Record<OptionKey, boolean>> & { top_scenes?: string[] } }>,
+  ) {
     ev.stopPropagation();
     const config: GroupedLightsCardConfig = { ...this._config! };
+    setOrDelete(config, 'scenes', ev.detail.value.top_scenes);
     for (const key of ['show_color_temp', 'show_color', 'show_scenes'] as OptionKey[]) {
       if (ev.detail.value[key] === false) config[key] = false;
       else delete config[key];

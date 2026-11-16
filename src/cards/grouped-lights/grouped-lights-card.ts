@@ -8,6 +8,7 @@ import {
   isLightColor,
   isOn,
   lightColor,
+  withoutRoomName,
 } from '../../shared/light';
 import { LightSliderCard, type DialogState, type Target } from '../light-slider/light-slider-card';
 import { styles as baseStyles } from '../light-slider/styles';
@@ -49,6 +50,8 @@ interface SubInfo {
  */
 export class GroupedLightsCard extends LightSliderCard {
   @state() protected _groups?: NormalizedGroup[];
+  /** Scenes for everything, above the groups. */
+  @state() protected _topScenes: string[] = [];
 
   static styles = [baseStyles, styles];
 
@@ -64,8 +67,9 @@ export class GroupedLightsCard extends LightSliderCard {
   }
 
   setConfig(config: GroupedLightsCardConfig): void {
-    const { groups, base } = normalizeGrouped(config);
+    const { groups, scenes, base } = normalizeGrouped(config);
     this._groups = groups;
+    this._topScenes = scenes;
     this._config = base;
     this._expanded = {};
   }
@@ -74,7 +78,7 @@ export class GroupedLightsCard extends LightSliderCard {
     if (!this._groups) return 1;
     return this._groups.reduce(
       (size, g) => size + 2 + (g.scenes.length ? 1 : 0) + g.subgroups.length,
-      0,
+      this._topScenes.length ? 1 : 0,
     );
   }
 
@@ -83,7 +87,8 @@ export class GroupedLightsCard extends LightSliderCard {
     // Scenes in the scene rows change state when they're activated.
     const old = changed.get('hass') as HomeAssistant | undefined;
     if (!old || !this.hass || !this._groups) return false;
-    return this._groups.some((g) => g.scenes.some((id) => old.states[id] !== this.hass!.states[id]));
+    const sceneIds = [...this._topScenes, ...this._groups.flatMap((g) => g.scenes)];
+    return sceneIds.some((id) => old.states[id] !== this.hass!.states[id]);
   }
 
   // ---------------------------------------------------------------- render
@@ -94,6 +99,7 @@ export class GroupedLightsCard extends LightSliderCard {
     const cols = this._glColumns();
     return html`
       <ha-card class="grouped">
+        ${this._topScenes.length ? this._renderSceneRow(this._topScenes, t) : nothing}
         ${this._groups.map((g) => this._renderGroupBlock(g, cols, t))}
       </ha-card>
       ${this._renderDialog(t)}
@@ -152,16 +158,17 @@ export class GroupedLightsCard extends LightSliderCard {
             <span class="gl-sub">${secondary}</span>
           </div>
         </div>
-        ${g.scenes.length ? this._renderSceneRow(g, t) : nothing}
+        ${g.scenes.length ? this._renderSceneRow(g.scenes, t, g.name) : nothing}
         <div class="gl-rows">
-          ${rows.map(({ sub, info }) => this._renderSubRow(sub, info, cols, t))}
+          ${rows.map(({ sub, info }) => this._renderSubRow(sub, info, cols, t, g.name))}
         </div>
       </section>
     `;
   }
 
-  protected _renderSceneRow(g: NormalizedGroup, t: Localize): TemplateResult {
-    const scenes = g.scenes
+  /** A row of scene chips that scrolls sideways. `room` is left out of their names. */
+  protected _renderSceneRow(ids: string[], t: Localize, room?: string): TemplateResult {
+    const scenes = ids
       .map((id) => this._state(id))
       .filter((s): s is HassEntity => !!s);
     let latest: HassEntity | undefined;
@@ -178,7 +185,7 @@ export class GroupedLightsCard extends LightSliderCard {
             @click=${() => this._activateScene(s)}
           >
             <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
-            <span>${s.attributes.friendly_name ?? s.entity_id}</span>
+            <span>${withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
           </button>`,
         )}
       </div>
@@ -191,9 +198,10 @@ export class GroupedLightsCard extends LightSliderCard {
     info: SubInfo,
     cols: Columns,
     t: Localize,
+    room?: string,
   ): TemplateResult {
     const ids = this._controlled(sub);
-    const target = this._subTarget(sub, info.name);
+    const target = { ...this._subTarget(sub, info.name), room };
     const hasColor = cols.color && this._colorLights(target.ids).any;
     const hasScenes = cols.scenes && this._config!.show_scenes && this._scenes(target).length > 0;
     const hasLights = cols.lights && this._hasLights(sub);
