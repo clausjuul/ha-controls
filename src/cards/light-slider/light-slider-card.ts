@@ -103,14 +103,14 @@ interface RowOptions {
 
 export class LightSliderCard extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
-  @state() private _config?: NormalizedConfig;
+  @state() protected _config?: NormalizedConfig;
   /** Which groups show their individual lights, by group key. */
-  @state() private _expanded: Readonly<Record<string, boolean>> = {};
-  @state() private _dialog?: DialogState;
+  @state() protected _expanded: Readonly<Record<string, boolean>> = {};
+  @state() protected _dialog?: DialogState;
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
-  @state() private _popupHs?: [number, number];
-  @state() private _colorTab?: PopupTab;
-  @query('dialog') private _dialogEl?: HTMLDialogElement;
+  @state() protected _popupHs?: [number, number];
+  @state() protected _colorTab?: PopupTab;
+  @query('dialog') protected _dialogEl?: HTMLDialogElement;
 
   /** Compact button columns for the current render. */
   protected _columns?: { icon: boolean; menu: boolean };
