@@ -71,7 +71,7 @@ export interface DialogState extends Target {
   kind: 'color' | 'scenes' | 'controls' | 'lights';
 }
 
-type PopupTab = 'white' | 'color' | 'scenes';
+type PopupTab = 'white' | 'color' | 'scenes' | 'effects';
 
 interface RowOptions {
   key: string;
@@ -113,6 +113,8 @@ export class LightSliderCard extends LitElement {
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
   @state() protected _popupHs?: [number, number];
   @state() protected _colorTab?: PopupTab;
+  /** Search text in the effects list. */
+  @state() protected _effectQuery = '';
   @query('dialog') protected _dialogEl?: HTMLDialogElement;
 
   /** Compact button columns for the current render. */
@@ -325,7 +327,7 @@ export class LightSliderCard extends LitElement {
       // A row that can be expanded shows its chevron in the icon column.
       cols.icon ||= showIcon || expander;
       cols.menu ||=
-        this._colorLights(target.ids).any || (cfg.show_scenes && this._scenes(target).length > 0);
+        this._colorLights(target.ids).any || this._hasSceneMenu(target);
     };
     for (const g of cfg.groups) {
       const ids = g.entities.map((e) => e.entity);
@@ -567,7 +569,7 @@ export class LightSliderCard extends LitElement {
   protected _renderRow(o: RowOptions): TemplateResult {
     const t = localize(this.hass);
     const hasColor = this._colorLights(o.target.ids).any;
-    const hasScenes = this._config!.show_scenes && this._scenes(o.target).length > 0;
+    const hasScenes = this._hasSceneMenu(o.target);
     const opensDialog = !!o.expander?.opensDialog;
     const expandIcon = opensDialog ? 'mdi:chevron-right' : 'mdi:chevron-down';
     const expandButton = (cls: string) =>
@@ -795,7 +797,10 @@ export class LightSliderCard extends LitElement {
                         d.ids,
                         t,
                         this._config!.show_scenes && this._scenes(d).length
-                          ? this._renderScenes(d, t)
+                          ? this._renderSceneList(d, t)
+                          : undefined,
+                        this._config!.show_scenes && this._effectLights(d.ids).length
+                          ? this._renderEffects(d.ids, t)
                           : undefined,
                       )}
               </div>
@@ -814,6 +819,7 @@ export class LightSliderCard extends LitElement {
     this._anchor = (ev.currentTarget as HTMLElement).closest<HTMLElement>('.row') ?? undefined;
     this._popupHs = undefined;
     this._colorTab = undefined;
+    this._effectQuery = '';
     this._dialog = { kind, ...target };
   }
 
@@ -833,6 +839,7 @@ export class LightSliderCard extends LitElement {
     ids: string[],
     t: Localize,
     scenesTab?: TemplateResult,
+    effectsTab?: TemplateResult,
   ): TemplateResult {
     const { ct, color } = this._colorLights(ids);
     const pickRef = (list: HassEntity[]) => list.find(isOn) ?? list[0];
@@ -937,9 +944,17 @@ export class LightSliderCard extends LitElement {
     if (whiteTab) tabs.push({ key: 'white', label: t('white'), content: whiteTab });
     if (colorTab) tabs.push({ key: 'color', label: t('hue'), content: colorTab });
     if (scenesTab) tabs.push({ key: 'scenes', label: t('scenes'), content: scenesTab });
-    if (tabs.length <= 1) return tabs[0]?.content ?? html``;
+    if (effectsTab) tabs.push({ key: 'effects', label: t('effects'), content: effectsTab });
+    return this._renderTabs(tabs, this._defaultColorTab(ids));
+  }
 
-    const wanted = this._colorTab ?? this._defaultColorTab(ids);
+  /** Tabs in a popup; a single tab shows its content without the tab bar. */
+  protected _renderTabs(
+    tabs: Array<{ key: PopupTab; label: string; content: TemplateResult }>,
+    fallback?: PopupTab,
+  ): TemplateResult {
+    if (tabs.length <= 1) return tabs[0]?.content ?? html``;
+    const wanted = this._colorTab ?? fallback;
     const current = tabs.find((x) => x.key === wanted) ?? tabs[0];
     return html`
       <div class="tabs" role="tablist">
@@ -967,7 +982,19 @@ export class LightSliderCard extends LitElement {
       : 'white';
   }
 
+  /** The scene popup: scenes, plus the lights' own effects (e.g. Govee scenes) in a tab. */
   protected _renderScenes(target: Target, t: Localize): TemplateResult {
+    const hasScenes = this._scenes(target).length > 0;
+    const hasEffects = this._effectLights(target.ids).length > 0;
+    if (!hasEffects) return this._renderSceneList(target, t);
+    if (!hasScenes) return this._renderEffects(target.ids, t);
+    return this._renderTabs([
+      { key: 'scenes', label: t('scenes'), content: this._renderSceneList(target, t) },
+      { key: 'effects', label: t('effects'), content: this._renderEffects(target.ids, t) },
+    ]);
+  }
+
+  protected _renderSceneList(target: Target, t: Localize): TemplateResult {
     const scenes = this._scenes(target);
     if (!scenes.length) return html`<div class="empty">${t('no_scenes')}</div>`;
 
@@ -992,6 +1019,74 @@ export class LightSliderCard extends LitElement {
         )}
       </div>
     `;
+  }
+
+  /** The lights' own effects, with a search field when the list is long. */
+  protected _renderEffects(ids: string[], t: Localize): TemplateResult {
+    const lights = this._effectLights(ids);
+    const names: string[] = [];
+    for (const l of lights) {
+      for (const e of l.attributes.effect_list as unknown[]) {
+        if (typeof e === 'string' && e.trim() && !names.includes(e)) names.push(e);
+      }
+    }
+    const ref = lights.find(isOn) ?? lights[0];
+    const active = isOn(ref) ? ref?.attributes.effect : undefined;
+    const query = this._effectQuery.trim().toLocaleLowerCase();
+    const shown = query ? names.filter((n) => n.toLocaleLowerCase().includes(query)) : names;
+
+    return html`
+      ${names.length > 12
+        ? html`<input
+            class="effect-search"
+            type="search"
+            placeholder=${t('search')}
+            aria-label=${t('search')}
+            .value=${this._effectQuery}
+            @input=${(e: Event) => (this._effectQuery = (e.target as HTMLInputElement).value)}
+          />`
+        : nothing}
+      ${shown.length
+        ? html`<div class="scenes effects">
+            ${shown.map(
+              (name) => html`<button
+                class="scene ${name === active ? 'active' : ''}"
+                @click=${() => this._setEffect(lights, name)}
+              >
+                <span>${name}</span>
+              </button>`,
+            )}
+          </div>`
+        : html`<div class="empty">${t('no_effects')}</div>`}
+    `;
+  }
+
+  /** Start an effect on every light that has it. */
+  protected _setEffect(lights: HassEntity[], effect: string) {
+    const ids = lights
+      .filter((l) => (l.attributes.effect_list as unknown[]).includes(effect))
+      .map((l) => l.entity_id);
+    this._turnOn(ids, { effect });
+  }
+
+  /** Lights among `ids` with their own effects (Govee scenes, WLED effects, …). */
+  protected _effectLights(ids: string[]): HassEntity[] {
+    const cfg = this._config!;
+    return this._available(ids).filter(
+      (s) =>
+        s.entity_id.startsWith('light.') &&
+        !cfg.toggleOnly.has(s.entity_id) &&
+        Array.isArray(s.attributes.effect_list) &&
+        s.attributes.effect_list.some((e: unknown) => typeof e === 'string' && e.trim()),
+    );
+  }
+
+  /** Does the scene button have anything to show: scenes or the lights' effects? */
+  protected _hasSceneMenu(target: Target): boolean {
+    return (
+      this._config!.show_scenes &&
+      (this._scenes(target).length > 0 || this._effectLights(target.ids).length > 0)
+    );
   }
 
   // --------------------------------------------------------------- helpers
@@ -1114,6 +1209,7 @@ export class LightSliderCard extends LitElement {
       const k = data.color_temp_kelvin;
       Object.assign(attributes, { color_mode: 'color_temp', color_temp_kelvin: k, rgb_color: kelvinToRgb(k) });
     }
+    if (typeof data.effect === 'string') attributes.effect = data.effect;
     if (Array.isArray(data.hs_color)) {
       const [h, sat] = data.hs_color as [number, number];
       Object.assign(attributes, { color_mode: 'hs', hs_color: [h, sat], rgb_color: hsToRgb(h, sat) });

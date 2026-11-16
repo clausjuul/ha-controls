@@ -438,6 +438,27 @@ export const styles = css`
     grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
     gap: 0.571rem;
   }
+  .effects {
+    max-height: min(50vh, 22rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .effect-search {
+    box-sizing: border-box;
+    width: 100%;
+    height: 2.857rem;
+    padding: 0 1rem;
+    border-radius: 0.857rem;
+    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+    background: transparent;
+    color: var(--primary-text-color);
+    font: inherit;
+    font-size: 1rem;
+  }
+  .effect-search:focus {
+    outline: 2px solid var(--primary-color, #03a9f4);
+    outline-offset: -1px;
+  }
   .scene {
     display: flex;
     align-items: center;

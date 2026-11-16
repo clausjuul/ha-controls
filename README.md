@@ -125,6 +125,13 @@ light (the big slider with the group's lights) instead of expanding it in the
 card. In a room, set it per item; a card-level value is the default for all
 items. Groups without a `main_entity` still expand.
 
+### Effects
+
+Lights with their own effects (for example Govee scenes through Govee2MQTT, or
+WLED effects) get an **Effects** tab next to the scenes, with a search field
+when the list is long. The active effect is highlighted. This works in both
+cards.
+
 ### Options
 
 | Option | Type | Default | Description |
