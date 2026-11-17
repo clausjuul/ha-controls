@@ -2,12 +2,19 @@ import { LitElement, html, css, nothing, type PropertyValues } from 'lit';
 import { property, state, query } from 'lit/decorators.js';
 import { fireEvent } from '../shared/types';
 
+/** How far (px) a pointer moves sideways before it counts as a drag. */
+const SLOP = 6;
+
 /**
  * Horizontal slider shared by all ha-controls cards.
  *
  * Events:
  *  - `value-changing` while dragging ({ value })
  *  - `value-changed` when the user lets go / stops pressing keys ({ value })
+ *  - `slider-tap` when a `relative` slider is tapped (or Enter/Space)
+ *
+ * Once a drag has moved sideways, the page can't scroll until the finger
+ * lets go, so a drag that drifts up or down keeps setting the value.
  *
  * CSS custom properties:
  *  --hac-slider-height, --hac-slider-radius,
@@ -38,20 +45,45 @@ export class HacSlider extends LitElement {
   @property({ attribute: 'value-at', reflect: true }) valueAt: 'start' | 'end' = 'start';
   /** Show the small handle. */
   @property({ type: Boolean }) thumb = true;
+  /**
+   * Dragging moves the value from where it was by how far the finger moves,
+   * instead of jumping to the finger. A tap doesn't change the value; it
+   * fires `slider-tap`.
+   */
+  @property({ type: Boolean, reflect: true }) relative = false;
 
   /** Value chosen by the user that Home Assistant hasn't confirmed yet. */
   @state() private _pending?: number;
   @query('.track') private _track!: HTMLElement;
 
+  /** A pointer is down on the track. */
+  private _active = false;
+  /** The value is following the pointer. */
   private _dragging = false;
+  /** The drag has gone sideways: the page mustn't scroll now. */
+  private _locked = false;
+  private _startX = 0;
+  private _startY = 0;
+  private _startValue = 0;
   private _pendingTimer?: number;
   private _keyTimer?: number;
 
+  connectedCallback(): void {
+    super.connectedCallback();
+    // Not passive, so a locked drag can stop the page from scrolling.
+    this.addEventListener('touchmove', this._onTouchMove, { passive: false });
+  }
+
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    this.removeEventListener('touchmove', this._onTouchMove);
     window.clearTimeout(this._pendingTimer);
     window.clearTimeout(this._keyTimer);
   }
+
+  private _onTouchMove = (ev: TouchEvent) => {
+    if (this._locked && ev.cancelable) ev.preventDefault();
+  };
 
   protected willUpdate(changed: PropertyValues<this>): void {
     // A new value from Home Assistant replaces the optimistic one.
@@ -98,23 +130,51 @@ export class HacSlider extends LitElement {
   private _onPointerDown(ev: PointerEvent) {
     if (this.disabled || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
     this._track.setPointerCapture(ev.pointerId);
-    this._dragging = true;
-    this.toggleAttribute('dragging', true);
-    this._setPending(this._valueFromPointer(ev));
-    fireEvent(this, 'value-changing', { value: this._pending });
+    this._active = true;
+    this._locked = false;
+    this._startX = ev.clientX;
+    this._startY = ev.clientY;
+    this._startValue = this._shown;
+    // A plain slider jumps to the finger straight away; a relative one waits
+    // to see whether this is a tap or a drag.
+    if (!this.relative) {
+      this._startDrag();
+      this._setPending(this._valueFromPointer(ev));
+      fireEvent(this, 'value-changing', { value: this._pending });
+    }
   }
 
   private _onPointerMove(ev: PointerEvent) {
+    if (!this._active) return;
+    const dx = ev.clientX - this._startX;
+    const dy = ev.clientY - this._startY;
+    if (!this._locked && Math.abs(dx) > SLOP && Math.abs(dx) > Math.abs(dy)) {
+      this._locked = true;
+      if (!this._dragging) this._startDrag();
+    }
     if (!this._dragging) return;
-    const v = this._valueFromPointer(ev);
+    let v: number;
+    if (this.relative) {
+      const width = this._track.getBoundingClientRect().width;
+      v = this._round(this._startValue + (width > 0 ? dx / width : 0) * (this.max - this.min));
+    } else {
+      v = this._valueFromPointer(ev);
+    }
     if (v === this._pending) return;
     this._setPending(v);
     fireEvent(this, 'value-changing', { value: v });
   }
 
   private _onPointerUp(ev: PointerEvent) {
-    if (!this._dragging) return;
+    if (!this._active) return;
+    const dragged = this._dragging;
     this._endDrag(ev);
+    if (!dragged) {
+      // A relative slider: a tap, unless the pointer wandered off up or down.
+      const moved = Math.hypot(ev.clientX - this._startX, ev.clientY - this._startY);
+      if (moved <= SLOP * 2) fireEvent(this, 'slider-tap', {});
+      return;
+    }
     const value = this._pending ?? this.value;
     this._expirePending();
     fireEvent(this, 'value-changed', { value });
@@ -122,14 +182,23 @@ export class HacSlider extends LitElement {
 
   /** Browser took over (e.g. vertical scroll on touch): undo the change. */
   private _onPointerCancel(ev: PointerEvent) {
-    if (!this._dragging) return;
+    if (!this._active) return;
+    const dragged = this._dragging;
     this._endDrag(ev);
+    if (!dragged) return;
     this._clearPending();
     fireEvent(this, 'value-changing', { value: undefined });
   }
 
+  private _startDrag() {
+    this._dragging = true;
+    this.toggleAttribute('dragging', true);
+  }
+
   private _endDrag(ev: PointerEvent) {
+    this._active = false;
     this._dragging = false;
+    this._locked = false;
     this.toggleAttribute('dragging', false);
     if (this._track.hasPointerCapture(ev.pointerId)) {
       this._track.releasePointerCapture(ev.pointerId);
@@ -140,6 +209,11 @@ export class HacSlider extends LitElement {
     if (this.disabled) return;
     const big = Math.max(this.step, (this.max - this.min) / 10);
     const current = this._shown;
+    if (this.relative && (ev.key === 'Enter' || ev.key === ' ')) {
+      ev.preventDefault();
+      fireEvent(this, 'slider-tap', {});
+      return;
+    }
     let next: number;
     switch (ev.key) {
       case 'ArrowRight':

@@ -28,6 +28,11 @@ JavaScript bundle.
 
 A compact, horizontal brightness slider for one or more lights.
 
+Brightness bars (in this card and the Grouped Lights Card) move relative to
+where you start dragging, so the value doesn't jump to your finger, and a tap
+on a bar turns it on/off. Once a drag has gone sideways the page can't scroll
+until you let go; a swipe that starts up or down scrolls as usual.
+
 - **One light:** icon (tap to toggle) and name, with the buttons on the same
   line and a full-width brightness slider below that shows the percentage.
 - **Several lights:** one shared slider sets all lights at once (it shows the
@@ -210,6 +215,11 @@ rows in and out. With `collapse_off: true`, the group folds in by itself while
 all its lights are off and opens again when one turns on; folding it by hand
 lasts until the group turns on or off.
 
+A folded group with lights on works as one wide slider: drag sideways across
+it to move the brightness of the lights that are on (and only those) by the
+same amount, so their differences stay; dragging all the way down turns them
+off. Their average shows as a faint fill across the group.
+
 Each **row** (subgroup) is one bar:
 
 - a single entity: a light, or an on/off entity such as a smart plug
@@ -218,7 +228,7 @@ Each **row** (subgroup) is one bar:
 - or a `main_entity` (e.g. a light group) that the bar controls, with
   `entities` as its lights.
 
-Drag the bar to set the brightness. The bar sits in the middle of the card,
+Drag the bar to set the brightness, tap it to turn the row on/off. The bar sits in the middle of the card,
 with the name on one side and the buttons on the other. Tapping the name of a
 row with one light turns it on/off; a row with several lights (or a light
 group as `main_entity`) shows a chevron, and tapping its name folds its lights

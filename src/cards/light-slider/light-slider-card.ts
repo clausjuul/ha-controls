@@ -657,6 +657,8 @@ export class LightSliderCard extends LitElement {
             ? html`<hac-slider
                 mode="thin"
                 show-value
+                relative
+                @slider-tap=${o.onToggle}
                 .value=${o.brightness}
                 .min=${0}
                 .max=${100}
@@ -723,6 +725,8 @@ export class LightSliderCard extends LitElement {
           ? html`<div class="bottom">
               <hac-slider
                 show-value
+                relative
+                @slider-tap=${o.onToggle}
                 .thumb=${false}
                 .value=${o.brightness}
                 .min=${0}
