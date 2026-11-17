@@ -2,27 +2,27 @@ import { css } from 'lit';
 
 export const styles = css`
   ha-card {
-    padding: 0.857rem;
+    padding: var(--hac-space-3);
     box-sizing: border-box;
   }
   .room-header {
     display: flex;
     align-items: center;
-    gap: 0.571rem;
-    margin: -0.286rem 0 0.571rem 0.286rem;
+    gap: var(--hac-space-2);
+    margin: calc(-1 * var(--hac-space-1)) 0 var(--hac-space-2) var(--hac-space-1);
   }
   .room-name {
     flex: 1;
     min-width: 0;
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--primary-text-color);
+    font-size: var(--hac-font-size-xl);
+    font-weight: var(--hac-weight-medium);
+    color: var(--hac-text);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
   .power.on {
-    color: var(--state-light-active-color, #ff9800);
+    color: var(--hac-active);
   }
   .items {
     display: flex;
@@ -32,34 +32,34 @@ export const styles = css`
     margin-top: 1.429rem;
   }
   .row {
-    --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
-    --hac-slider-color: var(--_light);
+    --_light: var(--hac-light-color, var(--hac-active));
+    /* Softened towards the card, so the theme's text colour reads on it. */
+    --_fill: color-mix(in srgb, var(--_light) 65%, var(--hac-surface));
+    --hac-slider-color: var(--_fill);
+    --hac-slider-value-color: var(--hac-text);
     --hac-slider-height: 3.143rem;
-    --hac-slider-radius: 1rem;
+    --hac-slider-radius: var(--hac-control-radius);
     display: flex;
     flex-direction: column;
-    gap: 0.857rem;
+    gap: var(--hac-space-3);
   }
   .row.on {
     --hac-slider-track-background: color-mix(in srgb, var(--_light) 22%, transparent);
   }
-  .row.light-fill {
-    --hac-slider-value-color: rgba(0, 0, 0, 0.75);
-  }
   .row.sub {
     --hac-slider-height: 2.571rem;
     --hac-slider-radius: 0.857rem;
-    gap: 0.571rem;
+    gap: var(--hac-space-2);
   }
   .row.missing {
     color: var(--error-color, #db4437);
-    font-size: 1rem;
+    font-size: var(--hac-font-size-m);
   }
   .top {
     display: flex;
     align-items: center;
-    gap: 0.857rem;
-    min-height: 2.857rem;
+    gap: var(--hac-space-3);
+    min-height: var(--hac-size-m);
   }
 
   button {
@@ -72,7 +72,7 @@ export const styles = css`
     -webkit-tap-highlight-color: transparent;
   }
   button:focus-visible {
-    outline: 2px solid var(--primary-color, #03a9f4);
+    outline: 2px solid var(--hac-primary);
     outline-offset: 2px;
   }
   button:disabled {
@@ -85,16 +85,16 @@ export const styles = css`
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 3.143rem;
-    height: 3.143rem;
+    width: var(--hac-size-l);
+    height: var(--hac-size-l);
     border-radius: 50%;
-    color: var(--state-icon-color, var(--secondary-text-color));
+    color: var(--state-icon-color, var(--hac-text-secondary));
     background: transparent;
     transition: background 200ms, color 200ms;
   }
   .row.sub .icon {
-    width: 2.857rem;
-    height: 2.857rem;
+    width: var(--hac-size-m);
+    height: var(--hac-size-m);
     --mdc-icon-size: 1.429rem;
   }
   .row.on .icon {
@@ -113,22 +113,22 @@ export const styles = css`
   .info.clickable {
     cursor: pointer;
     text-align: left;
-    min-height: 2.857rem;
+    min-height: var(--hac-size-m);
   }
   .name {
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--primary-text-color);
+    font-size: var(--hac-font-size-m);
+    font-weight: var(--hac-weight-medium);
+    color: var(--hac-text);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
   .row.sub .name {
-    font-size: 0.93rem;
+    font-size: var(--hac-font-size-m);
   }
   .secondary {
-    font-size: 0.875rem;
-    color: var(--secondary-text-color);
+    font-size: var(--hac-font-size-s);
+    color: var(--hac-text-secondary);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -142,7 +142,7 @@ export const styles = css`
   .bottom {
     display: flex;
     align-items: stretch;
-    gap: 0.571rem;
+    gap: var(--hac-space-2);
   }
   .bottom hac-slider {
     flex: 1;
@@ -151,62 +151,62 @@ export const styles = css`
   .toggle-bar {
     flex: 1;
     min-width: 0;
-    height: var(--hac-slider-height, 3.143rem);
+    height: var(--hac-slider-height, var(--hac-size-l));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 0.571rem;
-    padding: 0 1.143rem;
+    gap: var(--hac-space-2);
+    padding: 0 var(--hac-space-4);
     border-radius: var(--hac-slider-radius, 1rem);
-    background: color-mix(in srgb, var(--primary-text-color, #000) 12%, transparent);
-    color: var(--secondary-text-color);
+    background: var(--hac-track);
+    color: var(--hac-text-secondary);
     transition: background 180ms, color 180ms;
   }
   .toggle-bar.on {
-    background: var(--_light);
-    color: var(--hac-slider-value-color, #fff);
+    background: var(--_fill);
+    color: var(--hac-text);
   }
   .toggle-text {
-    font-size: 1rem;
-    font-weight: 500;
+    font-size: var(--hac-font-size-m);
+    font-weight: var(--hac-weight-medium);
   }
   .toggle-bar:not(.on) .toggle-text {
-    font-weight: 400;
+    font-weight: var(--hac-weight-normal);
   }
   .toggle-end {
-    font-size: 0.875rem;
+    font-size: var(--hac-font-size-s);
   }
   .toggle-bar:active:not(:disabled) {
     filter: brightness(0.95);
   }
   .expand-tile {
     flex: none;
-    width: 3.143rem;
+    width: var(--hac-size-l);
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--hac-slider-radius, 1rem);
-    color: var(--secondary-text-color);
-    background: color-mix(in srgb, var(--primary-text-color, #000) 8%, transparent);
+    color: var(--hac-text-secondary);
+    background: var(--hac-hover);
     --mdc-icon-size: 1.857rem;
   }
   .actions {
-    gap: 0.286rem;
+    gap: var(--hac-space-1);
   }
   .action {
     flex: none;
-    width: 3.143rem;
-    height: 3.143rem;
+    width: var(--hac-size-l);
+    height: var(--hac-size-l);
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    color: var(--secondary-text-color);
+    color: var(--hac-text-secondary);
     --mdc-icon-size: 1.714rem;
     transition: background 150ms;
   }
   .action:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--primary-text-color, #000) 8%, transparent);
+    background: var(--hac-hover);
   }
   .expand ha-icon {
     transition: transform 200ms ease;
@@ -218,35 +218,35 @@ export const styles = css`
   .lights {
     display: flex;
     flex-direction: column;
-    gap: 1.143rem;
-    margin-top: 1.143rem;
+    gap: var(--hac-space-4);
+    margin-top: var(--hac-space-4);
   }
 
   /* ----- compact ----- */
   ha-card.compact {
-    padding: 0.857rem 1rem;
+    padding: var(--hac-space-3) 1rem;
   }
   .row.compact {
     flex-direction: row;
     align-items: center;
     gap: 0.714rem;
-    min-height: 2.857rem;
+    min-height: var(--hac-size-m);
   }
   .row.compact .icon,
   .row.compact .icon-spacer {
     flex: none;
-    width: 2.286rem;
-    height: 2.286rem;
+    width: var(--hac-size-s);
+    height: var(--hac-size-s);
     --mdc-icon-size: 1.286rem;
   }
   .row.compact .name {
     flex: 0 1 5rem;
-    min-width: 2.857rem;
+    min-width: var(--hac-size-m);
     display: flex;
     align-items: center;
     gap: 0.143rem;
-    font-size: 0.93rem;
-    font-weight: 400;
+    font-size: var(--hac-font-size-m);
+    font-weight: var(--hac-weight-normal);
     text-align: left;
   }
   .name-text {
@@ -257,7 +257,7 @@ export const styles = css`
   }
   .row.compact .icon.chevron {
     background: transparent;
-    color: var(--secondary-text-color);
+    color: var(--hac-text-secondary);
     --mdc-icon-size: 1.857rem;
   }
   .row.compact .icon.chevron ha-icon {
@@ -267,13 +267,13 @@ export const styles = css`
     transform: rotate(180deg);
   }
   .row.compact .name-button {
-    height: 2.286rem;
-    color: var(--primary-text-color);
+    height: var(--hac-size-s);
+    color: var(--hac-text);
   }
   .name-button ha-icon {
     flex: none;
     --mdc-icon-size: 1.143rem;
-    color: var(--secondary-text-color);
+    color: var(--hac-text-secondary);
     transition: transform 200ms ease;
   }
   .name-button.open ha-icon {
@@ -289,18 +289,18 @@ export const styles = css`
   }
   .row.compact .grow {
     text-align: right;
-    font-size: 0.93rem;
-    color: var(--secondary-text-color);
+    font-size: var(--hac-font-size-m);
+    color: var(--hac-text-secondary);
   }
   .row.compact .actions {
     flex: none;
-    gap: 0.286rem;
+    gap: var(--hac-space-1);
   }
   .row.compact .action,
   .row.compact .action-spacer {
     flex: none;
-    width: 2.286rem;
-    height: 2.286rem;
+    width: var(--hac-size-s);
+    height: var(--hac-size-s);
     --mdc-icon-size: 1.286rem;
   }
   .row.compact .expand ha-icon {
@@ -309,17 +309,17 @@ export const styles = css`
   .switch {
     flex: none;
     position: relative;
-    width: 2.857rem;
-    height: 1.714rem;
-    border-radius: 0.857rem;
-    background: color-mix(in srgb, var(--primary-text-color, #000) 22%, transparent);
+    width: var(--hac-size-m);
+    height: var(--hac-space-6);
+    border-radius: var(--hac-radius-l);
+    background: var(--hac-track);
     transition: background 180ms;
   }
   .switch::before {
     /* Bigger tap target than the switch itself */
     content: '';
     position: absolute;
-    inset: -0.571rem -0.286rem;
+    inset: calc(-1 * var(--hac-space-2)) calc(-1 * var(--hac-space-1));
   }
   .switch-knob {
     position: absolute;
@@ -328,18 +328,24 @@ export const styles = css`
     width: 1.286rem;
     height: 1.286rem;
     border-radius: 50%;
-    background: var(--card-background-color, var(--ha-card-background, #fff));
+    background: var(--hac-switch-knob-off);
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    transition: transform 180ms ease;
+    transition: transform 180ms ease, background 180ms;
+  }
+  .switch {
+    background: var(--hac-switch-off);
   }
   .switch.on {
-    background: var(--_light);
+    background: var(--hac-switch-on);
+  }
+  .switch.on .switch-knob {
+    background: var(--hac-switch-knob-on);
   }
   .switch.on .switch-knob {
     transform: translateX(1.143rem);
   }
   ha-card.compact .items {
-    gap: 0.857rem;
+    gap: var(--hac-space-3);
   }
   ha-card.compact .items > * + * {
     margin-top: 0;
@@ -347,27 +353,27 @@ export const styles = css`
   ha-card.compact .lights {
     /* A faint panel behind the expanded lights. The negative margin lets it
        reach into the card padding, so the rows stay aligned with the rest. */
-    margin: 0.571rem -0.571rem 0;
-    padding: 0.429rem 0.571rem;
-    gap: 0.857rem;
-    border-radius: 0.857rem;
-    background: color-mix(in srgb, var(--primary-text-color, #000) 5%, transparent);
+    margin: var(--hac-space-2) calc(-1 * var(--hac-space-2)) 0;
+    padding: 0.429rem var(--hac-space-2);
+    gap: var(--hac-space-3);
+    border-radius: var(--hac-radius-l);
+    background: color-mix(in srgb, var(--hac-text) 5%, transparent);
   }
   .room-header.compact {
-    --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
-    gap: 0.857rem;
-    margin: 0 0 1.143rem;
+    --_light: var(--hac-light-color, var(--hac-active));
+    gap: var(--hac-space-3);
+    margin: 0 0 var(--hac-space-4);
   }
   .room-header.compact .icon {
-    width: 2.857rem;
-    height: 2.857rem;
+    width: var(--hac-size-m);
+    height: var(--hac-size-m);
   }
   .room-header.compact.on .icon {
     color: var(--_light);
     background: color-mix(in srgb, var(--_light) 22%, transparent);
   }
   .room-header.compact .room-name {
-    font-size: 1.143rem;
+    font-size: var(--hac-font-size-l);
   }
 
   /* ----- popup ----- */
@@ -377,20 +383,21 @@ export const styles = css`
     inset: auto;
     margin: 0;
     padding: 0;
-    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.25));
-    width: min(30rem, calc(100vw - 1.143rem));
+    border: none;
+    width: min(30rem, calc(100vw - var(--hac-space-4)));
     max-width: none;
     max-height: calc(100dvh - 1.143rem);
     box-sizing: border-box;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border-radius: var(--ha-card-border-radius, 1.143rem);
-    background: var(--card-background-color, var(--ha-card-background, #fff));
-    color: var(--primary-text-color);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border-radius: var(--hac-dialog-radius);
+    background: var(--hac-dialog-bg);
+    color: var(--hac-text);
+    font-family: var(--hac-font-family);
+    box-shadow: var(--ha-card-box-shadow, 0 8px 32px rgba(0, 0, 0, 0.3));
   }
   dialog::backdrop {
-    background: rgba(0, 0, 0, 0.25);
+    background: var(--hac-scrim);
   }
   dialog[open] {
     animation: pop-in 140ms ease-out;
@@ -402,21 +409,21 @@ export const styles = css`
     }
   }
   .sheet {
-    padding: 0.571rem 1.143rem 1.429rem;
+    padding: var(--hac-space-2) var(--hac-space-4) 1.429rem;
   }
   .sheet-header {
     display: flex;
     align-items: center;
     gap: 0.714rem;
     min-height: 3.429rem;
-    color: var(--secondary-text-color);
+    color: var(--hac-text-secondary);
   }
   .sheet-title {
     flex: 1;
     min-width: 0;
-    font-size: 1.25rem;
-    font-weight: 500;
-    color: var(--primary-text-color);
+    font-size: var(--hac-font-size-xl);
+    font-weight: var(--hac-weight-medium);
+    color: var(--hac-text);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -425,18 +432,18 @@ export const styles = css`
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    padding-top: 0.571rem;
+    padding-top: var(--hac-space-2);
   }
   .empty {
-    padding: 1.143rem 0;
+    padding: var(--hac-space-4) 0;
     text-align: center;
-    color: var(--secondary-text-color);
-    font-size: 1rem;
+    color: var(--hac-text-secondary);
+    font-size: var(--hac-font-size-m);
   }
   .scenes {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
-    gap: 0.571rem;
+    gap: var(--hac-space-2);
   }
   .effects {
     max-height: min(50vh, 22rem);
@@ -446,17 +453,17 @@ export const styles = css`
   .effect-search {
     box-sizing: border-box;
     width: 100%;
-    height: 2.857rem;
+    height: var(--hac-size-m);
     padding: 0 1rem;
-    border-radius: 0.857rem;
-    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
+    border-radius: var(--hac-radius-l);
+    border: 1px solid var(--hac-divider);
     background: transparent;
-    color: var(--primary-text-color);
+    color: var(--hac-text);
     font: inherit;
-    font-size: 1rem;
+    font-size: var(--hac-font-size-m);
   }
   .effect-search:focus {
-    outline: 2px solid var(--primary-color, #03a9f4);
+    outline: 2px solid var(--hac-primary);
     outline-offset: -1px;
   }
   .scene {
@@ -464,11 +471,11 @@ export const styles = css`
     align-items: center;
     gap: 0.714rem;
     min-height: 3.429rem;
-    padding: 0.571rem 0.857rem;
-    border-radius: 0.857rem;
+    padding: var(--hac-space-2) var(--hac-space-3);
+    border-radius: var(--hac-radius-l);
     text-align: left;
-    font-size: 1rem;
-    background: color-mix(in srgb, var(--primary-text-color, #000) 6%, transparent);
+    font-size: var(--hac-font-size-m);
+    background: var(--hac-hover);
     transition: background 150ms;
   }
   .scene span {
@@ -478,16 +485,16 @@ export const styles = css`
   .scene ha-icon {
     flex: none;
     --mdc-icon-size: 1.429rem;
-    color: var(--secondary-text-color);
+    color: var(--hac-text-secondary);
   }
   .scene:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--primary-text-color, #000) 12%, transparent);
+    background: var(--hac-track);
   }
   .scene.active {
-    background: color-mix(in srgb, var(--primary-color, #03a9f4) 18%, transparent);
+    background: color-mix(in srgb, var(--hac-primary) 18%, transparent);
   }
   .scene.active ha-icon {
-    color: var(--primary-color, #03a9f4);
+    color: var(--hac-primary);
   }
   .control {
     display: flex;
@@ -498,32 +505,32 @@ export const styles = css`
   }
   .tabs {
     display: flex;
-    gap: 0.286rem;
-    padding: 0.286rem;
-    border-radius: 0.857rem;
-    background: color-mix(in srgb, var(--primary-text-color, #000) 7%, transparent);
+    gap: var(--hac-space-1);
+    padding: var(--hac-space-1);
+    border-radius: var(--hac-radius-l);
+    background: var(--hac-hover);
   }
   .tab {
     flex: 1;
     height: 2.571rem;
     border-radius: 0.643rem;
-    font-size: 1rem;
-    font-weight: 500;
-    color: var(--secondary-text-color);
+    font-size: var(--hac-font-size-m);
+    font-weight: var(--hac-weight-medium);
+    color: var(--hac-text-secondary);
     transition: background 150ms, color 150ms;
   }
   .tab.selected {
-    color: var(--primary-text-color);
-    background: var(--card-background-color, var(--ha-card-background, #fff));
+    color: var(--hac-text);
+    background: var(--hac-surface);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   }
   .swatches {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     align-items: center;
-    gap: 0.857rem;
+    gap: var(--hac-space-3);
     justify-items: center;
-    padding: 0.286rem 0;
+    padding: var(--hac-space-1) 0;
   }
   .swatch {
     width: 100%;
@@ -538,14 +545,14 @@ export const styles = css`
   }
   .swatch.active {
     box-shadow:
-      0 0 0 3px var(--card-background-color, var(--ha-card-background, #fff)),
-      0 0 0 5px var(--primary-text-color, #000);
+      0 0 0 3px var(--hac-surface),
+      0 0 0 5px var(--hac-text);
   }
   hac-color-wheel {
-    margin: 0.286rem auto;
+    margin: var(--hac-space-1) auto;
   }
   .label {
-    font-size: 0.875rem;
-    color: var(--secondary-text-color);
+    font-size: var(--hac-font-size-s);
+    color: var(--hac-text-secondary);
   }
 `;

@@ -60,6 +60,8 @@ export interface LightSliderCardConfig {
   expanded?: boolean;
   /** One line per light: icon, name and a thin bar. */
   compact?: boolean;
+  /** Colour bars and icons with each light's own colour instead of the theme's. */
+  light_color?: boolean;
   /**
    * What opening a group with a `main_entity` does: `expand` (default) shows its
    * lights in the card, `more-info` opens Home Assistant's dialog for the group.
@@ -90,6 +92,8 @@ export interface NormalizedConfig {
   /** Room mode: icon in the room heading. */
   icon?: string;
   compact: boolean;
+  /** Use each light's own colour instead of the theme's. */
+  lightColor: boolean;
   groups: Group[];
   /** Every light on the card. */
   entityIds: string[];
@@ -106,6 +110,7 @@ export const DEFAULTS = {
   show_scenes: true,
   expanded: false,
   compact: false,
+  light_color: false,
 } as const;
 
 type EntityList = Array<string | LightEntityConfig>;
@@ -225,6 +230,7 @@ export function normalizeConfig(config: LightSliderCardConfig): NormalizedConfig
     name: config.name || undefined,
     icon: mode === 'room' ? config.icon || undefined : undefined,
     compact: config.compact ?? DEFAULTS.compact,
+    lightColor: config.light_color ?? DEFAULTS.light_color,
     groups,
     toggleOnly,
     entityIds: [

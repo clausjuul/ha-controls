@@ -30,6 +30,8 @@ export interface GroupedLightsCardConfig {
   show_color_temp?: boolean;
   show_color?: boolean;
   show_scenes?: boolean;
+  /** Colour bars with each light's own colour instead of the theme's. */
+  light_color?: boolean;
 }
 
 export interface NormalizedSubgroup {
@@ -133,6 +135,7 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
     base: {
       mode: 'room',
       compact: false,
+      lightColor: config.light_color ?? false,
       groups: baseGroups,
       entityIds,
       toggleOnly: new Set(),

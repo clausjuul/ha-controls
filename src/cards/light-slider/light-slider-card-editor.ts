@@ -35,6 +35,7 @@ const OPTIONS_SCHEMA = [
       { name: 'show_scenes', selector: { boolean: {} } },
       { name: 'expanded', selector: { boolean: {} } },
       { name: 'compact', selector: { boolean: {} } },
+      { name: 'light_color', selector: { boolean: {} } },
     ],
   },
 ];
@@ -162,6 +163,7 @@ export class LightSliderCardEditor extends LitElement {
       show_scenes: c.show_scenes ?? DEFAULTS.show_scenes,
       expanded: c.expanded ?? DEFAULTS.expanded,
       compact: c.compact ?? DEFAULTS.compact,
+      light_color: c.light_color ?? DEFAULTS.light_color,
       group_action: c.group_action ?? 'expand',
     };
   }

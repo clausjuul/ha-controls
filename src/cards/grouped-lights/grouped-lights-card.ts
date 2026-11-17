@@ -19,6 +19,7 @@ import {
   type NormalizedSubgroup,
 } from './config';
 import { styles } from './styles';
+import { themeTokens } from '../../shared/theme';
 
 export const GROUPED_TAG = 'ha-controls-grouped-lights-card';
 export const GROUPED_EDITOR_TAG = 'ha-controls-grouped-lights-card-editor';
@@ -53,7 +54,7 @@ export class GroupedLightsCard extends LightSliderCard {
   /** Scenes for everything, above the groups. */
   @state() protected _topScenes: string[] = [];
 
-  static styles = [baseStyles, styles];
+  static styles = [themeTokens, baseStyles, styles];
 
   static getConfigElement(): HTMLElement {
     return document.createElement(GROUPED_EDITOR_TAG);
@@ -143,7 +144,7 @@ export class GroupedLightsCard extends LightSliderCard {
 
     return html`
       <section class="gl-group" aria-label=${name}>
-        <div class="gl-header ${anyOn ? 'on' : ''}" style=${color ? `--hac-light-color: ${color}` : ''}>
+        <div class="gl-header ${anyOn ? 'on' : ''}" style=${this._lightStyle(color)}>
           <button
             class="icon"
             title=${label}
@@ -211,7 +212,7 @@ export class GroupedLightsCard extends LightSliderCard {
     return html`
       <div
         class="gl-row ${info.on ? 'on' : ''} ${info.lightFill ? 'light-fill' : ''}"
-        style=${info.color ? `--hac-light-color: ${info.color}` : ''}
+        style=${this._lightStyle(info.color)}
       >
         <button
           class="gl-name"

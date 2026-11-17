@@ -41,6 +41,7 @@ import {
   type NormalizedConfig,
 } from './config';
 import { styles } from './styles';
+import { themeTokens } from '../../shared/theme';
 import { OptimisticStates, type Patch } from '../../shared/optimistic';
 import { lastOn, rememberOn } from '../../shared/last-state';
 
@@ -125,7 +126,7 @@ export class LightSliderCard extends LitElement {
   protected _liveTimer?: number;
   protected _lastLive = 0;
 
-  static styles: CSSResultGroup = styles;
+  static styles: CSSResultGroup = [themeTokens, styles];
 
   static getConfigElement(): HTMLElement {
     return document.createElement(EDITOR_TAG);
@@ -370,7 +371,7 @@ export class LightSliderCard extends LitElement {
     return html`
       <div
         class="room-header compact ${anyOn ? 'on' : ''}"
-        style=${color ? `--hac-light-color: ${color}` : ''}
+        style=${this._lightStyle(color)}
       >
         <button
           class="icon"
@@ -624,7 +625,7 @@ export class LightSliderCard extends LitElement {
       return html`
         <div
           class="row compact ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''}"
-          style=${o.color ? `--hac-light-color: ${o.color}` : ''}
+          style=${this._lightStyle(o.color)}
         >
           ${cols.icon
             ? o.expander && !opensDialog
@@ -700,7 +701,7 @@ export class LightSliderCard extends LitElement {
     return html`
       <div
         class="row ${o.sub ? 'sub' : ''} ${o.on ? 'on' : ''} ${o.lightFill ? 'light-fill' : ''}"
-        style=${o.color ? `--hac-light-color: ${o.color}` : ''}
+        style=${this._lightStyle(o.color)}
       >
         <div class="top">
           ${showIcon ? iconButton() : nothing}
@@ -808,6 +809,14 @@ export class LightSliderCard extends LitElement {
           : nothing}
       </dialog>
     `;
+  }
+
+  /**
+   * Inline style giving a row the light's own colour, when the card is set to
+   * use it (`light_color`). Otherwise the theme's colour for active lights is used.
+   */
+  protected _lightStyle(color?: string): string {
+    return color && this._config?.lightColor ? `--hac-light-color: ${color}` : '';
   }
 
   /** Content of a `lights` popup; subclasses that open one override this. */
