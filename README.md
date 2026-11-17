@@ -195,9 +195,14 @@ and icons with each light's own colour instead of the theme's colour.
 
 ## Grouped Lights Card
 
-Rooms in one card. Each **group** (a room or area) has a heading with its icon
-(tap to turn everything on/off), name, average brightness and how many rows are
-on, then an optional row of **scenes** that scrolls sideways, then its **rows**.
+Rooms in one card. Each **group** (a room or area) has a heading with its icon,
+name, average brightness and a switch that turns everything on/off, then an
+optional row of **scenes** that scrolls sideways, then its **rows**.
+
+With `collapsible: true`, tap a group's name to fold its scenes and rows in and
+out. With `collapse_off: true`, a group folds in by itself while all its lights
+are off and opens again when one turns on; folding it by hand lasts until the
+group turns on or off.
 
 Each **row** (subgroup) is one bar:
 
@@ -207,11 +212,13 @@ Each **row** (subgroup) is one bar:
 - or a `main_entity` (e.g. a light group) that the bar controls, with
   `entities` as its lights.
 
-Tap the name to turn a row on/off, drag the bar to set the brightness. Buttons
-at the end of a row (only when they apply): **color** (white and color tabs),
-**scenes** (found automatically, or `scenes`), and **show lights**: Home
-Assistant's own dialog when the row has a `main_entity`, otherwise the card's
-popup with a bar per light.
+Drag the bar to set the brightness. The bar sits in the middle of the card,
+with the name on one side and the buttons on the other. Tapping the name of a
+row with one light turns it on/off; a row with several lights (or a light
+group as `main_entity`) shows a chevron, and tapping its name folds its lights
+out below it, each with its own bar. Buttons at the end of a row (only when
+they apply): **color** (white and color tabs) and **scenes** (found
+automatically, or `scenes`). Their popups open next to the row.
 
 Scene names leave out the group's name, so "Office cozy" in the group "Office"
 shows as "Cozy". Card-level `scenes` appear above all groups.
@@ -247,6 +254,9 @@ groups:
 | `subgroups[].name`, `icon` | string | | Row name (defaults to the entity's name) and icon |
 | `subgroups[].scenes` | list | automatic | Scenes for the row's scene button |
 | `show_color_temp`, `show_color`, `show_scenes` | boolean | `true` | Which buttons rows get |
+| `light_color` | boolean | `false` | Use each light's own colour instead of the theme's |
+| `collapsible` | boolean | `false` | Tap a group's name to fold it in and out |
+| `collapse_off` | boolean | `false` | Fold groups in while they're off (implies `collapsible`) |
 
 ## Super Layout Card
 

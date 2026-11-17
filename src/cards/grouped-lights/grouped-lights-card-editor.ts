@@ -15,6 +15,8 @@ const OPTIONS_SCHEMA = [
       { name: 'show_color', selector: { boolean: {} } },
       { name: 'show_scenes', selector: { boolean: {} } },
       { name: 'light_color', selector: { boolean: {} } },
+      { name: 'collapsible', selector: { boolean: {} } },
+      { name: 'collapse_off', selector: { boolean: {} } },
     ],
   },
 ];
@@ -45,7 +47,13 @@ const SUBGROUP_SCHEMA = [
   { name: 'scenes', selector: { entity: { multiple: true, filter: { domain: 'scene' } } } },
 ];
 
-type OptionKey = 'show_color_temp' | 'show_color' | 'show_scenes' | 'light_color';
+type OptionKey =
+  | 'show_color_temp'
+  | 'show_color'
+  | 'show_scenes'
+  | 'light_color'
+  | 'collapsible'
+  | 'collapse_off';
 
 function move<T>(list: T[], index: number, delta: number): T[] {
   const next = [...list];
@@ -114,6 +122,8 @@ export class GroupedLightsCardEditor extends LitElement {
           show_color: c.show_color ?? true,
           show_scenes: c.show_scenes ?? true,
           light_color: c.light_color ?? false,
+          collapsible: c.collapsible ?? false,
+          collapse_off: c.collapse_off ?? false,
         }}
         .schema=${OPTIONS_SCHEMA}
         .computeLabel=${this._label}
@@ -344,8 +354,10 @@ export class GroupedLightsCardEditor extends LitElement {
       if (ev.detail.value[key] === false) config[key] = false;
       else delete config[key];
     }
-    if (ev.detail.value.light_color) config.light_color = true;
-    else delete config.light_color;
+    for (const key of ['light_color', 'collapsible', 'collapse_off'] as OptionKey[]) {
+      if (ev.detail.value[key]) config[key] = true;
+      else delete config[key];
+    }
     this._update(config);
   }
 
