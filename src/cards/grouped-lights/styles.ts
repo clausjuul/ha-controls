@@ -5,12 +5,23 @@ export const styles = css`
     padding: var(--hac-space-4);
     display: flex;
     flex-direction: column;
-    gap: var(--hac-space-6);
+    gap: var(--hac-space-3);
   }
 
+  /* Each group sits on a faint panel, like a row's folded-out lights. The
+     negative margin keeps its rows lined up with the rest of the card. */
   .gl-group {
     display: flex;
     flex-direction: column;
+    margin: 0 calc(-1 * var(--hac-space-2));
+    padding: var(--hac-space-2);
+    border-radius: var(--hac-radius-l);
+    background: color-mix(in srgb, var(--hac-text) 5%, transparent);
+  }
+  /* A group's scene row scrolls out under the panel's padding, not the card's. */
+  .gl-group .gl-scenes {
+    margin: 0 calc(-1 * var(--hac-space-2));
+    padding: 0.143rem var(--hac-space-2);
   }
   .gl-body {
     display: flex;
@@ -40,7 +51,7 @@ export const styles = css`
     padding: 0 var(--_bleed);
   }
   .gl-collapse.group {
-    --_bleed: var(--hac-space-4);
+    --_bleed: var(--hac-space-2);
   }
   .gl-collapse.row {
     --_bleed: var(--hac-space-2);
@@ -58,27 +69,30 @@ export const styles = css`
     align-items: center;
     gap: var(--hac-space-3);
   }
+  /* The icon is grey while the group is off and glows in the light's colour
+     while it's on. */
   .gl-header .icon {
-    width: var(--hac-size-l);
-    height: var(--hac-size-l);
+    width: var(--hac-size-m);
+    height: var(--hac-size-m);
     --mdc-icon-size: 1.571rem;
+    color: color-mix(in srgb, var(--hac-text) 38%, transparent);
+    background: transparent;
+    transition: color 200ms, filter 200ms;
   }
   .gl-header.on .icon {
     color: var(--_light);
     background: transparent;
+    filter: drop-shadow(0 0 0.286rem color-mix(in srgb, var(--_light) 80%, transparent))
+      drop-shadow(0 0 0.714rem color-mix(in srgb, var(--_light) 45%, transparent));
   }
   .gl-heading {
     flex: 1;
     min-width: 0;
+    height: var(--hac-size-m);
     display: flex;
     align-items: center;
     gap: var(--hac-space-1);
     text-align: left;
-  }
-  .gl-heading-text {
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
   }
   .gl-fold ha-icon {
     flex: none;
@@ -90,16 +104,13 @@ export const styles = css`
     transform: rotate(180deg);
   }
   .gl-title {
+    min-width: 0;
     font-size: var(--hac-font-size-l);
     font-weight: var(--hac-weight-medium);
     color: var(--hac-text);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-  }
-  .gl-sub {
-    font-size: var(--hac-font-size-m);
-    color: var(--hac-text-secondary);
   }
 
   /* ----- scenes: one row that scrolls sideways ----- */
@@ -161,6 +172,7 @@ export const styles = css`
     --hac-slider-track-background: var(--_track);
     --hac-slider-value-color: var(--hac-text);
     --hac-slider-value-color-track: var(--hac-text);
+    --hac-slider-value-weight: var(--hac-weight-normal);
     /* Name and buttons get columns of the same width, so the bar sits in the
        middle of the card. */
     display: grid;
@@ -225,7 +237,6 @@ export const styles = css`
   .gl-toggle.on {
     background: var(--_fill);
     color: var(--hac-text);
-    font-weight: var(--hac-weight-medium);
   }
   .gl-actions {
     display: flex;

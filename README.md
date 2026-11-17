@@ -195,14 +195,20 @@ and icons with each light's own colour instead of the theme's colour.
 
 ## Grouped Lights Card
 
-Rooms in one card. Each **group** (a room or area) has a heading with its icon,
-name, average brightness and a switch that turns everything on/off, then an
-optional row of **scenes** that scrolls sideways, then its **rows**.
+Rooms in one card. Each **group** (a room or area) sits on its own faint panel,
+with a one-line heading: its icon (grey while off, glowing in the light's
+colour while on), name and a switch that turns everything on/off. Below come
+an optional row of **scenes** that scrolls sideways and its **rows**.
 
-With `collapsible: true`, tap a group's name to fold its scenes and rows in and
-out. With `collapse_off: true`, a group folds in by itself while all its lights
-are off and opens again when one turns on; folding it by hand lasts until the
-group turns on or off.
+Turning a group (or a row with several lights) on brings back the lights that
+were on the last time, each with its own brightness and colour, instead of
+turning everything on. The card remembers this in each browser, so a device
+has to have seen the group on once.
+
+Per group, `collapsible: true` lets you tap the name to fold its scenes and
+rows in and out. With `collapse_off: true`, the group folds in by itself while
+all its lights are off and opens again when one turns on; folding it by hand
+lasts until the group turns on or off.
 
 Each **row** (subgroup) is one bar:
 
@@ -238,6 +244,7 @@ groups:
         name: LED strip
   - name: Office
     icon: mdi:desk
+    collapse_off: true
     subgroups:
       - name: Ceiling
         entities: [light.ceiling_1, light.ceiling_2]
@@ -249,14 +256,14 @@ groups:
 | --- | --- | --- | --- |
 | `scenes` | list | | Scenes for everything, shown as a row at the very top |
 | `groups` | list | **required** | Groups, each with `name`, `icon`, `scenes` and `subgroups` |
+| `groups[].collapsible` | boolean | `false` | Tap the group's name to fold it in and out |
+| `groups[].collapse_off` | boolean | `false` | Fold the group in while it's off (implies `collapsible`) |
 | `subgroups[].entity` / `entities` | string / list | | The row's entities |
 | `subgroups[].main_entity` | string | | Entity the bar controls; `entities` are its lights |
 | `subgroups[].name`, `icon` | string | | Row name (defaults to the entity's name) and icon |
 | `subgroups[].scenes` | list | automatic | Scenes for the row's scene button |
 | `show_color_temp`, `show_color`, `show_scenes` | boolean | `true` | Which buttons rows get |
 | `light_color` | boolean | `false` | Use each light's own colour instead of the theme's |
-| `collapsible` | boolean | `false` | Tap a group's name to fold it in and out |
-| `collapse_off` | boolean | `false` | Fold groups in while they're off (implies `collapsible`) |
 
 ## Super Layout Card
 
