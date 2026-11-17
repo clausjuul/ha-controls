@@ -7,6 +7,7 @@ JavaScript bundle.
 | --- | --- |
 | [Light Slider Card](#light-slider-card) | `custom:ha-controls-light-slider-card` |
 | [Grouped Lights Card](#grouped-lights-card) | `custom:ha-controls-grouped-lights-card` |
+| [Super Layout Card](#super-layout-card) | `custom:super-layout-card` and friends |
 
 ## Installation
 
@@ -246,6 +247,22 @@ groups:
 | `subgroups[].name`, `icon` | string | | Row name (defaults to the entity's name) and icon |
 | `subgroups[].scenes` | list | automatic | Scenes for the row's scene button |
 | `show_color_temp`, `show_color`, `show_scenes` | boolean | `true` | Which buttons rows get |
+
+## Super Layout Card
+
+Layout containers ported from the standalone `super-layout-card` (based on
+[thomasloven/lovelace-layout-card](https://github.com/thomasloven/lovelace-layout-card), MIT).
+They keep their original type names, so existing dashboards work unchanged:
+
+| Type | What it does |
+| --- | --- |
+| `custom:super-layout-card` | Masonry, horizontal, vertical, grid and aligned-grid layouts, with a native editor and grid designer |
+| `custom:super-scroll-area` | Scrollable container for child cards |
+| `custom:super-tab-card` | Tabbed container |
+| `custom:super-collapsible-card` | Collapsible section |
+| `custom:super-gap-card`, `custom:super-layout-break` | Spacer and column break inside layouts |
+
+Remove the old `super-layout-card.js` resource once you use this bundle.
 
 ## Development
 

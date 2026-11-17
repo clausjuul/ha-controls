@@ -14,6 +14,7 @@ import {
   GroupedLightsCard,
 } from './cards/grouped-lights/grouped-lights-card';
 import { GroupedLightsCardEditor } from './cards/grouped-lights/grouped-lights-card-editor';
+import './cards/super-layout';
 
 declare const __VERSION__: string;
 
