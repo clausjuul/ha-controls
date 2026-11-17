@@ -20,6 +20,10 @@ export interface GroupConfig {
   /** Scenes shown as a scrollable row under the heading. */
   scenes?: string[];
   subgroups?: SubgroupConfig[];
+  /** Tap the heading to fold the group in and out. */
+  collapsible?: boolean;
+  /** Fold the group in while all its lights are off (implies `collapsible`). */
+  collapse_off?: boolean;
 }
 
 export interface GroupedLightsCardConfig {
@@ -32,15 +36,6 @@ export interface GroupedLightsCardConfig {
   show_scenes?: boolean;
   /** Colour bars with each light's own colour instead of the theme's. */
   light_color?: boolean;
-  /** Tap a group's heading to fold it in and out. */
-  collapsible?: boolean;
-  /** Fold a group in while all its lights are off (implies `collapsible`). */
-  collapse_off?: boolean;
-}
-
-export interface GroupedOptions {
-  collapsible: boolean;
-  collapseOff: boolean;
 }
 
 export interface NormalizedSubgroup {
@@ -58,6 +53,8 @@ export interface NormalizedGroup {
   icon?: string;
   scenes: string[];
   subgroups: NormalizedSubgroup[];
+  collapsible: boolean;
+  collapseOff: boolean;
   /** Every entity in the group. */
   entityIds: string[];
 }
@@ -79,7 +76,6 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
   groups: NormalizedGroup[];
   /** Scenes shown above all groups. */
   scenes: string[];
-  options: GroupedOptions;
   /** The same lights in the shape the light slider card's helpers use. */
   base: NormalizedConfig;
 } {
@@ -134,6 +130,8 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
       icon: g.icon || undefined,
       scenes: sceneList(g.scenes, gWhere) ?? [],
       subgroups,
+      collapsible: !!g.collapsible || !!g.collapse_off,
+      collapseOff: !!g.collapse_off,
       entityIds: [...new Set(subgroups.flatMap((s) => [...(s.main ? [s.main] : []), ...s.entities]))],
     };
   });
@@ -142,10 +140,6 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
   return {
     groups,
     scenes: sceneList(config.scenes, 'the card') ?? [],
-    options: {
-      collapsible: !!config.collapsible || !!config.collapse_off,
-      collapseOff: !!config.collapse_off,
-    },
     base: {
       mode: 'room',
       compact: false,

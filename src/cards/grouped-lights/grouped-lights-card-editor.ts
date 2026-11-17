@@ -15,8 +15,6 @@ const OPTIONS_SCHEMA = [
       { name: 'show_color', selector: { boolean: {} } },
       { name: 'show_scenes', selector: { boolean: {} } },
       { name: 'light_color', selector: { boolean: {} } },
-      { name: 'collapsible', selector: { boolean: {} } },
-      { name: 'collapse_off', selector: { boolean: {} } },
     ],
   },
 ];
@@ -31,6 +29,14 @@ const GROUP_SCHEMA = [
     ],
   },
   { name: 'group_scenes', selector: { entity: { multiple: true, filter: { domain: 'scene' } } } },
+  {
+    type: 'grid',
+    name: '',
+    schema: [
+      { name: 'collapsible', selector: { boolean: {} } },
+      { name: 'collapse_off', selector: { boolean: {} } },
+    ],
+  },
 ];
 
 const SUBGROUP_SCHEMA = [
@@ -47,13 +53,7 @@ const SUBGROUP_SCHEMA = [
   { name: 'scenes', selector: { entity: { multiple: true, filter: { domain: 'scene' } } } },
 ];
 
-type OptionKey =
-  | 'show_color_temp'
-  | 'show_color'
-  | 'show_scenes'
-  | 'light_color'
-  | 'collapsible'
-  | 'collapse_off';
+type OptionKey = 'show_color_temp' | 'show_color' | 'show_scenes' | 'light_color';
 
 function move<T>(list: T[], index: number, delta: number): T[] {
   const next = [...list];
@@ -122,8 +122,6 @@ export class GroupedLightsCardEditor extends LitElement {
           show_color: c.show_color ?? true,
           show_scenes: c.show_scenes ?? true,
           light_color: c.light_color ?? false,
-          collapsible: c.collapsible ?? false,
-          collapse_off: c.collapse_off ?? false,
         }}
         .schema=${OPTIONS_SCHEMA}
         .computeLabel=${this._label}
@@ -208,16 +206,34 @@ export class GroupedLightsCardEditor extends LitElement {
         ${header}
         <ha-form
           .hass=${this.hass}
-          .data=${{ name: g.name ?? '', icon: g.icon ?? '', group_scenes: g.scenes ?? [] }}
+          .data=${{
+            name: g.name ?? '',
+            icon: g.icon ?? '',
+            group_scenes: g.scenes ?? [],
+            collapsible: g.collapsible ?? false,
+            collapse_off: g.collapse_off ?? false,
+          }}
           .schema=${GROUP_SCHEMA}
           .computeLabel=${this._label}
-          @value-changed=${(ev: CustomEvent<{ value: { name?: string; icon?: string; group_scenes?: string[] } }>) => {
+          @value-changed=${(
+            ev: CustomEvent<{
+              value: {
+                name?: string;
+                icon?: string;
+                group_scenes?: string[];
+                collapsible?: boolean;
+                collapse_off?: boolean;
+              };
+            }>,
+          ) => {
             ev.stopPropagation();
             const v = ev.detail.value;
             const next: GroupConfig = { ...g };
             setOrDelete(next, 'name', v.name);
             setOrDelete(next, 'icon', v.icon);
             setOrDelete(next, 'scenes', v.group_scenes);
+            setOrDelete(next, 'collapsible', v.collapsible || undefined);
+            setOrDelete(next, 'collapse_off', v.collapse_off || undefined);
             this._setGroup(gi, next);
           }}
         ></ha-form>
@@ -354,10 +370,8 @@ export class GroupedLightsCardEditor extends LitElement {
       if (ev.detail.value[key] === false) config[key] = false;
       else delete config[key];
     }
-    for (const key of ['light_color', 'collapsible', 'collapse_off'] as OptionKey[]) {
-      if (ev.detail.value[key]) config[key] = true;
-      else delete config[key];
-    }
+    if (ev.detail.value.light_color) config.light_color = true;
+    else delete config.light_color;
     this._update(config);
   }
 

@@ -347,7 +347,7 @@ export class HacSlider extends LitElement {
       top: 50%;
       transform: translateY(-50%);
       font-size: var(--hac-font-size-m);
-      font-weight: var(--hac-weight-medium);
+      font-weight: var(--hac-slider-value-weight, var(--hac-weight-medium));
       font-variant-numeric: tabular-nums;
       color: var(--hac-slider-value-color-track, var(--hac-text));
       pointer-events: none;
@@ -378,7 +378,7 @@ export class HacSlider extends LitElement {
     }
     .text-layer.strong {
       font-size: var(--hac-font-size-m);
-      font-weight: var(--hac-weight-medium);
+      font-weight: var(--hac-slider-value-weight, var(--hac-weight-medium));
       font-variant-numeric: tabular-nums;
       color: var(--hac-slider-value-color-track, var(--hac-text));
     }

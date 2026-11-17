@@ -12,11 +12,18 @@ import {
 } from '../../shared/light';
 import { LightSliderCard, type DialogState, type Target } from '../light-slider/light-slider-card';
 import { DOMAINS } from '../light-slider/config';
+import {
+  lastOn,
+  lastSet,
+  rememberOn,
+  rememberSet,
+  restoreData,
+  setKey,
+} from '../../shared/last-state';
 import { styles as baseStyles } from '../light-slider/styles';
 import {
   normalizeGrouped,
   type GroupedLightsCardConfig,
-  type GroupedOptions,
   type NormalizedGroup,
   type NormalizedSubgroup,
 } from './config';
@@ -25,6 +32,9 @@ import { themeTokens } from '../../shared/theme';
 
 export const GROUPED_TAG = 'ha-controls-grouped-lights-card';
 export const GROUPED_EDITOR_TAG = 'ha-controls-grouped-lights-card-editor';
+
+/** How long a set of lights must stay unchanged before it is remembered. */
+const SETTLE_MS = 2000;
 
 interface Columns {
   color: boolean;
@@ -52,7 +62,6 @@ export class GroupedLightsCard extends LightSliderCard {
   @state() protected _groups?: NormalizedGroup[];
   /** Scenes for everything, above the groups. */
   @state() protected _topScenes: string[] = [];
-  protected _options: GroupedOptions = { collapsible: false, collapseOff: false };
   /** Groups the user folded in or out by hand, until the group turns on or off. */
   protected _groupOpen: Record<string, boolean> = {};
   /** Whether each group was on at the last render, to notice it changing. */
@@ -72,10 +81,9 @@ export class GroupedLightsCard extends LightSliderCard {
   }
 
   setConfig(config: GroupedLightsCardConfig): void {
-    const { groups, scenes, options, base } = normalizeGrouped(config);
+    const { groups, scenes, base } = normalizeGrouped(config);
     this._groups = groups;
     this._topScenes = scenes;
-    this._options = options;
     this._config = base;
     this._expanded = {};
     this._groupOpen = {};
@@ -102,6 +110,114 @@ export class GroupedLightsCard extends LightSliderCard {
       .filter((s) => this._expanded[s.key])
       .flatMap((s) => this._members(s));
     return [...sceneIds, ...shown].some((id) => old.states[id] !== this.hass!.states[id]);
+  }
+
+  protected willUpdate(changed: PropertyValues<this>): void {
+    super.willUpdate(changed);
+    if (!changed.has('hass') || !this.hass || !this._groups) return;
+    const old = changed.get('hass') as HomeAssistant | undefined;
+    for (const ids of this._restorable()) {
+      const leaves = this._leaves(ids);
+      if (!leaves.some((id) => this.hass!.states[id] !== old?.states[id])) continue;
+      for (const id of leaves) rememberOn(this.hass.states[id]);
+      // Lights report one by one when a set turns off, so only remember a set
+      // once it has settled; one that ends up all off keeps the earlier memory.
+      const key = setKey(leaves);
+      window.clearTimeout(this._setTimers.get(key));
+      this._setTimers.set(
+        key,
+        window.setTimeout(() => {
+          this._setTimers.delete(key);
+          this._rememberSet(leaves);
+        }, SETTLE_MS),
+      );
+    }
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    for (const timer of this._setTimers.values()) window.clearTimeout(timer);
+    this._setTimers.clear();
+  }
+
+  protected _setTimers = new Map<string, number>();
+
+  /** Remember which of these lights are on, if any are. */
+  protected _rememberSet(leaves: string[]) {
+    if (!this.hass) return;
+    const on = leaves.filter((id) => isOn(this.hass!.states[id]));
+    if (on.length) rememberSet(setKey(leaves), on);
+  }
+
+  /** Sets of lights that turn back on the way they were: groups and rows. */
+  protected _restorable(): string[][] {
+    return this._groups!.flatMap((g) => [
+      [...new Set(g.subgroups.flatMap((s) => this._controlled(s)))],
+      ...g.subgroups.map((s) => this._controlled(s)),
+    ]);
+  }
+
+  /** The single lights behind some entities: a light group's members, or the entity itself. */
+  protected _leaves(ids: string[]): string[] {
+    const out = new Set<string>();
+    for (const id of ids) {
+      const attr = this.hass!.states[id]?.attributes.entity_id;
+      const members = Array.isArray(attr)
+        ? attr.filter(
+            (m): m is string =>
+              typeof m === 'string' && DOMAINS.includes(m.split('.')[0]) && !!this.hass!.states[m],
+          )
+        : [];
+      for (const m of members.length ? members : [id]) out.add(m);
+    }
+    return [...out];
+  }
+
+  /**
+   * Turning a group or row on brings back the lights that were on the last
+   * time, each with its own brightness and colour. Without a memory (or with
+   * one light) everything turns on as before.
+   */
+  protected _toggle(ids: string[]) {
+    const states = this._available(ids);
+    const leaves = this._leaves(ids);
+    if (!states.length) return;
+    if (states.some(isOn)) {
+      // Turning off: remember the set as it is now, before it starts changing.
+      const key = setKey(leaves);
+      window.clearTimeout(this._setTimers.get(key));
+      this._setTimers.delete(key);
+      this._rememberSet(leaves);
+      return super._toggle(ids);
+    }
+    const available = new Set(this._available(leaves).map((s) => s.entity_id));
+    const remembered = (lastSet(setKey(leaves)) ?? []).filter((id) => available.has(id));
+    if (leaves.length < 2 || !remembered.length) return super._toggle(ids);
+
+    const lights = new Map<string, { data: Record<string, unknown>; ids: string[] }>();
+    const others: string[] = [];
+    // Light groups among `ids` turn on with their members.
+    for (const st of states) {
+      if (this._leaves([st.entity_id]).some((id) => remembered.includes(id))) {
+        this._expect(st.entity_id, { state: 'on' });
+      }
+    }
+    for (const id of remembered) {
+      this._expect(id, { state: 'on' });
+      if (!id.startsWith('light.')) {
+        others.push(id);
+        continue;
+      }
+      const data = restoreData(lastOn(id));
+      const key = JSON.stringify(data);
+      const entry = lights.get(key) ?? { data, ids: [] };
+      entry.ids.push(id);
+      lights.set(key, entry);
+    }
+    for (const { data, ids: group } of lights.values()) {
+      this.hass!.callService('light', 'turn_on', { ...data, entity_id: group });
+    }
+    if (others.length) this._callOnOff('turn_on', others);
   }
 
   // ---------------------------------------------------------------- render
@@ -136,23 +252,13 @@ export class GroupedLightsCard extends LightSliderCard {
     const rows = g.subgroups.map((sub) => ({ sub, info: this._subInfo(sub, t) }));
     const available = rows.filter((r) => !r.info.unavailable);
     const on = available.filter((r) => r.info.on);
-    const dimOn = on.filter((r) => r.info.brightness !== undefined);
-    const pct = dimOn.length
-      ? Math.round(dimOn.reduce((sum, r) => sum + (r.info.brightness ?? 0), 0) / dimOn.length)
-      : on.length
-        ? 100
-        : 0;
     const anyOn = on.length > 0;
-    const secondary = !available.length ? t('unavailable') : anyOn ? `${pct}%` : t('off');
     const allIds = [...new Set(g.subgroups.flatMap((s) => this._controlled(s)))];
     const color = lightColor(on.map((r) => r.info.state).find(isOn));
     const label = anyOn ? t('room_off') : t('room_on');
     const name = g.name ?? t('lights');
     const open = this._isGroupOpen(g, anyOn);
-    const heading = html`
-      <span class="gl-title">${name}</span>
-      <span class="gl-sub">${secondary}</span>
-    `;
+    const heading = html`<span class="gl-title">${name}</span>`;
 
     return html`
       <section class="gl-group" aria-label=${name}>
@@ -166,7 +272,7 @@ export class GroupedLightsCard extends LightSliderCard {
           >
             <ha-icon .icon=${g.icon ?? defaultIcon(anyOn, true)}></ha-icon>
           </button>
-          ${this._options.collapsible
+          ${g.collapsible
             ? html`<button
                 class="gl-heading gl-fold ${open ? 'open' : ''}"
                 aria-expanded=${open ? 'true' : 'false'}
@@ -176,10 +282,10 @@ export class GroupedLightsCard extends LightSliderCard {
                   this.requestUpdate();
                 }}
               >
-                <span class="gl-heading-text">${heading}</span>
+                ${heading}
                 <ha-icon icon="mdi:chevron-down"></ha-icon>
               </button>`
-            : html`<div class="gl-heading"><span class="gl-heading-text">${heading}</span></div>`}
+            : html`<div class="gl-heading">${heading}</div>`}
           <button
             class="switch ${anyOn ? 'on' : ''}"
             role="switch"
@@ -231,11 +337,11 @@ export class GroupedLightsCard extends LightSliderCard {
    * that way until it turns on or off; with `collapse_off` an off group folds in.
    */
   protected _isGroupOpen(g: NormalizedGroup, anyOn: boolean): boolean {
-    if (!this._options.collapsible) return true;
+    if (!g.collapsible) return true;
     const was = this._groupWasOn[g.key];
     this._groupWasOn[g.key] = anyOn;
     if (was !== undefined && was !== anyOn) delete this._groupOpen[g.key];
-    return this._groupOpen[g.key] ?? !(this._options.collapseOff && !anyOn);
+    return this._groupOpen[g.key] ?? !(g.collapseOff && !anyOn);
   }
 
   /** A row, and its lights in a panel below it while it's expanded. */
