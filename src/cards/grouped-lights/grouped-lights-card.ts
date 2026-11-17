@@ -1,6 +1,6 @@
 import { html, nothing, type PropertyValues, type TemplateResult } from 'lit';
 import { state } from 'lit/decorators.js';
-import { fireEvent, type HassEntity, type HomeAssistant } from '../../shared/types';
+import { type HassEntity, type HomeAssistant } from '../../shared/types';
 import { localize, type Localize } from '../../shared/localize';
 import {
   brightnessPct,
@@ -11,10 +11,12 @@ import {
   withoutRoomName,
 } from '../../shared/light';
 import { LightSliderCard, type DialogState, type Target } from '../light-slider/light-slider-card';
+import { DOMAINS } from '../light-slider/config';
 import { styles as baseStyles } from '../light-slider/styles';
 import {
   normalizeGrouped,
   type GroupedLightsCardConfig,
+  type GroupedOptions,
   type NormalizedGroup,
   type NormalizedSubgroup,
 } from './config';
@@ -27,10 +29,7 @@ export const GROUPED_EDITOR_TAG = 'ha-controls-grouped-lights-card-editor';
 interface Columns {
   color: boolean;
   scenes: boolean;
-  lights: boolean;
 }
-
-const NO_COLUMNS: Columns = { color: false, scenes: false, lights: false };
 
 interface SubInfo {
   name: string;
@@ -53,6 +52,11 @@ export class GroupedLightsCard extends LightSliderCard {
   @state() protected _groups?: NormalizedGroup[];
   /** Scenes for everything, above the groups. */
   @state() protected _topScenes: string[] = [];
+  protected _options: GroupedOptions = { collapsible: false, collapseOff: false };
+  /** Groups the user folded in or out by hand, until the group turns on or off. */
+  protected _groupOpen: Record<string, boolean> = {};
+  /** Whether each group was on at the last render, to notice it changing. */
+  protected _groupWasOn: Record<string, boolean> = {};
 
   static styles = [themeTokens, baseStyles, styles];
 
@@ -68,11 +72,14 @@ export class GroupedLightsCard extends LightSliderCard {
   }
 
   setConfig(config: GroupedLightsCardConfig): void {
-    const { groups, scenes, base } = normalizeGrouped(config);
+    const { groups, scenes, options, base } = normalizeGrouped(config);
     this._groups = groups;
     this._topScenes = scenes;
+    this._options = options;
     this._config = base;
     this._expanded = {};
+    this._groupOpen = {};
+    this._groupWasOn = {};
   }
 
   getCardSize(): number {
@@ -89,7 +96,12 @@ export class GroupedLightsCard extends LightSliderCard {
     const old = changed.get('hass') as HomeAssistant | undefined;
     if (!old || !this.hass || !this._groups) return false;
     const sceneIds = [...this._topScenes, ...this._groups.flatMap((g) => g.scenes)];
-    return sceneIds.some((id) => old.states[id] !== this.hass!.states[id]);
+    // Lights shown in an expanded row may not be in the config.
+    const shown = this._groups
+      .flatMap((g) => g.subgroups)
+      .filter((s) => this._expanded[s.key])
+      .flatMap((s) => this._members(s));
+    return [...sceneIds, ...shown].some((id) => old.states[id] !== this.hass!.states[id]);
   }
 
   // ---------------------------------------------------------------- render
@@ -109,13 +121,12 @@ export class GroupedLightsCard extends LightSliderCard {
 
   /** Which buttons any row uses, so every row keeps the same columns. */
   protected _glColumns(): Columns {
-    const cols = { ...NO_COLUMNS };
+    const cols: Columns = { color: false, scenes: false };
     for (const g of this._groups!) {
       for (const sub of g.subgroups) {
         const target = this._subTarget(sub, '');
         cols.color ||= this._colorLights(target.ids).any;
         cols.scenes ||= this._hasSceneMenu(target);
-        cols.lights ||= this._hasLights(sub);
       }
     }
     return cols;
@@ -132,15 +143,16 @@ export class GroupedLightsCard extends LightSliderCard {
         ? 100
         : 0;
     const anyOn = on.length > 0;
-    const secondary = !available.length
-      ? t('unavailable')
-      : anyOn
-        ? `${pct}% · ${t('lights_on_short', { on: on.length, total: available.length })}`
-        : t('off');
+    const secondary = !available.length ? t('unavailable') : anyOn ? `${pct}%` : t('off');
     const allIds = [...new Set(g.subgroups.flatMap((s) => this._controlled(s)))];
     const color = lightColor(on.map((r) => r.info.state).find(isOn));
     const label = anyOn ? t('room_off') : t('room_on');
     const name = g.name ?? t('lights');
+    const open = this._isGroupOpen(g, anyOn);
+    const heading = html`
+      <span class="gl-title">${name}</span>
+      <span class="gl-sub">${secondary}</span>
+    `;
 
     return html`
       <section class="gl-group" aria-label=${name}>
@@ -154,15 +166,41 @@ export class GroupedLightsCard extends LightSliderCard {
           >
             <ha-icon .icon=${g.icon ?? defaultIcon(anyOn, true)}></ha-icon>
           </button>
-          <div class="gl-heading">
-            <span class="gl-title">${name}</span>
-            <span class="gl-sub">${secondary}</span>
-          </div>
+          ${this._options.collapsible
+            ? html`<button
+                class="gl-heading gl-fold ${open ? 'open' : ''}"
+                aria-expanded=${open ? 'true' : 'false'}
+                aria-label=${`${t('expand')}: ${name}`}
+                @click=${() => {
+                  this._groupOpen[g.key] = !open;
+                  this.requestUpdate();
+                }}
+              >
+                <span class="gl-heading-text">${heading}</span>
+                <ha-icon icon="mdi:chevron-down"></ha-icon>
+              </button>`
+            : html`<div class="gl-heading"><span class="gl-heading-text">${heading}</span></div>`}
+          <button
+            class="switch ${anyOn ? 'on' : ''}"
+            role="switch"
+            aria-checked=${anyOn ? 'true' : 'false'}
+            aria-label=${`${t('toggle')}: ${name}`}
+            ?disabled=${!available.length}
+            @click=${() => this._toggle(allIds)}
+          >
+            <span class="switch-knob"></span>
+          </button>
         </div>
-        ${g.scenes.length ? this._renderSceneRow(g.scenes, t, g.name) : nothing}
-        <div class="gl-rows">
-          ${rows.map(({ sub, info }) => this._renderSubRow(sub, info, cols, t, g.name))}
-        </div>
+        ${this._collapse(
+          open,
+          html`<div class="gl-body">
+            ${g.scenes.length ? this._renderSceneRow(g.scenes, t, g.name) : nothing}
+            <div class="gl-rows">
+              ${rows.map(({ sub, info }) => this._renderItem(sub, info, cols, t, g.name))}
+            </div>
+          </div>`,
+          'group',
+        )}
       </section>
     `;
   }
@@ -172,16 +210,11 @@ export class GroupedLightsCard extends LightSliderCard {
     const scenes = ids
       .map((id) => this._state(id))
       .filter((s): s is HassEntity => !!s);
-    let latest: HassEntity | undefined;
-    for (const s of scenes) {
-      const time = Date.parse(s.state);
-      if (!Number.isNaN(time) && (!latest || time > Date.parse(latest.state))) latest = s;
-    }
     return html`
       <div class="gl-scenes" role="group" aria-label=${t('scenes')}>
         ${scenes.map(
           (s) => html`<button
-            class="gl-scene ${s === latest ? 'active' : ''}"
+            class="gl-scene"
             ?disabled=${s.state === 'unavailable'}
             @click=${() => this._activateScene(s)}
           >
@@ -193,37 +226,103 @@ export class GroupedLightsCard extends LightSliderCard {
     `;
   }
 
-  /** One row: name (tap to toggle), a bar, and the row's buttons. */
-  protected _renderSubRow(
+  /**
+   * Whether a group shows its scenes and rows. A group folded by hand stays
+   * that way until it turns on or off; with `collapse_off` an off group folds in.
+   */
+  protected _isGroupOpen(g: NormalizedGroup, anyOn: boolean): boolean {
+    if (!this._options.collapsible) return true;
+    const was = this._groupWasOn[g.key];
+    this._groupWasOn[g.key] = anyOn;
+    if (was !== undefined && was !== anyOn) delete this._groupOpen[g.key];
+    return this._groupOpen[g.key] ?? !(this._options.collapseOff && !anyOn);
+  }
+
+  /** A row, and its lights in a panel below it while it's expanded. */
+  protected _renderItem(
     sub: NormalizedSubgroup,
     info: SubInfo,
     cols: Columns,
     t: Localize,
     room?: string,
   ): TemplateResult {
+    const members = this._members(sub);
+    const expanded = members.length > 0 && !!this._expanded[sub.key];
+    return html`
+      <div class="gl-item">
+        ${this._renderSubRow(sub, info, cols, t, room, members.length > 0)}
+        ${members.length
+          ? this._collapse(
+              expanded,
+              html`<div class="gl-lights">
+                ${members.map((id) => {
+                  const child: NormalizedSubgroup = { key: `${sub.key}-${id}`, entities: [id] };
+                  return this._renderSubRow(child, this._subInfo(child, t), cols, t, room);
+                })}
+              </div>`,
+              'row',
+            )
+          : nothing}
+      </div>
+    `;
+  }
+
+  /**
+   * Content that slides open and shut. It stays rendered so it can animate,
+   * but can't be reached with the keyboard while it's shut.
+   */
+  protected _collapse(open: boolean, content: TemplateResult, kind: 'group' | 'row') {
+    return html`<div class="gl-collapse ${kind} ${open ? '' : 'closed'}" ?inert=${!open}>
+      <div class="gl-collapse-inner">${content}</div>
+    </div>`;
+  }
+
+  /**
+   * One row: name, a bar, and the row's buttons. Tapping the name of a row
+   * with several lights shows them; otherwise it toggles the row.
+   */
+  protected _renderSubRow(
+    sub: NormalizedSubgroup,
+    info: SubInfo,
+    cols: Columns,
+    t: Localize,
+    room?: string,
+    expandable = false,
+  ): TemplateResult {
     const ids = this._controlled(sub);
     const target = { ...this._subTarget(sub, info.name), room };
     const hasColor = cols.color && this._colorLights(target.ids).any;
     const hasScenes = cols.scenes && this._hasSceneMenu(target);
-    const hasLights = cols.lights && this._hasLights(sub);
     const spacer = html`<span class="gl-spacer"></span>`;
     const stateText = info.unavailable ? t('unavailable') : info.on ? t('on') : t('off');
+    const expanded = expandable && !!this._expanded[sub.key];
 
     return html`
       <div
         class="gl-row ${info.on ? 'on' : ''} ${info.lightFill ? 'light-fill' : ''}"
         style=${this._lightStyle(info.color)}
       >
-        <button
-          class="gl-name"
-          title=${info.name}
-          aria-label=${`${t('toggle')}: ${info.name}`}
-          aria-pressed=${info.on ? 'true' : 'false'}
-          ?disabled=${info.unavailable}
-          @click=${() => this._toggle(ids)}
-        >
-          ${info.name}
-        </button>
+        ${expandable
+          ? html`<button
+              class="gl-name ${expanded ? 'open' : ''}"
+              title=${info.name}
+              aria-expanded=${expanded ? 'true' : 'false'}
+              aria-label=${`${t('expand')}: ${info.name}`}
+              @click=${() => (this._expanded = { ...this._expanded, [sub.key]: !expanded })}
+            >
+              <span class="gl-name-text">${info.name}</span>
+              <ha-icon icon="mdi:chevron-down"></ha-icon>
+            </button>`
+          : html`<button
+              class="gl-name"
+              title=${info.name}
+              aria-label=${`${t('toggle')}: ${info.name}`}
+              aria-pressed=${info.on ? 'true' : 'false'}
+              ?disabled=${info.unavailable}
+              @click=${() => this._toggle(ids)}
+            >
+              <span class="gl-name-text">${info.name}</span>
+            </button>`}
         ${info.brightness !== undefined
           ? html`<hac-slider
               show-value
@@ -249,7 +348,7 @@ export class GroupedLightsCard extends LightSliderCard {
             >
               ${stateText}
             </button>`}
-        ${cols.color || cols.scenes || cols.lights
+        ${cols.color || cols.scenes
           ? html`<div class="gl-actions">
               ${cols.color
                 ? hasColor
@@ -276,35 +375,16 @@ export class GroupedLightsCard extends LightSliderCard {
                     </button>`
                   : spacer
                 : nothing}
-              ${cols.lights
-                ? hasLights
-                  ? html`<button
-                      class="gl-action"
-                      title=${t('show_lights')}
-                      aria-label=${`${t('show_lights')}: ${info.name}`}
-                      aria-haspopup="dialog"
-                      @click=${(e: Event) => this._openLights(sub, info.name, e)}
-                    >
-                      <ha-icon icon="mdi:format-list-bulleted"></ha-icon>
-                    </button>`
-                  : spacer
-                : nothing}
             </div>`
-          : nothing}
+          : html`<span></span>`}
       </div>
     `;
   }
 
-  /** Our own popup with the lights of a row that has no main entity. */
-  protected _renderLightsDialog(d: DialogState, t: Localize): TemplateResult {
-    return html`
-      <div class="gl-rows gl-popup-rows">
-        ${d.ids.map((id) => {
-          const sub: NormalizedSubgroup = { key: id, entities: [id] };
-          return this._renderSubRow(sub, this._subInfo(sub, t), NO_COLUMNS, t);
-        })}
-      </div>
-    `;
+  /** Place the popup by the row that opened it, like the light slider card. */
+  protected _openDialog(kind: DialogState['kind'], target: Target, ev: Event) {
+    super._openDialog(kind, target, ev);
+    this._anchor = (ev.currentTarget as HTMLElement).closest<HTMLElement>('.gl-row') ?? undefined;
   }
 
   // --------------------------------------------------------------- helpers
@@ -323,17 +403,18 @@ export class GroupedLightsCard extends LightSliderCard {
     };
   }
 
-  /** A row can show its lights when it has a main entity or several lights. */
-  protected _hasLights(sub: NormalizedSubgroup): boolean {
-    return !!sub.main || sub.entities.length > 1;
-  }
-
-  protected _openLights(sub: NormalizedSubgroup, title: string, ev: Event) {
-    if (sub.main) {
-      fireEvent(this, 'hass-more-info', { entityId: sub.main });
-      return;
+  /**
+   * The lights a row can fold out: its listed lights, or the members of its
+   * main entity when that is a light group. None for a row with one light.
+   */
+  protected _members(sub: NormalizedSubgroup): string[] {
+    let ids = sub.entities;
+    if (sub.main && !ids.length) {
+      const attr = this._state(sub.main)?.attributes.entity_id;
+      ids = Array.isArray(attr) ? attr.filter((id): id is string => typeof id === 'string') : [];
     }
-    this._openDialog('lights', { title, ids: sub.entities }, ev);
+    ids = ids.filter((id) => DOMAINS.includes(id.split('.')[0]) && !!this._state(id));
+    return sub.main ? ids : ids.length > 1 ? ids : [];
   }
 
   protected _subInfo(sub: NormalizedSubgroup, t: Localize): SubInfo {

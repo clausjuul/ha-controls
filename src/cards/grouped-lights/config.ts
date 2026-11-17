@@ -32,6 +32,15 @@ export interface GroupedLightsCardConfig {
   show_scenes?: boolean;
   /** Colour bars with each light's own colour instead of the theme's. */
   light_color?: boolean;
+  /** Tap a group's heading to fold it in and out. */
+  collapsible?: boolean;
+  /** Fold a group in while all its lights are off (implies `collapsible`). */
+  collapse_off?: boolean;
+}
+
+export interface GroupedOptions {
+  collapsible: boolean;
+  collapseOff: boolean;
 }
 
 export interface NormalizedSubgroup {
@@ -70,6 +79,7 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
   groups: NormalizedGroup[];
   /** Scenes shown above all groups. */
   scenes: string[];
+  options: GroupedOptions;
   /** The same lights in the shape the light slider card's helpers use. */
   base: NormalizedConfig;
 } {
@@ -132,6 +142,10 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
   return {
     groups,
     scenes: sceneList(config.scenes, 'the card') ?? [],
+    options: {
+      collapsible: !!config.collapsible || !!config.collapse_off,
+      collapseOff: !!config.collapse_off,
+    },
     base: {
       mode: 'room',
       compact: false,

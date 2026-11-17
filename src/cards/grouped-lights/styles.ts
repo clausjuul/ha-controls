@@ -11,7 +11,44 @@ export const styles = css`
   .gl-group {
     display: flex;
     flex-direction: column;
+  }
+  .gl-body {
+    display: flex;
+    flex-direction: column;
     gap: 0.714rem;
+    padding-top: 0.714rem;
+  }
+
+  /* ----- sliding open and shut ----- */
+  .gl-collapse {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition:
+      grid-template-rows 260ms cubic-bezier(0.2, 0, 0, 1),
+      opacity 200ms ease;
+  }
+  .gl-collapse.closed {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  .gl-collapse-inner {
+    min-height: 0;
+    overflow: hidden;
+    /* Room for content that reaches past the edges (scene row, light panel),
+       which overflow: hidden would otherwise cut off. */
+    margin: 0 calc(-1 * var(--_bleed));
+    padding: 0 var(--_bleed);
+  }
+  .gl-collapse.group {
+    --_bleed: var(--hac-space-4);
+  }
+  .gl-collapse.row {
+    --_bleed: var(--hac-space-2);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gl-collapse {
+      transition: none;
+    }
   }
 
   /* ----- heading ----- */
@@ -28,13 +65,29 @@ export const styles = css`
   }
   .gl-header.on .icon {
     color: var(--_light);
-    background: color-mix(in srgb, var(--_light) 22%, transparent);
+    background: transparent;
   }
   .gl-heading {
     flex: 1;
     min-width: 0;
     display: flex;
+    align-items: center;
+    gap: var(--hac-space-1);
+    text-align: left;
+  }
+  .gl-heading-text {
+    min-width: 0;
+    display: flex;
     flex-direction: column;
+  }
+  .gl-fold ha-icon {
+    flex: none;
+    --mdc-icon-size: 1.429rem;
+    color: var(--hac-text-secondary);
+    transition: transform 200ms ease;
+  }
+  .gl-fold.open ha-icon {
+    transform: rotate(180deg);
   }
   .gl-title {
     font-size: var(--hac-font-size-l);
@@ -86,13 +139,6 @@ export const styles = css`
   .gl-scene:hover:not(:disabled) {
     background: var(--hac-hover);
   }
-  .gl-scene.active {
-    border-color: var(--hac-primary);
-    background: color-mix(in srgb, var(--hac-primary) 14%, transparent);
-  }
-  .gl-scene.active ha-icon {
-    color: var(--hac-primary);
-  }
 
   /* ----- rows ----- */
   .gl-rows {
@@ -115,25 +161,54 @@ export const styles = css`
     --hac-slider-track-background: var(--_track);
     --hac-slider-value-color: var(--hac-text);
     --hac-slider-value-color-track: var(--hac-text);
-    display: flex;
+    /* Name and buttons get columns of the same width, so the bar sits in the
+       middle of the card. */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
     align-items: center;
     gap: var(--hac-space-3);
   }
   .gl-name {
-    flex: 0 1 6.5rem;
-    min-width: 3.5rem;
+    min-width: 0;
     height: var(--hac-size-s);
+    display: flex;
+    align-items: center;
+    gap: 0.143rem;
     text-align: left;
     font-size: var(--hac-font-size-m);
     color: var(--hac-text);
+  }
+  .gl-name-text {
+    min-width: 0;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
+  .gl-name ha-icon {
+    flex: none;
+    --mdc-icon-size: 1.143rem;
+    color: var(--hac-text-secondary);
+    transition: transform 200ms ease;
+  }
+  .gl-name.open ha-icon {
+    transform: rotate(180deg);
+  }
   .gl-row hac-slider,
   .gl-toggle {
-    flex: 1;
     min-width: 0;
+  }
+
+  /* ----- a row's lights, folded out under it ----- */
+  .gl-lights {
+    display: flex;
+    flex-direction: column;
+    gap: var(--hac-space-2);
+    /* A faint panel like the light slider card's. The negative margin keeps
+       the rows inside it lined up with the rest. */
+    margin: var(--hac-space-2) calc(-1 * var(--hac-space-2)) 0;
+    padding: 0.429rem var(--hac-space-2);
+    border-radius: var(--hac-radius-l);
+    background: color-mix(in srgb, var(--hac-text) 5%, transparent);
   }
   .gl-toggle {
     height: var(--hac-size-s);
@@ -153,15 +228,14 @@ export const styles = css`
     font-weight: var(--hac-weight-medium);
   }
   .gl-actions {
-    flex: none;
     display: flex;
     gap: 0.143rem;
   }
   .gl-action,
   .gl-spacer {
     flex: none;
-    width: var(--hac-size-s);
-    height: var(--hac-size-s);
+    width: var(--hac-size-m);
+    height: var(--hac-size-m);
   }
   .gl-action {
     display: flex;
@@ -169,12 +243,9 @@ export const styles = css`
     justify-content: center;
     border-radius: 50%;
     color: var(--hac-text-secondary);
-    --mdc-icon-size: 1.286rem;
+    --mdc-icon-size: 1.571rem;
   }
   .gl-action:hover:not(:disabled) {
     background: var(--hac-hover);
-  }
-  .gl-popup-rows {
-    padding-bottom: var(--hac-space-1);
   }
 `;
