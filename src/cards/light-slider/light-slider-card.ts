@@ -996,6 +996,8 @@ export class LightSliderCard extends LitElement {
 
   protected _renderSceneList(target: Target, t: Localize): TemplateResult {
     const scenes = this._scenes(target);
+    // Leave the room's name out of scene names: "Kontor fræk" in Kontor → "Fræk".
+    const room = target.room ?? this._config?.name;
     if (!scenes.length) return html`<div class="empty">${t('no_scenes')}</div>`;
 
     // A scene's state is the time it was last activated.
@@ -1014,7 +1016,7 @@ export class LightSliderCard extends LitElement {
             @click=${() => this._activateScene(s)}
           >
             <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
-            <span>${withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), target.room)}</span>
+            <span>${withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
           </button>`,
         )}
       </div>

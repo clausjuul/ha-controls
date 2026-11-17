@@ -67,6 +67,9 @@ items:
     scenes: [scene.movie_night]
 ```
 
+Scene names leave out the card's `name` (the room), so "Office cozy" in a
+card named "Office" shows as "Cozy".
+
 Each item supports `entity`/`entities`, `main_entity`, `name`, `icon`,
 `show_icon`, `group_action`, `scenes` and `expanded`. The options below apply to every item in the room.
 
