@@ -67,6 +67,9 @@ items:
     scenes: [scene.movie_night]
 ```
 
+Scene names leave out the card's `name` (the room), so "Office cozy" in a
+card named "Office" shows as "Cozy".
+
 Each item supports `entity`/`entities`, `main_entity`, `name`, `icon`,
 `show_icon`, `group_action`, `scenes` and `expanded`. The options below apply to every item in the room.
 
@@ -125,6 +128,13 @@ light (the big slider with the group's lights) instead of expanding it in the
 card. In a room, set it per item; a card-level value is the default for all
 items. Groups without a `main_entity` still expand.
 
+### Effects
+
+Lights with their own effects (for example Govee scenes through Govee2MQTT, or
+WLED effects) get an **Effects** tab next to the scenes, with a search field
+when the list is long. The active effect is highlighted. This works in both
+cards.
+
 ### Options
 
 | Option | Type | Default | Description |
@@ -143,6 +153,7 @@ items. Groups without a `main_entity` still expand.
 | `scenes` | list | automatic | Scenes for the main slider (single). Each light entry can also have its own `scenes` |
 | `expanded` | boolean | `false` | Show the individual lights of a slider by default |
 | `compact` | boolean | `false` | One line per light with a thin slider and a switch |
+| `light_color` | boolean | `false` | Use each light's own colour instead of the theme's |
 | `group_action` | string | `expand` | `expand` or `more-info`: what opening a group with a `main_entity` does |
 | `show_icon` | boolean | `true` | Show the icon of the top slider (single, room item, or per light) |
 
@@ -171,14 +182,15 @@ scenes:
 
 ### Theming
 
-The card uses Home Assistant theme variables. You can also override:
+Both cards follow your Home Assistant theme: colours (`--state-light-active-color`,
+`--primary-color`, Home Assistant's switch colours, `--control-slider-*`), the
+font and font sizes (`--ha-font-*`), spacing (`--ha-space-*`), corner radii
+(`--ha-card-border-radius`, `--ha-border-radius-*`) and dialogs
+(`--ha-dialog-*`). Anything the theme doesn't set falls back to the cards'
+defaults.
 
-| Variable | Description |
-| --- | --- |
-| `--state-light-active-color` | Fallback color for lights that don't report a color |
-| `--hac-slider-height` | Height of the brightness slider (default `3.143rem`, 44px at a 14px html font size) |
-| `--hac-slider-radius` | Corner radius of the sliders |
-| `--hac-slider-track-background` | Track background |
+Set `light_color: true` (editor: "Use the light's own color") to colour bars
+and icons with each light's own colour instead of the theme's colour.
 
 ## Grouped Lights Card
 

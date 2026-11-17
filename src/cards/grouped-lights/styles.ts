@@ -2,10 +2,10 @@ import { css } from 'lit';
 
 export const styles = css`
   ha-card.grouped {
-    padding: 1.143rem;
+    padding: var(--hac-space-4);
     display: flex;
     flex-direction: column;
-    gap: 1.714rem;
+    gap: var(--hac-space-6);
   }
 
   .gl-group {
@@ -16,14 +16,14 @@ export const styles = css`
 
   /* ----- heading ----- */
   .gl-header {
-    --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
+    --_light: var(--hac-light-color, var(--hac-active));
     display: flex;
     align-items: center;
-    gap: 0.857rem;
+    gap: var(--hac-space-3);
   }
   .gl-header .icon {
-    width: 3.143rem;
-    height: 3.143rem;
+    width: var(--hac-size-l);
+    height: var(--hac-size-l);
     --mdc-icon-size: 1.571rem;
   }
   .gl-header.on .icon {
@@ -37,30 +37,30 @@ export const styles = css`
     flex-direction: column;
   }
   .gl-title {
-    font-size: 1.143rem;
-    font-weight: 500;
-    color: var(--primary-text-color);
+    font-size: var(--hac-font-size-l);
+    font-weight: var(--hac-weight-medium);
+    color: var(--hac-text);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
   .gl-sub {
-    font-size: 0.929rem;
-    color: var(--secondary-text-color);
+    font-size: var(--hac-font-size-m);
+    color: var(--hac-text-secondary);
   }
 
   /* ----- scenes: one row that scrolls sideways ----- */
   .gl-scenes {
     display: flex;
-    gap: 0.571rem;
+    gap: var(--hac-space-2);
     overflow-x: auto;
     /* Don't let the chips' total width make the card wider: scroll instead. */
     contain: inline-size;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
     /* Reach the card edges so chips scroll out under the padding. */
-    margin: 0 -1.143rem;
-    padding: 0.143rem 1.143rem;
+    margin: 0 calc(-1 * var(--hac-space-4));
+    padding: 0.143rem var(--hac-space-4);
   }
   .gl-scenes::-webkit-scrollbar {
     display: none;
@@ -70,62 +70,62 @@ export const styles = css`
     display: flex;
     align-items: center;
     gap: 0.429rem;
-    height: 2.286rem;
-    padding: 0 0.857rem 0 0.714rem;
-    border-radius: 1.143rem;
-    border: 1px solid var(--divider-color, rgba(127, 127, 127, 0.3));
-    font-size: 0.929rem;
-    color: var(--primary-text-color);
+    height: var(--hac-size-s);
+    padding: 0 var(--hac-space-3) 0 0.714rem;
+    border-radius: var(--hac-radius-pill);
+    border: 1px solid var(--hac-divider);
+    font-size: var(--hac-font-size-m);
+    color: var(--hac-text);
     white-space: nowrap;
     --mdc-icon-size: 1.143rem;
     transition: background 150ms, border-color 150ms;
   }
   .gl-scene ha-icon {
-    color: var(--secondary-text-color);
+    color: var(--hac-text-secondary);
   }
   .gl-scene:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--primary-text-color, #000) 6%, transparent);
+    background: var(--hac-hover);
   }
   .gl-scene.active {
-    border-color: var(--primary-color, #03a9f4);
-    background: color-mix(in srgb, var(--primary-color, #03a9f4) 14%, transparent);
+    border-color: var(--hac-primary);
+    background: color-mix(in srgb, var(--hac-primary) 14%, transparent);
   }
   .gl-scene.active ha-icon {
-    color: var(--primary-color, #03a9f4);
+    color: var(--hac-primary);
   }
 
   /* ----- rows ----- */
   .gl-rows {
     display: flex;
     flex-direction: column;
-    gap: 0.571rem;
+    gap: var(--hac-space-2);
   }
   .gl-row {
-    --_light: var(--hac-light-color, var(--state-light-active-color, #ff9800));
+    --_light: var(--hac-light-color, var(--hac-active));
     /* Soft fills like the reference, readable with the theme's text colour. */
     --_fill: color-mix(
       in srgb,
-      var(--_light) 70%,
-      var(--card-background-color, var(--ha-card-background, #fff))
+      var(--_light) 65%,
+      var(--hac-surface)
     );
-    --_track: color-mix(in srgb, var(--primary-text-color, #000) 9%, transparent);
-    --hac-slider-height: 2.286rem;
-    --hac-slider-radius: 0.714rem;
+    --_track: var(--hac-track);
+    --hac-slider-height: var(--hac-size-s);
+    --hac-slider-radius: var(--hac-control-radius);
     --hac-slider-color: var(--_fill);
     --hac-slider-track-background: var(--_track);
-    --hac-slider-value-color: var(--primary-text-color);
-    --hac-slider-value-color-track: var(--primary-text-color);
+    --hac-slider-value-color: var(--hac-text);
+    --hac-slider-value-color-track: var(--hac-text);
     display: flex;
     align-items: center;
-    gap: 0.714rem;
+    gap: var(--hac-space-3);
   }
   .gl-name {
     flex: 0 1 6.5rem;
     min-width: 3.5rem;
-    height: 2.286rem;
+    height: var(--hac-size-s);
     text-align: left;
-    font-size: 0.929rem;
-    color: var(--primary-text-color);
+    font-size: var(--hac-font-size-m);
+    color: var(--hac-text);
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -136,21 +136,21 @@ export const styles = css`
     min-width: 0;
   }
   .gl-toggle {
-    height: 2.286rem;
+    height: var(--hac-size-s);
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    padding: 0 1.143rem;
-    border-radius: 0.714rem;
+    padding: 0 var(--hac-space-4);
+    border-radius: var(--hac-control-radius);
     background: var(--_track);
-    font-size: 0.93rem;
-    color: var(--secondary-text-color);
+    font-size: var(--hac-font-size-m);
+    color: var(--hac-text-secondary);
     transition: background 180ms;
   }
   .gl-toggle.on {
     background: var(--_fill);
-    color: var(--primary-text-color);
-    font-weight: 500;
+    color: var(--hac-text);
+    font-weight: var(--hac-weight-medium);
   }
   .gl-actions {
     flex: none;
@@ -160,21 +160,21 @@ export const styles = css`
   .gl-action,
   .gl-spacer {
     flex: none;
-    width: 2.286rem;
-    height: 2.286rem;
+    width: var(--hac-size-s);
+    height: var(--hac-size-s);
   }
   .gl-action {
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    color: var(--secondary-text-color);
+    color: var(--hac-text-secondary);
     --mdc-icon-size: 1.286rem;
   }
   .gl-action:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--primary-text-color, #000) 8%, transparent);
+    background: var(--hac-hover);
   }
   .gl-popup-rows {
-    padding-bottom: 0.286rem;
+    padding-bottom: var(--hac-space-1);
   }
 `;

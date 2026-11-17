@@ -19,6 +19,7 @@ import {
   type NormalizedSubgroup,
 } from './config';
 import { styles } from './styles';
+import { themeTokens } from '../../shared/theme';
 
 export const GROUPED_TAG = 'ha-controls-grouped-lights-card';
 export const GROUPED_EDITOR_TAG = 'ha-controls-grouped-lights-card-editor';
@@ -53,7 +54,7 @@ export class GroupedLightsCard extends LightSliderCard {
   /** Scenes for everything, above the groups. */
   @state() protected _topScenes: string[] = [];
 
-  static styles = [baseStyles, styles];
+  static styles = [themeTokens, baseStyles, styles];
 
   static getConfigElement(): HTMLElement {
     return document.createElement(GROUPED_EDITOR_TAG);
@@ -113,7 +114,7 @@ export class GroupedLightsCard extends LightSliderCard {
       for (const sub of g.subgroups) {
         const target = this._subTarget(sub, '');
         cols.color ||= this._colorLights(target.ids).any;
-        cols.scenes ||= this._config!.show_scenes && this._scenes(target).length > 0;
+        cols.scenes ||= this._hasSceneMenu(target);
         cols.lights ||= this._hasLights(sub);
       }
     }
@@ -143,7 +144,7 @@ export class GroupedLightsCard extends LightSliderCard {
 
     return html`
       <section class="gl-group" aria-label=${name}>
-        <div class="gl-header ${anyOn ? 'on' : ''}" style=${color ? `--hac-light-color: ${color}` : ''}>
+        <div class="gl-header ${anyOn ? 'on' : ''}" style=${this._lightStyle(color)}>
           <button
             class="icon"
             title=${label}
@@ -203,7 +204,7 @@ export class GroupedLightsCard extends LightSliderCard {
     const ids = this._controlled(sub);
     const target = { ...this._subTarget(sub, info.name), room };
     const hasColor = cols.color && this._colorLights(target.ids).any;
-    const hasScenes = cols.scenes && this._config!.show_scenes && this._scenes(target).length > 0;
+    const hasScenes = cols.scenes && this._hasSceneMenu(target);
     const hasLights = cols.lights && this._hasLights(sub);
     const spacer = html`<span class="gl-spacer"></span>`;
     const stateText = info.unavailable ? t('unavailable') : info.on ? t('on') : t('off');
@@ -211,7 +212,7 @@ export class GroupedLightsCard extends LightSliderCard {
     return html`
       <div
         class="gl-row ${info.on ? 'on' : ''} ${info.lightFill ? 'light-fill' : ''}"
-        style=${info.color ? `--hac-light-color: ${info.color}` : ''}
+        style=${this._lightStyle(info.color)}
       >
         <button
           class="gl-name"

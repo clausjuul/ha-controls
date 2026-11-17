@@ -292,8 +292,8 @@ export class HacSlider extends LitElement {
   static styles = css`
     :host {
       display: block;
-      --_height: var(--hac-slider-height, 2.571rem);
-      --_radius: var(--hac-slider-radius, 0.857rem);
+      --_height: var(--hac-slider-height, var(--control-slider-thickness, 2.571rem));
+      --_radius: var(--hac-slider-radius, var(--hac-control-radius, 0.857rem));
     }
     .track {
       position: relative;
@@ -301,7 +301,7 @@ export class HacSlider extends LitElement {
       border-radius: var(--_radius);
       background: var(
         --hac-slider-track-background,
-        color-mix(in srgb, var(--primary-text-color, #000) 12%, transparent)
+        var(--hac-track, color-mix(in srgb, currentColor 15%, transparent))
       );
       overflow: hidden;
       cursor: pointer;
@@ -312,20 +312,20 @@ export class HacSlider extends LitElement {
       outline: none;
     }
     .track:focus-visible {
-      box-shadow: 0 0 0 2px var(--primary-color, #03a9f4);
+      box-shadow: 0 0 0 2px var(--hac-primary);
     }
     .fill {
       position: absolute;
       inset: 0 auto 0 0;
-      background: var(--hac-slider-color, var(--primary-color, #03a9f4));
+      background: var(--hac-slider-color, var(--hac-primary));
       transition: width 180ms ease-out;
     }
     .thumb {
       position: absolute;
       top: 50%;
-      width: 0.286rem;
+      width: var(--hac-space-1);
       height: 50%;
-      border-radius: 0.143rem;
+      border-radius: var(--hac-radius-s);
       transform: translate(-50%, -50%);
       background: var(--hac-slider-thumb-color, #fff);
       box-shadow: 0 0 2px rgba(0, 0, 0, 0.35);
@@ -334,7 +334,7 @@ export class HacSlider extends LitElement {
     }
     :host([mode='cursor']) .thumb {
       width: 0.429rem;
-      height: calc(100% - 0.571rem);
+      height: calc(100% - var(--hac-space-2));
       border-radius: 0.214rem;
       box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.3);
     }
@@ -343,30 +343,30 @@ export class HacSlider extends LitElement {
     }
     .value {
       position: absolute;
-      left: 1.143rem;
+      left: var(--hac-space-4);
       top: 50%;
       transform: translateY(-50%);
-      font-size: 1rem;
-      font-weight: 500;
+      font-size: var(--hac-font-size-m);
+      font-weight: var(--hac-weight-medium);
       font-variant-numeric: tabular-nums;
-      color: var(--hac-slider-value-color-track, var(--primary-text-color, #000));
+      color: var(--hac-slider-value-color-track, var(--hac-text));
       pointer-events: none;
     }
     .value.on-fill {
       color: var(--hac-slider-value-color, #fff);
     }
     .value.empty {
-      font-weight: 400;
-      color: var(--secondary-text-color, #727272);
+      font-weight: var(--hac-weight-normal);
+      color: var(--hac-text-secondary);
     }
     .text-layer {
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
-      padding: 0 1.143rem;
-      font-size: 0.875rem;
-      color: var(--secondary-text-color, #727272);
+      padding: 0 var(--hac-space-4);
+      font-size: var(--hac-font-size-s);
+      color: var(--hac-text-secondary);
       white-space: nowrap;
       pointer-events: none;
     }
@@ -377,10 +377,10 @@ export class HacSlider extends LitElement {
       justify-content: flex-end;
     }
     .text-layer.strong {
-      font-size: 0.93rem;
-      font-weight: 500;
+      font-size: var(--hac-font-size-m);
+      font-weight: var(--hac-weight-medium);
       font-variant-numeric: tabular-nums;
-      color: var(--hac-slider-value-color-track, var(--primary-text-color, #000));
+      color: var(--hac-slider-value-color-track, var(--hac-text));
     }
     .text-layer.on-fill {
       color: var(--hac-slider-value-color, #fff);
@@ -397,35 +397,35 @@ export class HacSlider extends LitElement {
     :host([mode='thin']) .track {
       flex: 1;
       min-width: 0;
-      height: 2.286rem;
+      height: var(--hac-size-s);
       background: transparent;
       border-radius: 0;
       overflow: visible;
     }
     :host([mode='thin']) .track:focus-visible {
       box-shadow: none;
-      outline: 2px solid var(--primary-color, #03a9f4);
+      outline: 2px solid var(--hac-primary);
       outline-offset: 2px;
-      border-radius: 0.286rem;
+      border-radius: var(--hac-radius-s);
     }
     .rail,
     .rail-fill {
       position: absolute;
       left: 0;
       top: 50%;
-      height: 0.286rem;
+      height: var(--hac-space-1);
       margin-top: -0.143rem;
-      border-radius: 0.143rem;
+      border-radius: var(--hac-radius-s);
     }
     .rail {
       right: 0;
       background: var(
         --hac-slider-track-background,
-        color-mix(in srgb, var(--primary-text-color, #000) 15%, transparent)
+        var(--hac-track, color-mix(in srgb, currentColor 15%, transparent))
       );
     }
     .rail-fill {
-      background: var(--hac-slider-color, var(--primary-color, #03a9f4));
+      background: var(--hac-slider-color, var(--hac-primary));
       transition: width 180ms ease-out;
     }
     .knob {
@@ -435,13 +435,13 @@ export class HacSlider extends LitElement {
       height: var(--_knob);
       margin-top: calc(var(--_knob) / -2);
       border-radius: 50%;
-      background: var(--hac-slider-color, var(--primary-color, #03a9f4));
+      background: var(--hac-slider-color, var(--hac-primary));
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
       transition: left 180ms ease-out;
       pointer-events: none;
     }
     .knob.off {
-      background: color-mix(in srgb, var(--primary-text-color, #000) 40%, transparent);
+      background: color-mix(in srgb, var(--hac-text) 40%, transparent);
     }
     .thin-value {
       flex: none;
@@ -449,13 +449,13 @@ export class HacSlider extends LitElement {
       overflow: hidden;
       text-overflow: ellipsis;
       text-align: right;
-      font-size: 0.857rem;
+      font-size: var(--hac-font-size-s);
       font-variant-numeric: tabular-nums;
-      color: var(--primary-text-color);
+      color: var(--hac-text);
       white-space: nowrap;
     }
     .thin-value.empty {
-      color: var(--secondary-text-color, #727272);
+      color: var(--hac-text-secondary);
     }
     :host([dragging]) .rail-fill,
     :host([dragging]) .knob,

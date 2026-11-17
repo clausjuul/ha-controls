@@ -132,6 +132,8 @@
       });
       states['light.vindue'] = light('light.vindue', 'Vindueslampe (kun tænd/sluk)', ['color_temp'], { state: 'on', brightness: 200, color_temp_kelvin: 2700, rgb_color: kelvinToRgb(2700), color_mode: 'color_temp' });
       states['switch.lampe_stik'] = { entity_id: 'switch.lampe_stik', state: 'off', attributes: { friendly_name: 'Lampe i stikkontakt' } };
+      states['light.sofa'].attributes.effect_list = ['', 'Aurora', 'Sunrise', 'Sunset', 'Rainbow', 'Ocean', 'Forest', 'Fire', 'Candlelight', 'Reading', 'Movie', 'Party', 'Romantic', 'Christmas', 'Halloween', 'Breathe', 'Gradient', 'Snowflake'];
+      states['light.sofa'].attributes.effect = 'Aurora';
       const scene = (id, name, members, icon) => ({
         entity_id: id,
         state: '2026-11-07T20:00:00+00:00',
@@ -176,6 +178,7 @@
             if (data.color_temp_kelvin) {
               Object.assign(a, { color_mode: 'color_temp', color_temp_kelvin: data.color_temp_kelvin, rgb_color: kelvinToRgb(data.color_temp_kelvin) });
             }
+            if (data.effect) a.effect = data.effect;
             if (data.hs_color) {
               Object.assign(a, { color_mode: 'hs', hs_color: data.hs_color, rgb_color: hsToRgb(...data.hs_color) });
             }
