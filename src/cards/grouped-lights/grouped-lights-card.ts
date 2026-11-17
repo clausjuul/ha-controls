@@ -35,6 +35,8 @@ export const GROUPED_EDITOR_TAG = 'ha-controls-grouped-lights-card-editor';
 
 /** How long a set of lights must stay unchanged before it is remembered. */
 const SETTLE_MS = 2000;
+/** How far (px) a pointer moves sideways before a folded group is dragged. */
+const DRAG_SLOP = 6;
 
 interface Columns {
   color: boolean;
@@ -109,8 +111,125 @@ export class GroupedLightsCard extends LightSliderCard {
       .flatMap((g) => g.subgroups)
       .filter((s) => this._expanded[s.key])
       .flatMap((s) => this._members(s));
-    return [...sceneIds, ...shown].some((id) => old.states[id] !== this.hass!.states[id]);
+    // A folded group's level comes from its single lights.
+    const leaves = this._groups.flatMap((g) => this._leaves(this._groupIds(g)));
+    return [...sceneIds, ...shown, ...leaves].some(
+      (id) => old.states[id] !== this.hass!.states[id],
+    );
   }
+
+  /** Every entity a group's switch acts on. */
+  protected _groupIds(g: NormalizedGroup): string[] {
+    return [...new Set(g.subgroups.flatMap((s) => this._controlled(s)))];
+  }
+
+  // ------------------------------------------- dragging a folded group
+
+  /** The folded group being dragged, and the level it's dragged to. */
+  @state() protected _groupDrag?: { key: string; pct: number };
+  protected _gd?: {
+    key: string;
+    pointerId: number;
+    x: number;
+    y: number;
+    width: number;
+    start: number;
+    locked: boolean;
+  };
+  /** Swallow the click that follows a drag, so it doesn't hit a button. */
+  protected _swallowClick = false;
+
+  /** The lights in a group that are on and can be dimmed, and their average. */
+  protected _groupLevel(g: NormalizedGroup): { ids: string[]; pct: number } {
+    const on = this._available(this._leaves(this._groupIds(g))).filter(
+      (s) => isOn(s) && this._dimmable(s),
+    );
+    const pct = on.length
+      ? Math.round(on.reduce((sum, s) => sum + brightnessPct(s), 0) / on.length)
+      : 0;
+    return { ids: on.map((s) => s.entity_id), pct };
+  }
+
+  protected _onGroupDown(g: NormalizedGroup, ev: PointerEvent) {
+    if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+    const level = this._groupLevel(g);
+    if (!level.ids.length) return;
+    this._gd = {
+      key: g.key,
+      pointerId: ev.pointerId,
+      x: ev.clientX,
+      y: ev.clientY,
+      width: (ev.currentTarget as HTMLElement).getBoundingClientRect().width,
+      start: level.pct,
+      locked: false,
+    };
+  }
+
+  protected _onGroupMove(ev: PointerEvent) {
+    const d = this._gd;
+    if (!d || ev.pointerId !== d.pointerId) return;
+    const dx = ev.clientX - d.x;
+    const dy = ev.clientY - d.y;
+    if (!d.locked) {
+      if (Math.abs(dx) <= DRAG_SLOP || Math.abs(dx) <= Math.abs(dy)) return;
+      d.locked = true;
+      (ev.currentTarget as HTMLElement).setPointerCapture(ev.pointerId);
+    }
+    const pct = Math.round(
+      Math.min(100, Math.max(0, d.start + (d.width > 0 ? (dx / d.width) * 100 : 0))),
+    );
+    if (this._groupDrag?.pct !== pct) this._groupDrag = { key: d.key, pct };
+  }
+
+  protected _onGroupUp(g: NormalizedGroup, ev: PointerEvent) {
+    const d = this._gd;
+    if (!d || ev.pointerId !== d.pointerId) return;
+    this._gd = undefined;
+    const target = ev.currentTarget as HTMLElement;
+    if (target.hasPointerCapture(ev.pointerId)) target.releasePointerCapture(ev.pointerId);
+    const drag = this._groupDrag;
+    this._groupDrag = undefined;
+    if (!d.locked || !drag || ev.type === 'pointercancel') return;
+    this._swallowClick = true;
+    window.setTimeout(() => (this._swallowClick = false), 0);
+    this._shiftGroup(g, drag.pct - d.start);
+  }
+
+  /**
+   * Move the brightness of a group's lights that are on by the same amount,
+   * so their differences stay. Down to nothing turns them off.
+   */
+  protected _shiftGroup(g: NormalizedGroup, delta: number) {
+    if (!delta) return;
+    const { ids, pct } = this._groupLevel(g);
+    if (!ids.length) return;
+    if (pct + delta <= 0) {
+      this._setBrightness(ids, 0);
+      return;
+    }
+    const byLevel = new Map<number, string[]>();
+    for (const id of ids) {
+      const s = this._state(id)!;
+      const next = Math.round(Math.min(100, Math.max(1, brightnessPct(s) + delta)));
+      byLevel.set(next, [...(byLevel.get(next) ?? []), id]);
+    }
+    for (const [level, group] of byLevel) this._setBrightness(group, level);
+  }
+
+  /** Stops the page scrolling once a folded group is being dragged sideways. */
+  protected _onGroupTouchMove = {
+    handleEvent: (ev: TouchEvent) => {
+      if (this._gd?.locked && ev.cancelable) ev.preventDefault();
+    },
+    passive: false,
+  };
+
+  protected _onGroupClickCapture = (ev: Event) => {
+    if (!this._swallowClick) return;
+    this._swallowClick = false;
+    ev.stopPropagation();
+    ev.preventDefault();
+  };
 
   protected willUpdate(changed: PropertyValues<this>): void {
     super.willUpdate(changed);
@@ -259,9 +378,29 @@ export class GroupedLightsCard extends LightSliderCard {
     const name = g.name ?? t('lights');
     const open = this._isGroupOpen(g, anyOn);
     const heading = html`<span class="gl-title">${name}</span>`;
+    // Folded, the group is one wide slider for the lights that are on.
+    const level = open ? undefined : this._groupLevel(g);
+    const dimmable = !!level?.ids.length;
+    const shownPct =
+      this._groupDrag?.key === g.key ? this._groupDrag.pct : (level?.pct ?? 0);
 
     return html`
-      <section class="gl-group" aria-label=${name}>
+      <section
+        class="gl-group ${dimmable ? 'dimmable' : ''} ${this._groupDrag?.key === g.key
+          ? 'dragging'
+          : ''}"
+        aria-label=${name}
+        style=${this._lightStyle(color)}
+        @pointerdown=${dimmable ? (e: PointerEvent) => this._onGroupDown(g, e) : nothing}
+        @pointermove=${dimmable ? (e: PointerEvent) => this._onGroupMove(e) : nothing}
+        @pointerup=${dimmable ? (e: PointerEvent) => this._onGroupUp(g, e) : nothing}
+        @pointercancel=${dimmable ? (e: PointerEvent) => this._onGroupUp(g, e) : nothing}
+        @touchmove=${dimmable ? this._onGroupTouchMove : nothing}
+        @click=${{ handleEvent: this._onGroupClickCapture, capture: true }}
+      >
+        ${dimmable
+          ? html`<div class="gl-level" style="width: ${shownPct}%" aria-hidden="true"></div>`
+          : nothing}
         <div class="gl-header ${anyOn ? 'on' : ''}" style=${this._lightStyle(color)}>
           <button
             class="icon"
@@ -432,6 +571,7 @@ export class GroupedLightsCard extends LightSliderCard {
         ${info.brightness !== undefined
           ? html`<hac-slider
               show-value
+              relative
               value-at="end"
               .thumb=${false}
               .value=${info.brightness}
@@ -443,6 +583,7 @@ export class GroupedLightsCard extends LightSliderCard {
               ?disabled=${info.unavailable}
               @value-changed=${(e: CustomEvent<{ value: number }>) =>
                 this._setBrightness(ids, e.detail.value)}
+              @slider-tap=${() => this._toggle(ids)}
             ></hac-slider>`
           : html`<button
               class="gl-toggle ${info.on ? 'on' : ''}"

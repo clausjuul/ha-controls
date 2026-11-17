@@ -11,12 +11,36 @@ export const styles = css`
   /* Each group sits on a faint panel, like a row's folded-out lights. The
      negative margin keeps its rows lined up with the rest of the card. */
   .gl-group {
+    --_light: var(--hac-light-color, var(--hac-active));
+    position: relative;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
     margin: 0 calc(-1 * var(--hac-space-2));
     padding: var(--hac-space-2);
     border-radius: var(--hac-radius-l);
     background: color-mix(in srgb, var(--hac-text) 5%, transparent);
+  }
+  .gl-group > .gl-header,
+  .gl-group > .gl-collapse {
+    position: relative;
+  }
+  /* A folded group with lights on: drag sideways to dim them. Their level is
+     a faint fill across the panel. */
+  .gl-group.dimmable {
+    touch-action: pan-y;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .gl-level {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: color-mix(in srgb, var(--_light) 14%, transparent);
+    pointer-events: none;
+    transition: width 180ms ease-out;
+  }
+  .gl-group.dragging .gl-level {
+    transition: none;
   }
   /* A group's scene row scrolls out under the panel's padding, not the card's. */
   .gl-group .gl-scenes {
