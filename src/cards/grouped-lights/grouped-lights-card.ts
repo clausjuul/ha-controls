@@ -407,7 +407,7 @@ export class GroupedLightsCard extends LightSliderCard {
             title=${label}
             aria-label=${`${label}: ${name}`}
             ?disabled=${!available.length}
-            @click=${() => this._toggle(allIds)}
+            @click=${() => this._toggleGroup(g, open, allIds)}
           >
             <ha-icon .icon=${g.icon ?? defaultIcon(anyOn, true)}></ha-icon>
           </button>
@@ -431,7 +431,7 @@ export class GroupedLightsCard extends LightSliderCard {
             aria-checked=${anyOn ? 'true' : 'false'}
             aria-label=${`${t('toggle')}: ${name}`}
             ?disabled=${!available.length}
-            @click=${() => this._toggle(allIds)}
+            @click=${() => this._toggleGroup(g, open, allIds)}
           >
             <span class="switch-knob"></span>
           </button>
@@ -474,13 +474,29 @@ export class GroupedLightsCard extends LightSliderCard {
   /**
    * Whether a group shows its scenes and rows. A group folded by hand stays
    * that way until it turns on or off; with `collapse_off` an off group folds in.
+   * Turning it on or off with its own switch keeps it as it is.
    */
   protected _isGroupOpen(g: NormalizedGroup, anyOn: boolean): boolean {
     if (!g.collapsible) return true;
     const was = this._groupWasOn[g.key];
     this._groupWasOn[g.key] = anyOn;
-    if (was !== undefined && was !== anyOn) delete this._groupOpen[g.key];
+    if (was !== undefined && was !== anyOn) {
+      if (this._keepFold.has(g.key)) this._keepFold.delete(g.key);
+      else delete this._groupOpen[g.key];
+    }
     return this._groupOpen[g.key] ?? !(g.collapseOff && !anyOn);
+  }
+
+  /** Groups switched from the card, whose fold survives the on/off change. */
+  protected _keepFold = new Set<string>();
+
+  /** The group's switch: turn it on/off without folding it in or out. */
+  protected _toggleGroup(g: NormalizedGroup, open: boolean, ids: string[]) {
+    if (g.collapsible) {
+      this._groupOpen[g.key] = open;
+      this._keepFold.add(g.key);
+    }
+    this._toggle(ids);
   }
 
   /** A row, and its lights in a panel below it while it's expanded. */
