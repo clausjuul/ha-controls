@@ -213,7 +213,8 @@ has to have seen the group on once.
 Per group, `collapsible: true` lets you tap the name to fold its scenes and
 rows in and out. With `collapse_off: true`, the group folds in by itself while
 all its lights are off and opens again when one turns on; folding it by hand
-lasts until the group turns on or off.
+lasts until the group turns on or off. Turning the group on or off with its
+own switch leaves it folded or open as it was.
 
 A folded group with lights on works as one wide slider: drag sideways across
 it to move the brightness of the lights that are on (and only those) by the
