@@ -26,6 +26,7 @@ import {
   type GroupedLightsCardConfig,
   type NormalizedGroup,
   type NormalizedSubgroup,
+  type SceneChip,
 } from './config';
 import { styles } from './styles';
 import { themeTokens } from '../../shared/theme';
@@ -63,7 +64,7 @@ interface SubInfo {
 export class GroupedLightsCard extends LightSliderCard {
   @state() protected _groups?: NormalizedGroup[];
   /** Scenes for everything, above the groups. */
-  @state() protected _topScenes: string[] = [];
+  @state() protected _topScenes: SceneChip[] = [];
   /** Groups the user folded in or out by hand, until the group turns on or off. */
   protected _groupOpen: Record<string, boolean> = {};
   /** Whether each group was on at the last render, to notice it changing. */
@@ -105,7 +106,7 @@ export class GroupedLightsCard extends LightSliderCard {
     // Scenes in the scene rows change state when they're activated.
     const old = changed.get('hass') as HomeAssistant | undefined;
     if (!old || !this.hass || !this._groups) return false;
-    const sceneIds = [...this._topScenes, ...this._groups.flatMap((g) => g.scenes)];
+    const sceneIds = [...this._topScenes, ...this._groups.flatMap((g) => g.scenes)].map((s) => s.entity);
     // Lights shown in an expanded row may not be in the config.
     const shown = this._groups
       .flatMap((g) => g.subgroups)
@@ -451,20 +452,21 @@ export class GroupedLightsCard extends LightSliderCard {
   }
 
   /** A row of scene chips that scrolls sideways. `room` is left out of their names. */
-  protected _renderSceneRow(ids: string[], t: Localize, room?: string): TemplateResult {
-    const scenes = ids
-      .map((id) => this._state(id))
-      .filter((s): s is HassEntity => !!s);
+  protected _renderSceneRow(chips: SceneChip[], t: Localize, room?: string): TemplateResult {
+    const scenes = chips
+      .map((c) => ({ c, s: this._state(c.entity) }))
+      .filter((x): x is { c: SceneChip; s: HassEntity } => !!x.s);
     return html`
       <div class="gl-scenes" role="group" aria-label=${t('scenes')}>
         ${scenes.map(
-          (s) => html`<button
-            class="gl-scene"
+          ({ c, s }) => html`<button
+            class="gl-scene ${c.color ? 'colored' : ''} ${c.showIcon ? '' : 'no-icon'}"
+            style=${c.color ? `--gl-scene-color: ${c.color}` : nothing}
             ?disabled=${s.state === 'unavailable'}
             @click=${() => this._activateScene(s)}
           >
-            <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
-            <span>${withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
+            ${c.showIcon ? html`<ha-icon .icon=${c.icon ?? s.attributes.icon ?? 'mdi:palette'}></ha-icon>` : nothing}
+            <span>${c.name ?? withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
           </button>`,
         )}
       </div>

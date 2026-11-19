@@ -1,4 +1,7 @@
 import { DOMAINS, type Group, type LightEntityConfig, type NormalizedConfig } from '../light-slider/config';
+import { sceneChips, type SceneChip, type SceneEntry } from '../../shared/scenes';
+
+export type { SceneChip, SceneChipConfig, SceneEntry } from '../../shared/scenes';
 
 /** One row: a single entity, several lights under one bar, or a main light. */
 export interface SubgroupConfig {
@@ -10,7 +13,7 @@ export interface SubgroupConfig {
   entity?: string;
   entities?: Array<string | LightEntityConfig>;
   /** Scenes for the row's scene button. Omit to find them automatically. */
-  scenes?: string[];
+  scenes?: SceneEntry[];
 }
 
 /** A room or area: heading, a row of scenes and its rows. */
@@ -18,7 +21,7 @@ export interface GroupConfig {
   name?: string;
   icon?: string;
   /** Scenes shown as a scrollable row under the heading. */
-  scenes?: string[];
+  scenes?: SceneEntry[];
   subgroups?: SubgroupConfig[];
   /** Tap the heading to fold the group in and out. */
   collapsible?: boolean;
@@ -29,7 +32,7 @@ export interface GroupConfig {
 export interface GroupedLightsCardConfig {
   type: string;
   /** Scenes for everything, shown as a scrollable row at the very top. */
-  scenes?: string[];
+  scenes?: SceneEntry[];
   groups?: GroupConfig[];
   show_color_temp?: boolean;
   show_color?: boolean;
@@ -44,14 +47,15 @@ export interface NormalizedSubgroup {
   icon?: string;
   main?: string;
   entities: string[];
-  scenes?: string[];
+  /** Undefined = find automatically. */
+  scenes?: SceneChip[];
 }
 
 export interface NormalizedGroup {
   key: string;
   name?: string;
   icon?: string;
-  scenes: string[];
+  scenes: SceneChip[];
   subgroups: NormalizedSubgroup[];
   collapsible: boolean;
   collapseOff: boolean;
@@ -64,18 +68,10 @@ const isAllowed = (id: unknown): id is string =>
 
 const idOf = (e: string | LightEntityConfig) => (typeof e === 'string' ? e : e?.entity);
 
-function sceneList(value: unknown, where: string): string[] | undefined {
-  if (value === undefined || value === null) return undefined;
-  if (!Array.isArray(value) || value.some((s) => typeof s !== 'string' || !s.startsWith('scene.'))) {
-    throw new Error(`"scenes" in ${where} must be a list of scene entities`);
-  }
-  return value.length ? (value as string[]) : undefined;
-}
-
 export function normalizeGrouped(config: GroupedLightsCardConfig): {
   groups: NormalizedGroup[];
   /** Scenes shown above all groups. */
-  scenes: string[];
+  scenes: SceneChip[];
   /** The same lights in the shape the light slider card's helpers use. */
   base: NormalizedConfig;
 } {
@@ -103,13 +99,14 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
       }
       const main = sg.main_entity || undefined;
       if (!main && !entities.length) throw new Error(`Add a light to ${where}`);
+      const scenes = sceneChips(sg.scenes, where);
       const sub: NormalizedSubgroup = {
         key: `g${gi}-s${si}`,
         name: sg.name || undefined,
         icon: sg.icon || undefined,
         main,
         entities,
-        scenes: sceneList(sg.scenes, where),
+        scenes: scenes.length ? scenes : undefined,
       };
       baseGroups.push({
         key: sub.key,
@@ -128,7 +125,7 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
       key: `g${gi}`,
       name: g.name || undefined,
       icon: g.icon || undefined,
-      scenes: sceneList(g.scenes, gWhere) ?? [],
+      scenes: sceneChips(g.scenes, gWhere),
       subgroups,
       collapsible: !!g.collapsible || !!g.collapse_off,
       collapseOff: !!g.collapse_off,
@@ -139,7 +136,7 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
   const entityIds = [...new Set(groups.flatMap((g) => g.entityIds))];
   return {
     groups,
-    scenes: sceneList(config.scenes, 'the card') ?? [],
+    scenes: sceneChips(config.scenes, 'the card'),
     base: {
       mode: 'room',
       compact: false,

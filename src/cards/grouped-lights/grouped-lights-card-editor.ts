@@ -3,10 +3,9 @@ import { property, state } from 'lit/decorators.js';
 import { fireEvent, type HomeAssistant } from '../../shared/types';
 import { isEditorKey, localize } from '../../shared/localize';
 import { DOMAINS } from '../light-slider/config';
-import type { GroupConfig, GroupedLightsCardConfig, SubgroupConfig } from './config';
+import type { GroupConfig, GroupedLightsCardConfig, SceneEntry, SubgroupConfig } from './config';
 
 const OPTIONS_SCHEMA = [
-  { name: 'top_scenes', selector: { entity: { multiple: true, filter: { domain: 'scene' } } } },
   {
     type: 'grid',
     name: '',
@@ -28,7 +27,6 @@ const GROUP_SCHEMA = [
       { name: 'icon', selector: { icon: {} } },
     ],
   },
-  { name: 'group_scenes', selector: { entity: { multiple: true, filter: { domain: 'scene' } } } },
   {
     type: 'grid',
     name: '',
@@ -50,7 +48,6 @@ const SUBGROUP_SCHEMA = [
       { name: 'icon', selector: { icon: {} } },
     ],
   },
-  { name: 'scenes', selector: { entity: { multiple: true, filter: { domain: 'scene' } } } },
 ];
 
 type OptionKey = 'show_color_temp' | 'show_color' | 'show_scenes' | 'light_color';
@@ -117,7 +114,6 @@ export class GroupedLightsCardEditor extends LitElement {
       <ha-form
         .hass=${this.hass}
         .data=${{
-          top_scenes: c.scenes ?? [],
           show_color_temp: c.show_color_temp ?? true,
           show_color: c.show_color ?? true,
           show_scenes: c.show_scenes ?? true,
@@ -127,6 +123,17 @@ export class GroupedLightsCardEditor extends LitElement {
         .computeLabel=${this._label}
         @value-changed=${this._optionsChanged}
       ></ha-form>
+      <hac-scenes-editor
+        .hass=${this.hass}
+        .entities=${c.scenes ?? []}
+        .label=${t('editor.top_scenes')}
+        @entities-changed=${(ev: CustomEvent<{ entities: SceneEntry[] }>) => {
+          ev.stopPropagation();
+          const config: GroupedLightsCardConfig = { ...this._config! };
+          setOrDelete(config, 'scenes', ev.detail.entities);
+          this._update(config);
+        }}
+      ></hac-scenes-editor>
       ${this._groups.map((g, gi) => this._renderGroup(g, gi))}
       <button
         class="add"
@@ -209,7 +216,6 @@ export class GroupedLightsCardEditor extends LitElement {
           .data=${{
             name: g.name ?? '',
             icon: g.icon ?? '',
-            group_scenes: g.scenes ?? [],
             collapsible: g.collapsible ?? false,
             collapse_off: g.collapse_off ?? false,
           }}
@@ -220,7 +226,6 @@ export class GroupedLightsCardEditor extends LitElement {
               value: {
                 name?: string;
                 icon?: string;
-                group_scenes?: string[];
                 collapsible?: boolean;
                 collapse_off?: boolean;
               };
@@ -231,12 +236,22 @@ export class GroupedLightsCardEditor extends LitElement {
             const next: GroupConfig = { ...g };
             setOrDelete(next, 'name', v.name);
             setOrDelete(next, 'icon', v.icon);
-            setOrDelete(next, 'scenes', v.group_scenes);
             setOrDelete(next, 'collapsible', v.collapsible || undefined);
             setOrDelete(next, 'collapse_off', v.collapse_off || undefined);
             this._setGroup(gi, next);
           }}
         ></ha-form>
+        <hac-scenes-editor
+          .hass=${this.hass}
+          .entities=${g.scenes ?? []}
+          .label=${t('editor.group_scenes')}
+          @entities-changed=${(ev: CustomEvent<{ entities: SceneEntry[] }>) => {
+            ev.stopPropagation();
+            const next: GroupConfig = { ...g };
+            setOrDelete(next, 'scenes', ev.detail.entities);
+            this._setGroup(gi, next);
+          }}
+        ></hac-scenes-editor>
         <div class="subtitle">${t('rows')}</div>
         ${subs.map((sg, si) => this._renderSubgroup(g, gi, sg, si))}
         <button
@@ -293,13 +308,12 @@ export class GroupedLightsCardEditor extends LitElement {
             main_entity: sg.main_entity ?? '',
             name: sg.name ?? '',
             icon: sg.icon ?? '',
-            scenes: sg.scenes ?? [],
           }}
           .schema=${SUBGROUP_SCHEMA}
           .computeLabel=${this._label}
           @value-changed=${(
             ev: CustomEvent<{
-              value: { entities?: string[]; main_entity?: string; name?: string; icon?: string; scenes?: string[] };
+              value: { entities?: string[]; main_entity?: string; name?: string; icon?: string };
             }>,
           ) => {
             ev.stopPropagation();
@@ -310,12 +324,24 @@ export class GroupedLightsCardEditor extends LitElement {
             setOrDelete(next, 'main_entity', v.main_entity);
             setOrDelete(next, 'name', v.name);
             setOrDelete(next, 'icon', v.icon);
-            setOrDelete(next, 'scenes', v.scenes);
             const list = [...subs];
             list[si] = next;
             setSubs(list);
           }}
         ></ha-form>
+        <hac-scenes-editor
+          .hass=${this.hass}
+          .entities=${sg.scenes ?? []}
+          .label=${t('editor.scenes')}
+          @entities-changed=${(ev: CustomEvent<{ entities: SceneEntry[] }>) => {
+            ev.stopPropagation();
+            const next: SubgroupConfig = { ...sg };
+            setOrDelete(next, 'scenes', ev.detail.entities);
+            const list = [...subs];
+            list[si] = next;
+            setSubs(list);
+          }}
+        ></hac-scenes-editor>
       </div>
     `;
   }
@@ -361,11 +387,10 @@ export class GroupedLightsCardEditor extends LitElement {
   }
 
   private _optionsChanged(
-    ev: CustomEvent<{ value: Partial<Record<OptionKey, boolean>> & { top_scenes?: string[] } }>,
+    ev: CustomEvent<{ value: Partial<Record<OptionKey, boolean>> }>,
   ) {
     ev.stopPropagation();
     const config: GroupedLightsCardConfig = { ...this._config! };
-    setOrDelete(config, 'scenes', ev.detail.value.top_scenes);
     for (const key of ['show_color_temp', 'show_color', 'show_scenes'] as OptionKey[]) {
       if (ev.detail.value[key] === false) config[key] = false;
       else delete config[key];

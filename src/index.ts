@@ -14,6 +14,7 @@ import {
   GroupedLightsCard,
 } from './cards/grouped-lights/grouped-lights-card';
 import { GroupedLightsCardEditor } from './cards/grouped-lights/grouped-lights-card-editor';
+import { HacScenesEditor } from './cards/grouped-lights/scenes-editor';
 import './cards/super-layout';
 
 declare const __VERSION__: string;
@@ -28,6 +29,7 @@ define('hac-color-wheel', HacColorWheel);
 define(CARD_TAG, LightSliderCard);
 define(EDITOR_TAG, LightSliderCardEditor);
 define('hac-entities-editor', HacEntitiesEditor);
+define('hac-scenes-editor', HacScenesEditor);
 define(GROUPED_TAG, GroupedLightsCard);
 define(GROUPED_EDITOR_TAG, GroupedLightsCardEditor);
 

@@ -1,3 +1,4 @@
+import type { SceneChip } from '../../shared/scenes';
 export interface LightEntityConfig {
   entity: string;
   name?: string;
@@ -79,7 +80,8 @@ export interface Group {
   showIcon: boolean;
   /** What opening the group does when it has a main light. */
   groupAction: GroupAction;
-  scenes?: string[];
+  /** Scene IDs, or scenes with their own name, icon and colour. */
+  scenes?: Array<string | SceneChip>;
   /** Light the top slider controls. Without it the slider controls all `entities`. */
   main?: string;
   entities: LightEntityConfig[];

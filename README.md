@@ -240,13 +240,23 @@ automatically, or `scenes`). Their popups open next to the row.
 Scene names leave out the group's name, so "Office cozy" in the group "Office"
 shows as "Cozy". Card-level `scenes` appear above all groups.
 
+A scene in a scene row or a row's scene popup can be an object instead of a
+scene ID, to give it its own `name` and `icon`, hide the icon with `show_icon: false`, or colour the
+chip with `color` (any CSS colour, e.g. `"#ff9800"` or `orange`).
+
 ```yaml
 type: custom:ha-controls-grouped-lights-card
 scenes: [scene.all_off, scene.evening]
 groups:
   - name: Living room
     icon: mdi:sofa
-    scenes: [scene.bright, scene.dim, scene.movie]
+    scenes:
+      - scene.bright
+      - scene.dim
+      - entity: scene.living_room_movie
+        name: Film
+        show_icon: false
+        color: "#7e57c2"
     subgroups:
       - name: Downlights
         main_entity: light.downlights
@@ -267,12 +277,13 @@ groups:
 | --- | --- | --- | --- |
 | `scenes` | list | | Scenes for everything, shown as a row at the very top |
 | `groups` | list | **required** | Groups, each with `name`, `icon`, `scenes` and `subgroups` |
+| `scenes[]` / `groups[].scenes[]` | string / object | | A scene ID, or `entity` with optional `name`, `icon`, `show_icon` and `color` |
 | `groups[].collapsible` | boolean | `false` | Tap the group's name to fold it in and out |
 | `groups[].collapse_off` | boolean | `false` | Fold the group in while it's off (implies `collapsible`) |
 | `subgroups[].entity` / `entities` | string / list | | The row's entities |
 | `subgroups[].main_entity` | string | | Entity the bar controls; `entities` are its lights |
 | `subgroups[].name`, `icon` | string | | Row name (defaults to the entity's name) and icon |
-| `subgroups[].scenes` | list | automatic | Scenes for the row's scene button |
+| `subgroups[].scenes` | list | automatic | Scenes for the row's scene button, as IDs or objects like above |
 | `show_color_temp`, `show_color`, `show_scenes` | boolean | `true` | Which buttons rows get |
 | `light_color` | boolean | `false` | Use each light's own colour instead of the theme's |
 

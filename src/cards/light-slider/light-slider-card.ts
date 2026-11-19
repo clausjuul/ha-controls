@@ -9,6 +9,7 @@ import {
 import { property, state, query } from 'lit/decorators.js';
 import { fireEvent, type HassEntity, type HomeAssistant } from '../../shared/types';
 import { localize, type Localize } from '../../shared/localize';
+import { sceneId, type SceneChip } from '../../shared/scenes';
 import {
   brightnessPct,
   defaultIcon,
@@ -61,7 +62,7 @@ export interface Target {
   /** Room name to leave out of scene names in the scene popup. */
   room?: string;
   /** Scenes chosen in the config; undefined = find automatically. */
-  sceneOverride?: string[];
+  sceneOverride?: Array<string | SceneChip>;
 }
 
 export interface DialogState extends Target {
@@ -132,7 +133,7 @@ export class LightSliderCard extends LitElement {
     return document.createElement(EDITOR_TAG);
   }
 
-  static getStubConfig(hass: HomeAssistant): Partial<LightSliderCardConfig> {
+  static getStubConfig(hass: HomeAssistant): object {
     const light = Object.keys(hass.states).find((id) => id.startsWith('light.'));
     return { entities: light ? [light] : [] };
   }
@@ -1012,6 +1013,8 @@ export class LightSliderCard extends LitElement {
     // Leave the room's name out of scene names: "Kontor fræk" in Kontor → "Fræk".
     const room = target.room ?? this._config?.name;
     if (!scenes.length) return html`<div class="empty">${t('no_scenes')}</div>`;
+    const chips = new Map<string, SceneChip>();
+    for (const s of target.sceneOverride ?? []) if (typeof s !== 'string') chips.set(s.entity, s);
 
     // A scene's state is the time it was last activated.
     let latest: HassEntity | undefined;
@@ -1023,14 +1026,20 @@ export class LightSliderCard extends LitElement {
     return html`
       <div class="scenes">
         ${scenes.map(
-          (s) => html`<button
-            class="scene ${s === latest ? 'active' : ''}"
-            ?disabled=${isUnavailable(s)}
-            @click=${() => this._activateScene(s)}
-          >
-            <ha-icon .icon=${s.attributes.icon ?? 'mdi:palette'}></ha-icon>
-            <span>${withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
-          </button>`,
+          (s) => {
+            const c = chips.get(s.entity_id);
+            return html`<button
+              class="scene ${s === latest ? 'active' : ''} ${c?.color ? 'colored' : ''}"
+              style=${c?.color ? `--hac-scene-color: ${c.color}` : nothing}
+              ?disabled=${isUnavailable(s)}
+              @click=${() => this._activateScene(s)}
+            >
+              ${c?.showIcon === false
+                ? nothing
+                : html`<ha-icon .icon=${c?.icon ?? s.attributes.icon ?? 'mdi:palette'}></ha-icon>`}
+              <span>${c?.name ?? withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
+            </button>`;
+          },
         )}
       </div>
     `;
@@ -1122,7 +1131,7 @@ export class LightSliderCard extends LitElement {
     const states = this.hass!.states;
     if (target.sceneOverride) {
       return target.sceneOverride
-        .map((id) => this._state(id))
+        .map((s) => this._state(sceneId(s)))
         .filter((s): s is HassEntity => !!s);
     }
     const found: HassEntity[] = [];
