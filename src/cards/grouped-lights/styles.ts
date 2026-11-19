@@ -174,6 +174,19 @@ export const styles = css`
   .gl-scene:hover:not(:disabled) {
     background: var(--hac-hover);
   }
+  .gl-scene.no-icon {
+    padding-left: var(--hac-space-3);
+  }
+  .gl-scene.colored {
+    border-color: color-mix(in srgb, var(--gl-scene-color) 55%, transparent);
+    background: color-mix(in srgb, var(--gl-scene-color) 16%, transparent);
+  }
+  .gl-scene.colored ha-icon {
+    color: var(--gl-scene-color);
+  }
+  .gl-scene.colored:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--gl-scene-color) 26%, transparent);
+  }
 
   /* ----- rows ----- */
   .gl-rows {

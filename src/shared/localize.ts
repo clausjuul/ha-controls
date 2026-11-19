@@ -68,6 +68,9 @@ const en = {
   'editor.group_expand': 'Show its lights in the card',
   'editor.group_more_info': "Open Home Assistant's light dialog",
   'editor.scenes': 'Scenes (empty = find automatically)',
+  'editor.scene': 'Scene',
+  'editor.add_scene': 'Add scene',
+  'editor.scene_color': 'Color (optional)',
 };
 
 type Key = keyof typeof en;
@@ -140,6 +143,9 @@ const da: Record<Key, string> = {
   'editor.group_expand': 'Vis lysene i kortet',
   'editor.group_more_info': 'Åbn Home Assistants lysvindue',
   'editor.scenes': 'Scener (tom = find automatisk)',
+  'editor.scene': 'Scene',
+  'editor.add_scene': 'Tilføj scene',
+  'editor.scene_color': 'Farve (valgfri)',
 };
 
 const languages: Record<string, Record<Key, string>> = { en, da };

@@ -4,7 +4,7 @@ import { fireEvent, type HomeAssistant } from '../../shared/types';
 import { isEditorKey, localize } from '../../shared/localize';
 import { DOMAINS, entityId, type LightEntityConfig } from './config';
 
-type Entry = string | LightEntityConfig;
+export type Entry = string | { entity: string };
 
 const ROW_SCHEMA = [
   { name: 'entity', selector: { entity: { filter: { domain: DOMAINS } } } },
@@ -20,21 +20,16 @@ const ROW_SCHEMA = [
 
 const ADD_SCHEMA = [{ name: 'add_entity', selector: { entity: { filter: { domain: DOMAINS } } } }];
 
-interface RowData {
+export interface RowData {
   entity?: string;
   name?: string;
   show_icon?: boolean;
+  [key: string]: unknown;
 }
 
 /** Plain entity ID when nothing else is set, else an object. */
-function toEntry(prev: Entry, data: RowData): Entry {
-  const base: LightEntityConfig = typeof prev === 'string' ? { entity: prev } : { ...prev };
-  base.entity = data.entity ?? base.entity;
-  if (data.name) base.name = data.name;
-  else delete base.name;
-  if (data.show_icon === false) base.show_icon = false;
-  else delete base.show_icon;
-  const keys = Object.keys(base).filter((k) => base[k as keyof LightEntityConfig] !== undefined);
+export function compactEntry(base: { entity: string }): Entry {
+  const keys = Object.keys(base).filter((k) => (base as Record<string, unknown>)[k] !== undefined);
   return keys.length === 1 ? base.entity : base;
 }
 
@@ -46,6 +41,29 @@ export class HacEntitiesEditor extends LitElement {
   @property({ attribute: false }) hass?: HomeAssistant;
   @property({ attribute: false }) entities: Entry[] = [];
   @property() label = '';
+
+  protected rowSchema: unknown[] = ROW_SCHEMA;
+  protected addSchema: unknown[] = ADD_SCHEMA;
+  /** Field names of the entity in `rowSchema` and of `addSchema`'s picker. */
+  protected entityKey = 'entity';
+  protected addKey = 'add_entity';
+
+  /** What the row's form shows for one entry. */
+  protected rowData(conf: { entity: string }): RowData {
+    const c = conf as LightEntityConfig;
+    return { entity: c.entity, name: c.name ?? '', show_icon: c.show_icon !== false };
+  }
+
+  /** The entry after its row's form changed. */
+  protected toEntry(prev: Entry, data: RowData): Entry {
+    const base: LightEntityConfig = typeof prev === 'string' ? { entity: prev } : { ...(prev as LightEntityConfig) };
+    base.entity = data.entity ?? base.entity;
+    if (data.name) base.name = data.name;
+    else delete base.name;
+    if (data.show_icon === false) base.show_icon = false;
+    else delete base.show_icon;
+    return compactEntry(base);
+  }
 
   private _label = (schema: { name: string }) => {
     const key = `editor.${schema.name}`;
@@ -59,18 +77,18 @@ export class HacEntitiesEditor extends LitElement {
   private _changed(index: number, ev: CustomEvent<{ value: RowData }>) {
     ev.stopPropagation();
     const list = [...this.entities];
-    if (!ev.detail.value.entity) {
+    if (!ev.detail.value[this.entityKey]) {
       list.splice(index, 1);
     } else {
-      list[index] = toEntry(list[index], ev.detail.value);
+      list[index] = this.toEntry(list[index], ev.detail.value);
     }
     this._emit(list);
   }
 
-  private _added(ev: CustomEvent<{ value: { add_entity?: string } }>) {
+  private _added(ev: CustomEvent<{ value: Record<string, string | undefined> }>) {
     ev.stopPropagation();
-    const id = ev.detail.value.add_entity;
-    if (!id || this.entities.some((e) => entityId(e) === id)) return;
+    const id = ev.detail.value[this.addKey];
+    if (!id || this.entities.some((e) => entityId(e as string | LightEntityConfig) === id)) return;
     this._emit([...this.entities, id]);
   }
 
@@ -97,12 +115,8 @@ export class HacEntitiesEditor extends LitElement {
           <div class="entity">
             <ha-form
               .hass=${this.hass}
-              .data=${{
-                entity: conf.entity,
-                name: conf.name ?? '',
-                show_icon: conf.show_icon !== false,
-              }}
-              .schema=${ROW_SCHEMA}
+              .data=${this.rowData(conf)}
+              .schema=${this.rowSchema}
               .computeLabel=${this._label}
               @value-changed=${(ev: CustomEvent<{ value: RowData }>) => this._changed(i, ev)}
             ></ha-form>
@@ -136,8 +150,8 @@ export class HacEntitiesEditor extends LitElement {
       })}
       <ha-form
         .hass=${this.hass}
-        .data=${{ add_entity: '' }}
-        .schema=${ADD_SCHEMA}
+        .data=${{ [this.addKey]: '' }}
+        .schema=${this.addSchema}
         .computeLabel=${this._label}
         @value-changed=${this._added}
       ></ha-form>
