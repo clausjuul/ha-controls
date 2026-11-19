@@ -7,7 +7,7 @@ export interface SceneChipConfig {
   icon?: string;
   /** Hide the icon (default shown). */
   show_icon?: boolean;
-  /** Any CSS colour, e.g. `#ff9800` or `orange`. */
+  /** Any CSS colour, e.g. `#ff9800` or `orange`, or `auto` for the colours the scene sets its lights to. */
   color?: string;
 }
 

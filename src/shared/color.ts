@@ -69,3 +69,18 @@ export function hsToRgb(hue: number, saturation: number): RGB {
   };
   return [f(5), f(3), f(1)];
 }
+
+/** RGB for a CIE xy colour at full brightness (sRGB, as Home Assistant does it). */
+export function xyToRgb(x: number, y: number): RGB {
+  if (y <= 0) return [255, 255, 255];
+  const Y = 1;
+  const X = (Y / y) * x;
+  const Z = (Y / y) * (1 - x - y);
+  let r = X * 1.656492 - Y * 0.354851 - Z * 0.255038;
+  let g = -X * 0.707196 + Y * 1.655397 + Z * 0.036152;
+  let b = X * 0.051713 - Y * 0.121364 + Z * 1.01153;
+  const gamma = (v: number) => (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
+  [r, g, b] = [gamma(r), gamma(g), gamma(b)].map((v) => Math.max(0, v));
+  const max = Math.max(r, g, b, 1e-6);
+  return [r, g, b].map((v) => clamp255((v / max) * 255)) as RGB;
+}

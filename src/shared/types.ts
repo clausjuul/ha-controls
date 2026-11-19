@@ -16,6 +16,8 @@ export interface HomeAssistant {
     service: string,
     data?: Record<string, unknown>,
   ): Promise<unknown>;
+  /** REST call to Home Assistant's API, e.g. `config/scene/config/<id>`. */
+  callApi?<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', path: string, data?: Record<string, unknown>): Promise<T>;
   locale?: { language: string };
   language?: string;
 }

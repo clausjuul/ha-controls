@@ -459,15 +459,18 @@ export class GroupedLightsCard extends LightSliderCard {
     return html`
       <div class="gl-scenes" role="group" aria-label=${t('scenes')}>
         ${scenes.map(
-          ({ c, s }) => html`<button
-            class="gl-scene ${c.color ? 'colored' : ''} ${c.showIcon ? '' : 'no-icon'}"
-            style=${c.color ? `--gl-scene-color: ${c.color}` : nothing}
-            ?disabled=${s.state === 'unavailable'}
-            @click=${() => this._activateScene(s)}
-          >
-            ${c.showIcon ? html`<ha-icon .icon=${c.icon ?? s.attributes.icon ?? 'mdi:palette'}></ha-icon>` : nothing}
-            <span>${c.name ?? withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
-          </button>`,
+          ({ c, s }) => {
+            const style = this._sceneStyle(s, c.color, '--gl-scene');
+            return html`<button
+              class="gl-scene ${style ? 'colored' : ''} ${c.showIcon ? '' : 'no-icon'}"
+              style=${style ?? nothing}
+              ?disabled=${s.state === 'unavailable'}
+              @click=${() => this._activateScene(s)}
+            >
+              ${c.showIcon ? html`<ha-icon .icon=${c.icon ?? s.attributes.icon ?? 'mdi:palette'}></ha-icon>` : nothing}
+              <span>${c.name ?? withoutRoomName(String(s.attributes.friendly_name ?? s.entity_id), room)}</span>
+            </button>`;
+          },
         )}
       </div>
     `;

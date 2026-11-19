@@ -160,6 +160,7 @@ cards.
 | `expanded` | boolean | `false` | Show the individual lights of a slider by default |
 | `compact` | boolean | `false` | One line per light with a thin slider and a switch |
 | `light_color` | boolean | `false` | Use each light's own colour instead of the theme's |
+| `scene_colors` | boolean | `false` | Tint every scene without a `color` with its lights' colours (scenes made in Home Assistant) |
 | `group_action` | string | `expand` | `expand` or `more-info`: what opening a group with a `main_entity` does |
 | `show_icon` | boolean | `true` | Show the icon of the top slider (single, room item, or per light) |
 
@@ -244,6 +245,15 @@ A scene in a scene row or a row's scene popup can be an object instead of a
 scene ID, to give it its own `name` and `icon`, hide the icon with `show_icon: false`, or colour the
 chip with `color` (any CSS colour, e.g. `"#ff9800"` or `orange`).
 
+With `color: auto` (editor: "Use the lights' colors") a scene is tinted with
+the colours it sets its lights to, as a gradient when there are several.
+`scene_colors: true` on the card (editor: "Color all scenes by their lights'
+colors") does this for every scene without a `color`, also the ones the card
+finds by itself. This works for scenes made in Home Assistant, and only
+for admin users, since the card reads the scene's settings. Scenes from an
+integration such as Hue don't share their colours with Home Assistant, so they
+stay plain; give them a `color` instead. A scene's own `color` always wins.
+
 ```yaml
 type: custom:ha-controls-grouped-lights-card
 scenes: [scene.all_off, scene.evening]
@@ -277,7 +287,7 @@ groups:
 | --- | --- | --- | --- |
 | `scenes` | list | | Scenes for everything, shown as a row at the very top |
 | `groups` | list | **required** | Groups, each with `name`, `icon`, `scenes` and `subgroups` |
-| `scenes[]` / `groups[].scenes[]` | string / object | | A scene ID, or `entity` with optional `name`, `icon`, `show_icon` and `color` |
+| `scenes[]` / `groups[].scenes[]` | string / object | | A scene ID, or `entity` with optional `name`, `icon`, `show_icon` and `color` (a CSS colour or `auto`) |
 | `groups[].collapsible` | boolean | `false` | Tap the group's name to fold it in and out |
 | `groups[].collapse_off` | boolean | `false` | Fold the group in while it's off (implies `collapsible`) |
 | `subgroups[].entity` / `entities` | string / list | | The row's entities |

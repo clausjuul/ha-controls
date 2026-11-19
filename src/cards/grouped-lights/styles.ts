@@ -179,13 +179,13 @@ export const styles = css`
   }
   .gl-scene.colored {
     border-color: color-mix(in srgb, var(--gl-scene-color) 55%, transparent);
-    background: color-mix(in srgb, var(--gl-scene-color) 16%, transparent);
+    background: var(--gl-scene-bg, color-mix(in srgb, var(--gl-scene-color) 16%, transparent));
   }
   .gl-scene.colored ha-icon {
     color: var(--gl-scene-color);
   }
   .gl-scene.colored:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--gl-scene-color) 26%, transparent);
+    background: var(--gl-scene-bg-hover, color-mix(in srgb, var(--gl-scene-color) 26%, transparent));
   }
 
   /* ----- rows ----- */
