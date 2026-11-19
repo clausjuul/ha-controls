@@ -267,7 +267,7 @@ export const styles = css`
     padding: 0 var(--hac-space-4);
     border-radius: var(--hac-control-radius);
     background: var(--_track);
-    font-size: var(--hac-font-size-m);
+    font-size: var(--hac-font-size-s);
     color: var(--hac-text-secondary);
     transition: background 180ms;
   }

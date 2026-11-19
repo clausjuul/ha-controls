@@ -167,7 +167,7 @@ export const styles = css`
     color: var(--hac-text);
   }
   .toggle-text {
-    font-size: var(--hac-font-size-m);
+    font-size: var(--hac-font-size-s);
     font-weight: var(--hac-weight-medium);
   }
   .toggle-bar:not(.on) .toggle-text {
