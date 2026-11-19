@@ -10,6 +10,7 @@ import { property, state, query } from 'lit/decorators.js';
 import { fireEvent, type HassEntity, type HomeAssistant } from '../../shared/types';
 import { localize, type Localize } from '../../shared/localize';
 import { sceneId, type SceneChip } from '../../shared/scenes';
+import { sceneColorStyle, sceneColors } from '../../shared/scene-colors';
 import {
   brightnessPct,
   defaultIcon,
@@ -112,6 +113,8 @@ export class LightSliderCard extends LitElement {
   /** Which groups show their individual lights, by group key. */
   @state() protected _expanded: Readonly<Record<string, boolean>> = {};
   @state() protected _dialog?: DialogState;
+  /** Bumped when scene colours arrive, so the card redraws. */
+  @state() protected _sceneColorTick = 0;
   /** Hue/saturation picked in the colour popup, until Home Assistant catches up. */
   @state() protected _popupHs?: [number, number];
   @state() protected _colorTab?: PopupTab;
@@ -1028,9 +1031,10 @@ export class LightSliderCard extends LitElement {
         ${scenes.map(
           (s) => {
             const c = chips.get(s.entity_id);
+            const style = this._sceneStyle(s, c?.color, '--hac-scene');
             return html`<button
-              class="scene ${s === latest ? 'active' : ''} ${c?.color ? 'colored' : ''}"
-              style=${c?.color ? `--hac-scene-color: ${c.color}` : nothing}
+              class="scene ${s === latest ? 'active' : ''} ${style ? 'colored' : ''}"
+              style=${style ?? nothing}
               ?disabled=${isUnavailable(s)}
               @click=${() => this._activateScene(s)}
             >
@@ -1043,6 +1047,19 @@ export class LightSliderCard extends LitElement {
         )}
       </div>
     `;
+  }
+
+  /**
+   * Inline style that tints a scene button: its own `color`, or the colours it
+   * sets its lights to with `color: auto` (or `scene_colors` on the card and no
+   * `color`). `prefix` names the CSS
+   * variables (`<prefix>-color`, `-bg`, `-bg-hover`, `-bg-active`).
+   */
+  protected _sceneStyle(scene: HassEntity, color: string | undefined, prefix: string): string | undefined {
+    if (color && color !== 'auto') return `${prefix}-color: ${color}`;
+    if ((color !== 'auto' && !this._config?.sceneColors) || !this.hass) return undefined;
+    const colors = sceneColors(this.hass, scene, () => this._sceneColorTick++);
+    return colors ? sceneColorStyle(colors, prefix) : undefined;
   }
 
   /** The lights' own effects, with a search field when the list is long. */

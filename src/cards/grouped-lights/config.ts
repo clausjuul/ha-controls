@@ -39,6 +39,8 @@ export interface GroupedLightsCardConfig {
   show_scenes?: boolean;
   /** Colour bars with each light's own colour instead of the theme's. */
   light_color?: boolean;
+  /** Tint scenes with the colours they set their lights to (scenes made in Home Assistant). */
+  scene_colors?: boolean;
 }
 
 export interface NormalizedSubgroup {
@@ -147,6 +149,7 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
       show_color_temp: config.show_color_temp ?? true,
       show_color: config.show_color ?? true,
       show_scenes: config.show_scenes ?? true,
+      sceneColors: config.scene_colors ?? false,
     },
   };
 }

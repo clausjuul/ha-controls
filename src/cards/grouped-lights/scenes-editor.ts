@@ -16,6 +16,7 @@ const ROW_SCHEMA = [
     name: '',
     schema: [
       { name: 'show_icon', selector: { boolean: {} } },
+      { name: 'auto_color', selector: { boolean: {} } },
       { name: 'scene_color', selector: { color_rgb: {} } },
     ],
   },
@@ -48,6 +49,7 @@ export class HacScenesEditor extends HacEntitiesEditor {
       name: c.name ?? '',
       icon: c.icon ?? '',
       show_icon: c.show_icon !== false,
+      auto_color: c.color === 'auto',
       scene_color: fromHex(c.color),
     };
   }
@@ -59,8 +61,16 @@ export class HacScenesEditor extends HacEntitiesEditor {
     base.icon = (data.icon as string) || undefined;
     base.show_icon = data.show_icon === false ? false : undefined;
     const rgb = data.scene_color as number[] | undefined;
-    // The colour picker only knows RGB: leave a CSS colour from YAML alone until it's changed.
-    if (Array.isArray(rgb) && rgb.length === 3) {
+    const wasAuto = base.color === 'auto';
+    if (data.auto_color && !wasAuto) {
+      base.color = 'auto';
+    } else if (!data.auto_color && wasAuto) {
+      base.color = undefined;
+    } else if (wasAuto) {
+      // Picking a colour turns the lights' colours off.
+      if (Array.isArray(rgb) && rgb.length === 3) base.color = toHex(rgb);
+    } else if (Array.isArray(rgb) && rgb.length === 3) {
+      // The colour picker only knows RGB: leave a CSS colour from YAML alone until it's changed.
       if (fromHex(base.color)?.join() !== rgb.join()) base.color = toHex(rgb);
     } else if (fromHex(base.color)) {
       base.color = undefined;

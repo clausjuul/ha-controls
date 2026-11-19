@@ -104,6 +104,8 @@ export interface NormalizedConfig {
   show_color_temp: boolean;
   show_color: boolean;
   show_scenes: boolean;
+  /** Tint scenes with the colours they set their lights to. */
+  sceneColors?: boolean;
 }
 
 export const DEFAULTS = {

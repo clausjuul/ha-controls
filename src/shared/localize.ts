@@ -71,6 +71,8 @@ const en = {
   'editor.scene': 'Scene',
   'editor.add_scene': 'Add scene',
   'editor.scene_color': 'Color (optional)',
+  'editor.scene_colors': "Color all scenes by their lights' colors",
+  'editor.auto_color': "Use the lights' colors",
 };
 
 type Key = keyof typeof en;
@@ -146,6 +148,8 @@ const da: Record<Key, string> = {
   'editor.scene': 'Scene',
   'editor.add_scene': 'Tilføj scene',
   'editor.scene_color': 'Farve (valgfri)',
+  'editor.scene_colors': 'Farv alle scener efter lysenes farver',
+  'editor.auto_color': 'Brug lysenes farver',
 };
 
 const languages: Record<string, Record<Key, string>> = { en, da };

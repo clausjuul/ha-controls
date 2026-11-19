@@ -14,6 +14,7 @@ const OPTIONS_SCHEMA = [
       { name: 'show_color', selector: { boolean: {} } },
       { name: 'show_scenes', selector: { boolean: {} } },
       { name: 'light_color', selector: { boolean: {} } },
+      { name: 'scene_colors', selector: { boolean: {} } },
     ],
   },
 ];
@@ -50,7 +51,7 @@ const SUBGROUP_SCHEMA = [
   },
 ];
 
-type OptionKey = 'show_color_temp' | 'show_color' | 'show_scenes' | 'light_color';
+type OptionKey = 'show_color_temp' | 'show_color' | 'show_scenes' | 'light_color' | 'scene_colors';
 
 function move<T>(list: T[], index: number, delta: number): T[] {
   const next = [...list];
@@ -118,6 +119,7 @@ export class GroupedLightsCardEditor extends LitElement {
           show_color: c.show_color ?? true,
           show_scenes: c.show_scenes ?? true,
           light_color: c.light_color ?? false,
+          scene_colors: c.scene_colors ?? false,
         }}
         .schema=${OPTIONS_SCHEMA}
         .computeLabel=${this._label}
@@ -397,6 +399,8 @@ export class GroupedLightsCardEditor extends LitElement {
     }
     if (ev.detail.value.light_color) config.light_color = true;
     else delete config.light_color;
+    if (ev.detail.value.scene_colors) config.scene_colors = true;
+    else delete config.scene_colors;
     this._update(config);
   }
 

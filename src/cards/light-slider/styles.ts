@@ -497,16 +497,16 @@ export const styles = css`
     color: var(--hac-primary);
   }
   .scene.colored {
-    background: color-mix(in srgb, var(--hac-scene-color) 16%, transparent);
+    background: var(--hac-scene-bg, color-mix(in srgb, var(--hac-scene-color) 16%, transparent));
   }
   .scene.colored:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--hac-scene-color) 26%, transparent);
+    background: var(--hac-scene-bg-hover, color-mix(in srgb, var(--hac-scene-color) 26%, transparent));
   }
   .scene.colored ha-icon {
     color: var(--hac-scene-color);
   }
   .scene.colored.active {
-    background: color-mix(in srgb, var(--hac-scene-color) 34%, transparent);
+    background: var(--hac-scene-bg-active, color-mix(in srgb, var(--hac-scene-color) 34%, transparent));
     box-shadow: inset 0 0 0 1px var(--hac-scene-color);
   }
   .control {
