@@ -668,6 +668,7 @@ export class GroupedLightsCard extends LightSliderCard {
       ids: this._controlled(sub),
       sceneIds: [...(sub.main ? [sub.main] : []), ...sub.entities],
       sceneOverride: sub.scenes,
+      selectIds: sub.selects,
     };
   }
 

@@ -516,15 +516,27 @@ export const styles = css`
     --hac-slider-height: 2.857rem;
     --hac-slider-radius: 0.857rem;
   }
+  .mode-switch {
+    width: 100%;
+  }
+  .mode-switch .mode-state {
+    margin-left: auto;
+    color: var(--hac-text-secondary);
+  }
   .tabs {
     display: flex;
     gap: var(--hac-space-1);
     padding: var(--hac-space-1);
     border-radius: var(--hac-radius-l);
     background: var(--hac-hover);
+    /* Many tabs (scenes, effects, DIY, snapshots, music) scroll sideways. */
+    overflow-x: auto;
+    scrollbar-width: none;
   }
   .tab {
-    flex: 1;
+    flex: 1 0 auto;
+    padding: 0 var(--hac-space-3);
+    white-space: nowrap;
     height: 2.571rem;
     border-radius: 0.643rem;
     font-size: var(--hac-font-size-m);

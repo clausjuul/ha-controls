@@ -14,6 +14,11 @@ export interface SubgroupConfig {
   entities?: Array<string | LightEntityConfig>;
   /** Scenes for the row's scene button. Omit to find them automatically. */
   scenes?: SceneEntry[];
+  /**
+   * Select entities shown as tabs in the row's scene popup (Govee DIY scenes,
+   * snapshots, music mode …). Omit to find them on the lights' devices.
+   */
+  selects?: string[];
 }
 
 /** A room or area: heading, a row of scenes and its rows. */
@@ -51,6 +56,8 @@ export interface NormalizedSubgroup {
   entities: string[];
   /** Undefined = find automatically. */
   scenes?: SceneChip[];
+  /** Undefined = find on the lights' devices. */
+  selects?: string[];
 }
 
 export interface NormalizedGroup {
@@ -102,6 +109,13 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
       const main = sg.main_entity || undefined;
       if (!main && !entities.length) throw new Error(`Add a light to ${where}`);
       const scenes = sceneChips(sg.scenes, where);
+      if (
+        sg.selects !== undefined &&
+        (!Array.isArray(sg.selects) ||
+          !sg.selects.every((s) => typeof s === 'string' && s.startsWith('select.')))
+      ) {
+        throw new Error(`"selects" in ${where} must be a list of select entities`);
+      }
       const sub: NormalizedSubgroup = {
         key: `g${gi}-s${si}`,
         name: sg.name || undefined,
@@ -109,6 +123,7 @@ export function normalizeGrouped(config: GroupedLightsCardConfig): {
         main,
         entities,
         scenes: scenes.length ? scenes : undefined,
+        selects: sg.selects?.length ? [...new Set(sg.selects)] : undefined,
       };
       baseGroups.push({
         key: sub.key,

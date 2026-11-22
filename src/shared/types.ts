@@ -9,8 +9,20 @@ export interface HassEntity {
   last_updated?: string;
 }
 
+/** An entity registry entry as the frontend has it (`hass.entities`). */
+export interface EntityRegistryDisplayEntry {
+  entity_id: string;
+  /** The entity's own name, without the device's. */
+  name?: string | null;
+  device_id?: string | null;
+  entity_category?: string | null;
+  hidden?: boolean;
+}
+
 export interface HomeAssistant {
   states: Record<string, HassEntity | undefined>;
+  entities?: Record<string, EntityRegistryDisplayEntry | undefined>;
+  devices?: Record<string, { name?: string | null; name_by_user?: string | null } | undefined>;
   callService(
     domain: string,
     service: string,
