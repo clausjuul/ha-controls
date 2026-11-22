@@ -11,6 +11,7 @@ import { fireEvent, type HassEntity, type HomeAssistant } from '../../shared/typ
 import { localize, type Localize } from '../../shared/localize';
 import { sceneId, type SceneChip } from '../../shared/scenes';
 import { sceneColorStyle, sceneColors } from '../../shared/scene-colors';
+import { deviceSelects, selectName, selectOptions, selectSwitch } from '../../shared/selects';
 import {
   brightnessPct,
   defaultIcon,
@@ -64,6 +65,8 @@ export interface Target {
   room?: string;
   /** Scenes chosen in the config; undefined = find automatically. */
   sceneOverride?: Array<string | SceneChip>;
+  /** Select entities (DIY scenes, music mode …) chosen in the config; undefined = find on the lights' devices. */
+  selectIds?: string[];
 }
 
 export interface DialogState extends Target {
@@ -74,7 +77,8 @@ export interface DialogState extends Target {
   kind: 'color' | 'scenes' | 'controls' | 'lights';
 }
 
-type PopupTab = 'white' | 'color' | 'scenes' | 'effects';
+type PopupTab = 'white' | 'color' | 'scenes' | 'effects' | `select:${string}`;
+type Tab = { key: PopupTab; label: string; content: TemplateResult };
 
 interface RowOptions {
   key: string;
@@ -811,6 +815,7 @@ export class LightSliderCard extends LitElement {
                         this._config!.show_scenes && this._effectLights(d.ids).length
                           ? this._renderEffects(d.ids, t)
                           : undefined,
+                        this._config!.show_scenes ? this._selectTabs(d, t) : [],
                       )}
               </div>
             </div>`
@@ -857,6 +862,7 @@ export class LightSliderCard extends LitElement {
     t: Localize,
     scenesTab?: TemplateResult,
     effectsTab?: TemplateResult,
+    extraTabs: Tab[] = [],
   ): TemplateResult {
     const { ct, color } = this._colorLights(ids);
     const pickRef = (list: HassEntity[]) => list.find(isOn) ?? list[0];
@@ -957,19 +963,17 @@ export class LightSliderCard extends LitElement {
         </div>
       `;
     }
-    const tabs: Array<{ key: PopupTab; label: string; content: TemplateResult }> = [];
+    const tabs: Tab[] = [];
     if (whiteTab) tabs.push({ key: 'white', label: t('white'), content: whiteTab });
     if (colorTab) tabs.push({ key: 'color', label: t('hue'), content: colorTab });
     if (scenesTab) tabs.push({ key: 'scenes', label: t('scenes'), content: scenesTab });
     if (effectsTab) tabs.push({ key: 'effects', label: t('effects'), content: effectsTab });
+    tabs.push(...extraTabs);
     return this._renderTabs(tabs, this._defaultColorTab(ids));
   }
 
   /** Tabs in a popup; a single tab shows its content without the tab bar. */
-  protected _renderTabs(
-    tabs: Array<{ key: PopupTab; label: string; content: TemplateResult }>,
-    fallback?: PopupTab,
-  ): TemplateResult {
+  protected _renderTabs(tabs: Tab[], fallback?: PopupTab): TemplateResult {
     if (tabs.length <= 1) return tabs[0]?.content ?? html``;
     const wanted = this._colorTab ?? fallback;
     const current = tabs.find((x) => x.key === wanted) ?? tabs[0];
@@ -980,7 +984,10 @@ export class LightSliderCard extends LitElement {
             class="tab ${x === current ? 'selected' : ''}"
             role="tab"
             aria-selected=${x === current ? 'true' : 'false'}
-            @click=${() => (this._colorTab = x.key)}
+            @click=${() => {
+              if (this._colorTab !== x.key) this._effectQuery = '';
+              this._colorTab = x.key;
+            }}
           >
             ${x.label}
           </button>`,
@@ -999,16 +1006,137 @@ export class LightSliderCard extends LitElement {
       : 'white';
   }
 
-  /** The scene popup: scenes, plus the lights' own effects (e.g. Govee scenes) in a tab. */
+  /**
+   * The scene popup: scenes, plus tabs for the lights' own effects (e.g. Govee
+   * scenes) and for their select entities (DIY scenes, snapshots, music mode).
+   */
   protected _renderScenes(target: Target, t: Localize): TemplateResult {
-    const hasScenes = this._scenes(target).length > 0;
-    const hasEffects = this._effectLights(target.ids).length > 0;
-    if (!hasEffects) return this._renderSceneList(target, t);
-    if (!hasScenes) return this._renderEffects(target.ids, t);
-    return this._renderTabs([
-      { key: 'scenes', label: t('scenes'), content: this._renderSceneList(target, t) },
-      { key: 'effects', label: t('effects'), content: this._renderEffects(target.ids, t) },
-    ]);
+    const tabs: Tab[] = [];
+    if (this._scenes(target).length) {
+      tabs.push({ key: 'scenes', label: t('scenes'), content: this._renderSceneList(target, t) });
+    }
+    if (this._effectLights(target.ids).length) {
+      tabs.push({ key: 'effects', label: t('effects'), content: this._renderEffects(target.ids, t) });
+    }
+    tabs.push(...this._selectTabs(target, t));
+    return tabs.length ? this._renderTabs(tabs) : this._renderSceneList(target, t);
+  }
+
+  /** One tab per select entity of the lights. */
+  protected _selectTabs(target: Target, t: Localize): Tab[] {
+    return this._selects(target).map((s) => ({
+      key: `select:${s.entity_id}` as const,
+      label: this._selectLabel(s, t),
+      content: this._renderSelect(s, t),
+    }));
+  }
+
+  protected _selectLabel(s: HassEntity, t: Localize): string {
+    const name = selectName(this.hass!, s);
+    switch (name.toLowerCase()) {
+      case 'scene':
+        return t('light_scenes');
+      case 'diy scene':
+        return t('diy_scenes');
+      case 'snapshot':
+        return t('snapshots');
+      case 'music mode':
+        return t('music');
+      default:
+        return name;
+    }
+  }
+
+  /**
+   * A select's choices as buttons, with a search field when the list is long.
+   * A mode with its own switch (music mode) gets an on/off button first.
+   */
+  protected _renderSelect(s: HassEntity, t: Localize): TemplateResult {
+    const options = selectOptions(s);
+    const switchId = selectSwitch(this.hass!, s.entity_id);
+    const sw = switchId ? this._state(switchId) : undefined;
+    const running = !sw || isOn(sw);
+    const query = this._effectQuery.trim().toLocaleLowerCase();
+    const shown = query ? options.filter((o) => o.toLocaleLowerCase().includes(query)) : options;
+
+    return html`
+      ${options.length > 12
+        ? html`<input
+            class="effect-search"
+            type="search"
+            placeholder=${t('search')}
+            aria-label=${t('search')}
+            .value=${this._effectQuery}
+            @input=${(e: Event) => (this._effectQuery = (e.target as HTMLInputElement).value)}
+          />`
+        : nothing}
+      ${sw
+        ? html`<button
+            class="scene mode-switch ${isOn(sw) ? 'active' : ''}"
+            role="switch"
+            aria-checked=${isOn(sw) ? 'true' : 'false'}
+            ?disabled=${isUnavailable(sw)}
+            @click=${() => this._setSwitch(sw.entity_id, !isOn(sw))}
+          >
+            <ha-icon icon=${isOn(sw) ? 'mdi:power' : 'mdi:power-off'}></ha-icon>
+            <span>${this._selectLabel(s, t)}</span>
+            <span class="mode-state">${isOn(sw) ? t('on') : t('off')}</span>
+          </button>`
+        : nothing}
+      ${shown.length
+        ? html`<div class="scenes ${options.length > 12 ? 'effects' : ''}">
+            ${shown.map(
+              (o) => html`<button
+                class="scene ${running && o === s.state ? 'active' : ''}"
+                @click=${() => this._selectOption(s, o, switchId)}
+              >
+                <span>${o}</span>
+              </button>`,
+            )}
+          </div>`
+        : html`<div class="empty">${t('no_effects')}</div>`}
+    `;
+  }
+
+  /** Pick a select's option, and turn its mode on (music mode) if it's off. */
+  protected _selectOption(s: HassEntity, option: string, switchId?: string) {
+    const hass = this.hass!;
+    const sw = switchId ? this._state(switchId) : undefined;
+    this._expect(s.entity_id, { state: option });
+    const picked = Promise.resolve(
+      hass.callService('select', 'select_option', { entity_id: s.entity_id, option }),
+    );
+    if (sw && !isOn(sw)) {
+      this._expect(sw.entity_id, { state: 'on' });
+      void picked.finally(() => hass.callService('switch', 'turn_on', { entity_id: sw.entity_id }));
+    }
+  }
+
+  protected _setSwitch(id: string, on: boolean) {
+    this._expect(id, { state: on ? 'on' : 'off' });
+    this.hass!.callService('switch', on ? 'turn_on' : 'turn_off', { entity_id: id });
+  }
+
+  /**
+   * The lights' select entities with something to choose: the ones in the
+   * config, or the ones on the lights' devices. Found ones that only repeat
+   * the lights' effects (Govee's scene list) are left out.
+   */
+  protected _selects(target: Target): HassEntity[] {
+    const ids = target.selectIds ?? deviceSelects(this.hass!, target.sceneIds ?? target.ids);
+    if (!ids.length) return [];
+    const found = ids
+      .map((id) => this._state(id))
+      .filter((s): s is HassEntity => !!s && !isUnavailable(s) && selectOptions(s).length > 0);
+    if (target.selectIds) return found;
+    const effects = new Set(
+      this._effectLights(target.ids).flatMap((l) => l.attributes.effect_list as unknown[]),
+    );
+    if (!effects.size) return found;
+    return found.filter((s) => {
+      const options = selectOptions(s);
+      return options.filter((o) => effects.has(o)).length < options.length * 0.8;
+    });
   }
 
   protected _renderSceneList(target: Target, t: Localize): TemplateResult {
@@ -1126,7 +1254,9 @@ export class LightSliderCard extends LitElement {
   protected _hasSceneMenu(target: Target): boolean {
     return (
       this._config!.show_scenes &&
-      (this._scenes(target).length > 0 || this._effectLights(target.ids).length > 0)
+      (this._scenes(target).length > 0 ||
+        this._effectLights(target.ids).length > 0 ||
+        this._selects(target).length > 0)
     );
   }
 

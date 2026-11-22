@@ -49,6 +49,7 @@ const SUBGROUP_SCHEMA = [
       { name: 'icon', selector: { icon: {} } },
     ],
   },
+  { name: 'selects', selector: { entity: { multiple: true, filter: { domain: 'select' } } } },
 ];
 
 type OptionKey = 'show_color_temp' | 'show_color' | 'show_scenes' | 'light_color' | 'scene_colors';
@@ -310,12 +311,19 @@ export class GroupedLightsCardEditor extends LitElement {
             main_entity: sg.main_entity ?? '',
             name: sg.name ?? '',
             icon: sg.icon ?? '',
+            selects: sg.selects ?? [],
           }}
           .schema=${SUBGROUP_SCHEMA}
           .computeLabel=${this._label}
           @value-changed=${(
             ev: CustomEvent<{
-              value: { entities?: string[]; main_entity?: string; name?: string; icon?: string };
+              value: {
+                entities?: string[];
+                main_entity?: string;
+                name?: string;
+                icon?: string;
+                selects?: string[];
+              };
             }>,
           ) => {
             ev.stopPropagation();
@@ -326,6 +334,7 @@ export class GroupedLightsCardEditor extends LitElement {
             setOrDelete(next, 'main_entity', v.main_entity);
             setOrDelete(next, 'name', v.name);
             setOrDelete(next, 'icon', v.icon);
+            setOrDelete(next, 'selects', v.selects);
             const list = [...subs];
             list[si] = next;
             setSubs(list);

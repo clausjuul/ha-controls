@@ -141,6 +141,24 @@ WLED effects) get an **Effects** tab next to the scenes, with a search field
 when the list is long. The active effect is highlighted. This works in both
 cards.
 
+Lights whose integration adds **select** entities (for example the Govee
+integration's DIY scenes, snapshots and music mode) get a tab for each one in
+the same popup. They're found on the light's device; select lists that only
+repeat the light's effects are left out. A mode with its own on/off switch
+(Govee's music mode) gets an on/off button at the top of its tab, and picking a
+mode turns it on. In the grouped lights card, choose the selects for a row
+yourself with `selects`, e.g. when the row's light comes from another
+integration than the selects:
+
+```yaml
+subgroups:
+  - main_entity: light.wall_washer   # Govee2MQTT
+    selects:                          # Govee integration
+      - select.wall_washer_diy_scene
+      - select.wall_washer_snapshot
+      - select.wall_washer_music_mode
+```
+
 ### Options
 
 | Option | Type | Default | Description |
@@ -294,6 +312,7 @@ groups:
 | `subgroups[].main_entity` | string | | Entity the bar controls; `entities` are its lights |
 | `subgroups[].name`, `icon` | string | | Row name (defaults to the entity's name) and icon |
 | `subgroups[].scenes` | list | automatic | Scenes for the row's scene button, as IDs or objects like above |
+| `subgroups[].selects` | list | automatic | Select entities shown as tabs in the row's scene popup (DIY scenes, snapshots, music mode …) |
 | `show_color_temp`, `show_color`, `show_scenes` | boolean | `true` | Which buttons rows get |
 | `light_color` | boolean | `false` | Use each light's own colour instead of the theme's |
 
