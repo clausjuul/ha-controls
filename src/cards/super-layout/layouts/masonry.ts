@@ -20,17 +20,24 @@ class SuperMasonryLayout extends BaseColumnLayout {
       return cols[i];
     }
 
-    for (const c of cards) {
+    // Ask every card for its size at once (each capped at 500 ms) instead of
+    // one after the other, then place them in order as before.
+    const sizes = await Promise.all(
+      cards.map((c) =>
+        c.card.getCardSize
+          ? Promise.race([
+              new Promise<number>((resolve) => resolve(c.card.getCardSize())).catch(() => 1),
+              new Promise<number>((resolve) => setTimeout(() => resolve(1), 500)),
+            ])
+          : 1
+      )
+    );
+
+    cards.forEach((c, i) => {
       const col = shortestCol();
       col.appendChild(this.getCardElement(c));
-
-      col.length += c.card.getCardSize
-        ? await (Promise.race([
-            c.card.getCardSize(),
-            new Promise((resolve) => setTimeout(() => resolve(1), 500)),
-          ]) as Promise<number>)
-        : 1;
-    }
+      col.length += sizes[i];
+    });
   }
 }
 

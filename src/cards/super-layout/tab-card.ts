@@ -2,8 +2,10 @@
 import { define } from '../../shared/types';
 import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
+import { keyed } from "lit/directives/keyed.js";
 import { TabCardConfig, TabConfig, CardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard } from "./card-helpers";
+import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import "./card-list-editor";
 
 class SuperTabCard extends LitElement {
   @property() hass;
@@ -20,6 +22,7 @@ class SuperTabCard extends LitElement {
     if (!this._config.tabs?.length) {
       throw new Error("Please define at least one tab");
     }
+    if (this._activeTab >= this._config.tabs.length) this._activeTab = 0;
   }
 
   async updated(changedProperties: Map<string, any>) {
@@ -56,7 +59,7 @@ class SuperTabCard extends LitElement {
       const idx = this._tabCards[t].indexOf(el);
       if (idx !== -1) {
         this._tabCards[t] = await safeRebuildCard(
-          el, cardConfig, this._tabCards[t], this.hass,
+          el, cardConfig, () => this._tabCards[t], this.hass,
           (el2, config) => this._rebuildCard(el2, config)
         );
         this._tabCards = [...this._tabCards];
@@ -65,27 +68,22 @@ class SuperTabCard extends LitElement {
     }
   }
 
-  _selectTab(ev: CustomEvent) {
-    ev.stopPropagation();
-    this._activeTab = parseInt(ev.detail.name, 10);
+  getCardSize() {
+    return 1 + sumCardSizes(this._tabCards[this._activeTab] || []);
   }
 
-  getCardSize() {
-    const activeCards = this._tabCards[this._activeTab] || [];
-    let size = 1; // for tabs header
-    for (const card of activeCards) {
-      if (card.getCardSize) {
-        try {
-          const s = card.getCardSize();
-          size += typeof s === "number" ? s : 1;
-        } catch {
-          size += 1;
-        }
-      } else {
-        size += 1;
-      }
-    }
-    return size;
+  _onTabKey(ev: KeyboardEvent) {
+    const count = this._config.tabs?.length ?? 0;
+    const keys = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity };
+    if (!(ev.key in keys) || !count) return;
+    ev.preventDefault();
+    const step = keys[ev.key];
+    this._activeTab = Number.isFinite(step)
+      ? (this._activeTab + step + count) % count
+      : step < 0 ? 0 : count - 1;
+    this.updateComplete.then(() =>
+      (this.shadowRoot?.querySelector(".tab.active") as HTMLElement)?.focus()
+    );
   }
 
   render() {
@@ -95,10 +93,13 @@ class SuperTabCard extends LitElement {
 
     return html`
       <ha-card>
-        <div class="tabs-header">
+        <div class="tabs-header" role="tablist" @keydown=${this._onTabKey}>
           ${this._config.tabs.map((tab, i) => html`
             <div
               class="tab ${i === this._activeTab ? "active" : ""}"
+              role="tab"
+              aria-selected=${i === this._activeTab ? "true" : "false"}
+              tabindex=${i === this._activeTab ? "0" : "-1"}
               @click=${() => { this._activeTab = i; }}
             >
               ${tab.icon ? html`<ha-icon .icon=${tab.icon}></ha-icon>` : nothing}
@@ -106,7 +107,7 @@ class SuperTabCard extends LitElement {
             </div>
           `)}
         </div>
-        <div class="tab-content">
+        <div class="tab-content" role="tabpanel">
           ${activeCards.map(
             (card) => html`<div class="card-item">${card}</div>`
           )}
@@ -151,6 +152,10 @@ class SuperTabCard extends LitElement {
         white-space: nowrap;
         min-width: 0;
       }
+      .tab:focus-visible {
+        outline: 2px solid var(--primary-color);
+        outline-offset: -2px;
+      }
       .tab:hover {
         color: var(--primary-text-color);
         background: var(--secondary-background-color, rgba(0, 0, 0, 0.04));
@@ -169,6 +174,12 @@ class SuperTabCard extends LitElement {
       @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
+      }
+      hui-card:not([hidden]) {
+        display: block;
+      }
+      .card-item:has(> hui-card[hidden]) {
+        display: none;
       }
       .card-item {
         margin: var(--masonry-view-card-margin, 4px 4px 8px);
@@ -205,8 +216,6 @@ class SuperTabCardEditor extends LitElement {
   @property() hass;
   @state() _selectedMainTab = 0; // 0=Settings, 1=Tabs
   @state() _selectedTab = 0;
-  @state() _selectedCard = 0;
-  @state() _cardGUIModeAvailable = true;
 
   setConfig(config) {
     this._config = config;
@@ -225,7 +234,6 @@ class SuperTabCardEditor extends LitElement {
       return;
     }
     this._selectedTab = parseInt(name, 10);
-    this._selectedCard = 0;
   }
 
   _addTab() {
@@ -257,67 +265,21 @@ class SuperTabCardEditor extends LitElement {
     this._fireConfigChanged();
   }
 
-  _editCard(ev) {
-    ev.stopPropagation();
-    if (ev.detail.name === "add-card") {
-      const tab = this._config.tabs?.[this._selectedTab];
-      this._selectedCard = (tab?.cards || []).length;
-      return;
-    }
-    this._cardGUIModeAvailable = true;
-    this._selectedCard = parseInt(ev.detail.name, 10);
-  }
-
-  _addCard(ev: CustomEvent) {
-    ev.stopPropagation();
+  _moveTab(delta: number) {
     const tabs = [...(this._config.tabs || [])];
-    const tab = { ...tabs[this._selectedTab] };
-    const cards = [...(tab.cards || [])];
-    cards.push(ev.detail.config);
-    tab.cards = cards;
-    tabs[this._selectedTab] = tab;
+    const target = this._selectedTab + delta;
+    if (target < 0 || target >= tabs.length) return;
+    tabs.splice(target, 0, tabs.splice(this._selectedTab, 1)[0]);
     this._config = { ...this._config, tabs };
-    this._selectedCard = cards.length - 1;
+    this._selectedTab = target;
     this._fireConfigChanged();
   }
 
-  _updateCard(ev) {
+  _cardsChanged(ev: CustomEvent) {
     ev.stopPropagation();
     const tabs = [...(this._config.tabs || [])];
-    const tab = { ...tabs[this._selectedTab] };
-    const cards = [...(tab.cards || [])];
-    cards[this._selectedCard] = ev.detail.config;
-    tab.cards = cards;
-    tabs[this._selectedTab] = tab;
+    tabs[this._selectedTab] = { ...tabs[this._selectedTab], cards: ev.detail.cards };
     this._config = { ...this._config, tabs };
-    this._cardGUIModeAvailable = ev.detail.guiModeAvailable;
-    this._fireConfigChanged();
-  }
-
-  _deleteCard() {
-    const tabs = [...(this._config.tabs || [])];
-    const tab = { ...tabs[this._selectedTab] };
-    const cards = [...(tab.cards || [])];
-    cards.splice(this._selectedCard, 1);
-    tab.cards = cards;
-    tabs[this._selectedTab] = tab;
-    this._config = { ...this._config, tabs };
-    this._selectedCard = Math.max(0, this._selectedCard - 1);
-    this._fireConfigChanged();
-  }
-
-  _moveCard(ev) {
-    const source = this._selectedCard;
-    const target = source + ev.currentTarget.move;
-    const tabs = [...(this._config.tabs || [])];
-    const tab = { ...tabs[this._selectedTab] };
-    const cards = [...(tab.cards || [])];
-    const card = cards.splice(source, 1)[0];
-    cards.splice(target, 0, card);
-    tab.cards = cards;
-    tabs[this._selectedTab] = tab;
-    this._config = { ...this._config, tabs };
-    this._selectedCard = target;
     this._fireConfigChanged();
   }
 
@@ -388,10 +350,26 @@ class SuperTabCardEditor extends LitElement {
                   }}
                   @value-changed=${this._updateTabSettings}
                 ></ha-form>
-                <ha-button class="delete-tab" @click=${this._deleteTab} .disabled=${tabs.length <= 1}>
-                  <ha-icon .icon=${"mdi:delete"}></ha-icon>
-                  Delete Tab
-                </ha-button>
+                <div class="tab-actions">
+                  <ha-icon-button
+                    .label=${"Move tab left"}
+                    .disabled=${this._selectedTab === 0}
+                    @click=${() => this._moveTab(-1)}
+                  >
+                    <ha-icon .icon=${"mdi:arrow-left"}></ha-icon>
+                  </ha-icon-button>
+                  <ha-icon-button
+                    .label=${"Move tab right"}
+                    .disabled=${this._selectedTab === tabs.length - 1}
+                    @click=${() => this._moveTab(1)}
+                  >
+                    <ha-icon .icon=${"mdi:arrow-right"}></ha-icon>
+                  </ha-icon-button>
+                  <ha-button class="delete-tab" @click=${this._deleteTab} .disabled=${tabs.length <= 1}>
+                    <ha-icon .icon=${"mdi:delete"}></ha-icon>
+                    Delete Tab
+                  </ha-button>
+                </div>
               </div>
             `
           : nothing}
@@ -401,69 +379,20 @@ class SuperTabCardEditor extends LitElement {
 
   _renderCardsEditor() {
     const tab = this._config.tabs?.[this._selectedTab];
-    const cards = tab?.cards || [];
-    const selected = this._selectedCard;
-    const numcards = cards.length;
-
     return html`
       <div class="cards-editor">
         <div class="tab-selector">
           <span>Editing cards for: <strong>${tab?.title || `Tab ${this._selectedTab + 1}`}</strong></span>
         </div>
-        <ha-tab-group @wa-tab-show=${this._editCard}>
-          ${cards.map(
-            (_card, i) => html`
-              <ha-tab-group-tab slot="nav" .active=${selected == i} .panel=${i}>
-                ${i + 1}
-              </ha-tab-group-tab>
-            `
-          )}
-          <ha-tab-group-tab
-            slot="nav"
-            .active=${selected == numcards}
-            .panel=${"add-card"}
-            id="add-card"
-          >
-            <ha-icon .icon=${"mdi:plus"}></ha-icon>
-          </ha-tab-group-tab>
-        </ha-tab-group>
-        <div id="card-editor">
-          ${selected < numcards
-            ? html`
-                <div class="card-options">
-                  <ha-icon-button
-                    .disabled=${selected === 0}
-                    @click=${this._moveCard}
-                    .move=${-1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-left"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button
-                    .disabled=${selected === numcards - 1}
-                    @click=${this._moveCard}
-                    .move=${1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-right"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button @click=${this._deleteCard}>
-                    <ha-icon .icon=${"mdi:delete"}></ha-icon>
-                  </ha-icon-button>
-                </div>
-                <hui-card-element-editor
-                  .hass=${this.hass}
-                  .value=${cards[selected]}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._updateCard}
-                ></hui-card-element-editor>
-              `
-            : html`
-                <hui-card-picker
-                  .hass=${this.hass}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._addCard}
-                ></hui-card-picker>
-              `}
-        </div>
+        ${keyed(
+          this._selectedTab,
+          html`<super-card-list-editor
+            .hass=${this.hass}
+            .lovelace=${this.lovelace}
+            .cards=${tab?.cards || []}
+            @cards-changed=${this._cardsChanged}
+          ></super-card-list-editor>`
+        )}
       </div>
     `;
   }
@@ -481,7 +410,7 @@ class SuperTabCardEditor extends LitElement {
         width: 100%;
         justify-content: center;
       }
-      #add-card, #add-tab {
+      #add-tab {
         max-width: 32px;
         padding: 0;
       }
@@ -490,8 +419,13 @@ class SuperTabCardEditor extends LitElement {
         padding: 12px;
         margin-bottom: 8px;
       }
-      .delete-tab {
+      .tab-actions {
+        display: flex;
+        align-items: center;
         margin-top: 8px;
+      }
+      .delete-tab {
+        margin-left: auto;
         --mdc-theme-primary: var(--error-color, red);
       }
       .tab-selector {
@@ -499,13 +433,7 @@ class SuperTabCardEditor extends LitElement {
         font-size: 14px;
         color: var(--secondary-text-color);
       }
-      .cards-editor .card-options {
-        display: flex;
-        justify-content: flex-end;
-        width: 100%;
-      }
-      #editor,
-      #card-editor {
+      #editor {
         border: 1px solid var(--divider-color);
         padding: 12px;
       }

@@ -1,9 +1,14 @@
 // @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { CollapsibleCardConfig, CardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard } from "./card-helpers";
+import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import "./card-list-editor";
+
+// Older versions defaulted (and wrote via the stub) icon: mdi:chevron-down,
+// which duplicated the chevron on the right; treat it as "no icon".
+const LEGACY_DEFAULT_ICON = "mdi:chevron-down";
 
 class SuperCollapsibleCard extends LitElement {
   @property() hass;
@@ -15,7 +20,6 @@ class SuperCollapsibleCard extends LitElement {
   setConfig(config: CollapsibleCardConfig) {
     this._config = {
       title: "Section",
-      icon: "mdi:chevron-down",
       initially_collapsed: true,
       ...config,
     };
@@ -46,7 +50,7 @@ class SuperCollapsibleCard extends LitElement {
 
   async _rebuildCard(el: LovelaceCard, cardConfig: CardConfig) {
     this._cards = await safeRebuildCard(
-      el, cardConfig, this._cards, this.hass,
+      el, cardConfig, () => this._cards, this.hass,
       (el2, config) => this._rebuildCard(el2, config)
     );
   }
@@ -56,37 +60,43 @@ class SuperCollapsibleCard extends LitElement {
   }
 
   getCardSize() {
-    if (this._collapsed) return 1;
-    let size = 1;
-    for (const card of this._cards) {
-      if (card.getCardSize) {
-        try {
-          const s = card.getCardSize();
-          size += typeof s === "number" ? s : 1;
-        } catch {
-          size += 1;
-        }
-      } else {
-        size += 1;
-      }
-    }
-    return size;
+    return this._collapsed ? 1 : 1 + sumCardSizes(this._cards);
+  }
+
+  _onHeaderKey(ev: KeyboardEvent) {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    ev.preventDefault();
+    this._toggle();
   }
 
   render() {
-    const iconName = this._collapsed ? "mdi:chevron-right" : "mdi:chevron-down";
-
+    const expanded = !this._collapsed;
     return html`
       <ha-card>
-        <div class="header" @click=${this._toggle}>
-          <ha-icon .icon=${this._config.icon || iconName}></ha-icon>
+        <div
+          class="header"
+          role="button"
+          tabindex="0"
+          aria-expanded=${expanded ? "true" : "false"}
+          aria-controls="content"
+          @click=${this._toggle}
+          @keydown=${this._onHeaderKey}
+        >
+          ${this._config.icon && this._config.icon !== LEGACY_DEFAULT_ICON
+            ? html`<ha-icon .icon=${this._config.icon}></ha-icon>`
+            : nothing}
           <span class="title">${this._config.title}</span>
-          <ha-icon class="chevron ${this._collapsed ? "" : "open"}" .icon=${iconName}></ha-icon>
+          <ha-icon
+            class="chevron ${expanded ? "open" : ""}"
+            .icon=${"mdi:chevron-down"}
+          ></ha-icon>
         </div>
-        <div class="content ${this._collapsed ? "collapsed" : "expanded"}">
-          ${this._cards.map(
-            (card) => html`<div class="card-item">${card}</div>`
-          )}
+        <div id="content" class="content ${expanded ? "expanded" : "collapsed"}">
+          <div class="content-inner" ?inert=${!expanded}>
+            ${this._cards.map(
+              (card) => html`<div class="card-item">${card}</div>`
+            )}
+          </div>
         </div>
       </ha-card>
     `;
@@ -110,6 +120,10 @@ class SuperCollapsibleCard extends LitElement {
         background: var(--ha-card-background, var(--card-background-color, white));
         border-bottom: 1px solid var(--divider-color, #e0e0e0);
       }
+      .header:focus-visible {
+        outline: 2px solid var(--primary-color);
+        outline-offset: -2px;
+      }
       .header:hover {
         background: var(--secondary-background-color, #f5f5f5);
       }
@@ -121,21 +135,31 @@ class SuperCollapsibleCard extends LitElement {
       }
       .chevron {
         transition: transform 0.3s ease;
+        transform: rotate(-90deg);
       }
       .chevron.open {
         transform: rotate(0deg);
       }
+      /* Animates to the content's real height (no max-height guess). */
       .content {
-        overflow: hidden;
-        transition: max-height 0.3s ease, opacity 0.3s ease;
+        display: grid;
+        grid-template-rows: 1fr;
+        opacity: 1;
+        transition: grid-template-rows 0.3s ease, opacity 0.3s ease;
       }
       .content.collapsed {
-        max-height: 0;
+        grid-template-rows: 0fr;
         opacity: 0;
       }
-      .content.expanded {
-        max-height: 5000px;
-        opacity: 1;
+      .content-inner {
+        min-height: 0;
+        overflow: hidden;
+      }
+      hui-card:not([hidden]) {
+        display: block;
+      }
+      .card-item:has(> hui-card[hidden]) {
+        display: none;
       }
       .card-item {
         margin: var(--masonry-view-card-margin, 4px 4px 8px);
@@ -149,7 +173,6 @@ class SuperCollapsibleCard extends LitElement {
   static getStubConfig() {
     return {
       title: "Section",
-      icon: "mdi:chevron-down",
       initially_collapsed: true,
       cards: [],
     };
@@ -171,8 +194,6 @@ class SuperCollapsibleCardEditor extends LitElement {
   @property() lovelace;
   @property() hass;
   @state() _selectedTab = 0;
-  @state() _selectedCard = 0;
-  @state() _cardGUIModeAvailable = true;
 
   setConfig(config) {
     this._config = config;
@@ -221,61 +242,6 @@ class SuperCollapsibleCardEditor extends LitElement {
     );
   }
 
-  _editCard(ev) {
-    ev.stopPropagation();
-    if (ev.detail.name === "add-card") {
-      this._selectedCard = (this._config.cards || []).length;
-      return;
-    }
-    this._cardGUIModeAvailable = true;
-    this._selectedCard = parseInt(ev.detail.name, 10);
-  }
-
-  _addCard(ev: CustomEvent) {
-    ev.stopPropagation();
-    const cards = [...(this._config.cards || [])];
-    cards.push(ev.detail.config);
-    this._config = { ...this._config, cards };
-    this._selectedCard = cards.length - 1;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
-  _updateCard(ev) {
-    ev.stopPropagation();
-    const cards = [...(this._config.cards || [])];
-    cards[this._selectedCard] = ev.detail.config;
-    this._config = { ...this._config, cards };
-    this._cardGUIModeAvailable = ev.detail.guiModeAvailable;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
-  _deleteCard() {
-    const cards = [...(this._config.cards || [])];
-    cards.splice(this._selectedCard, 1);
-    this._config = { ...this._config, cards };
-    this._selectedCard = Math.max(0, this._selectedCard - 1);
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
-  _moveCard(ev) {
-    const source = this._selectedCard;
-    const target = source + ev.currentTarget.move;
-    const cards = [...(this._config.cards || [])];
-    const card = cards.splice(source, 1)[0];
-    cards.splice(target, 0, card);
-    this._config = { ...this._config, cards };
-    this._selectedCard = target;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
   render() {
     if (!this.hass || !this._config) return html``;
 
@@ -311,68 +277,22 @@ class SuperCollapsibleCardEditor extends LitElement {
   }
 
   _renderCardsEditor() {
-    const cards = this._config.cards || [];
-    const selected = this._selectedCard;
-    const numcards = cards.length;
-
     return html`
-      <div class="cards">
-        <ha-tab-group @wa-tab-show=${this._editCard}>
-          ${cards.map(
-            (_card, i) => html`
-              <ha-tab-group-tab slot="nav" .active=${selected == i} .panel=${i}>
-                ${i + 1}
-              </ha-tab-group-tab>
-            `
-          )}
-          <ha-tab-group-tab
-            slot="nav"
-            .active=${selected == numcards}
-            .panel=${"add-card"}
-            id="add-card"
-          >
-            <ha-icon .icon=${"mdi:plus"}></ha-icon>
-          </ha-tab-group-tab>
-        </ha-tab-group>
-        <div id="card-editor">
-          ${selected < numcards
-            ? html`
-                <div class="card-options">
-                  <ha-icon-button
-                    .disabled=${selected === 0}
-                    @click=${this._moveCard}
-                    .move=${-1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-left"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button
-                    .disabled=${selected === numcards - 1}
-                    @click=${this._moveCard}
-                    .move=${1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-right"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button @click=${this._deleteCard}>
-                    <ha-icon .icon=${"mdi:delete"}></ha-icon>
-                  </ha-icon-button>
-                </div>
-                <hui-card-element-editor
-                  .hass=${this.hass}
-                  .value=${cards[selected]}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._updateCard}
-                ></hui-card-element-editor>
-              `
-            : html`
-                <hui-card-picker
-                  .hass=${this.hass}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._addCard}
-                ></hui-card-picker>
-              `}
-        </div>
-      </div>
+      <super-card-list-editor
+        .hass=${this.hass}
+        .lovelace=${this.lovelace}
+        .cards=${this._config.cards || []}
+        @cards-changed=${this._cardsChanged}
+      ></super-card-list-editor>
     `;
+  }
+
+  _cardsChanged(ev: CustomEvent) {
+    ev.stopPropagation();
+    this._config = { ...this._config, cards: ev.detail.cards };
+    this.dispatchEvent(
+      new CustomEvent("config-changed", { detail: { config: this._config } })
+    );
   }
 
   static get styles() {
@@ -388,17 +308,7 @@ class SuperCollapsibleCardEditor extends LitElement {
         width: 100%;
         justify-content: center;
       }
-      #add-card {
-        max-width: 32px;
-        padding: 0;
-      }
-      .cards .card-options {
-        display: flex;
-        justify-content: flex-end;
-        width: 100%;
-      }
-      #editor,
-      #card-editor {
+      #editor {
         border: 1px solid var(--divider-color);
         padding: 12px;
       }
