@@ -1,28 +1,17 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../../shared/types';
-import { css, html } from "lit";
-import { property } from "lit/decorators.js";
-import {
-  CardConfig,
-  CardConfigGroup,
-  GridViewConfig,
-  HuiCard,
-  LovelaceCard,
-} from "../types";
+import { css, html, type PropertyValues } from "lit";
+import type { GridViewConfig } from "../types";
 import { BaseLayout } from "./base-layout";
 import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader, VH } from "./header";
 
 class SuperGridLayout extends BaseLayout {
-  _mediaQueries: Array<MediaQueryList | null> = [];
-  _mqListeners: Array<() => void> = [];
   // Layout breakpoints as [query list, layout overrides]. Kept as pairs because
   // MediaQueryList.media is normalised by the browser and may not match the
   // config key it came from.
-  _layoutMQs: Array<[MediaQueryList, Record<string, any>]> = [];
+  _layoutMQs: Array<[MediaQueryList, Record<string, string>]> = [];
   _layoutMqListener = () => this._setGridStyles();
   _autoHide = new AutoHideHeader();
   _cancelHideHeader = () => {};
-  @property() _config: GridViewConfig;
 
   async setConfig(config: GridViewConfig) {
     await super.setConfig(config);
@@ -30,30 +19,9 @@ class SuperGridLayout extends BaseLayout {
     this._setGridStyles();
   }
 
-  /**
-   * (Re)creates media query listeners. Called from setConfig and again on
-   * reconnect, since disconnectedCallback removes them and HA moves cards
-   * around in the DOM (view cache, masonry reflow).
-   */
+  /** Per-card listeners (BaseLayout) plus the layout's own breakpoints. */
   _setupMediaQueryListeners() {
-    this._cleanupMediaQueryListeners();
-
-    for (const card of this._config?.cards || []) {
-      if (
-        typeof card.view_layout?.show !== "string" &&
-        card.view_layout?.show?.mediaquery
-      ) {
-        const mq = window.matchMedia(`${card.view_layout.show.mediaquery}`);
-        const listener = () => this._placeCards();
-        this._mediaQueries.push(mq);
-        this._mqListeners.push(listener);
-        mq.addEventListener("change", listener);
-      } else {
-        this._mediaQueries.push(null);
-        this._mqListeners.push(null);
-      }
-    }
-
+    super._setupMediaQueryListeners();
     for (const [query, layout] of Object.entries(
       this._config?.layout?.mediaquery ?? {}
     )) {
@@ -64,16 +32,10 @@ class SuperGridLayout extends BaseLayout {
   }
 
   _cleanupMediaQueryListeners() {
-    this._mediaQueries.forEach((mq, i) => {
-      if (mq && this._mqListeners[i]) {
-        mq.removeEventListener("change", this._mqListeners[i]);
-      }
-    });
-    for (const [mq] of this._layoutMQs) {
+    super._cleanupMediaQueryListeners();
+    for (const [mq] of this._layoutMQs ?? []) {
       mq.removeEventListener("change", this._layoutMqListener);
     }
-    this._mediaQueries = [];
-    this._mqListeners = [];
     this._layoutMQs = [];
   }
 
@@ -85,21 +47,20 @@ class SuperGridLayout extends BaseLayout {
     this._setupMediaQueryListeners();
     this._setGridStyles();
     this._setupAutoHideHeader();
-    if (this._mediaQueries.some(Boolean)) this._placeCards();
+    if (this._mediaQueries.some(Boolean)) this._makeLayout();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this._cleanupMediaQueryListeners();
     this._autoHide.detach();
     this._cancelHideHeader();
     releaseHeader(this);
   }
 
-  async updated(changedProperties) {
+  async updated(changedProperties: PropertyValues) {
     await super.updated(changedProperties);
     if (changedProperties.has("cards") || changedProperties.has("_editMode")) {
-      this._placeCards();
+      this._makeLayout();
     }
   }
 
@@ -117,7 +78,7 @@ class SuperGridLayout extends BaseLayout {
           this._config.layout?.height !== undefined ? "auto" : "visible"
         };
       }`;
-    this.shadowRoot.appendChild(styleEl);
+    this.shadowRoot?.appendChild(styleEl);
   }
 
   _applyFullscreen() {
@@ -143,14 +104,14 @@ class SuperGridLayout extends BaseLayout {
   _setGridStyles() {
     const root = this.shadowRoot?.querySelector("#root") as HTMLElement;
     if (!root) return;
-    const addStyles = (layout) => {
-      for (const [key, value] of Object.entries(layout ?? {})) {
+    const addStyles = (layout: Record<string, unknown>) => {
+      for (const [key, value] of Object.entries(layout)) {
         if (
           key.startsWith("grid") ||
           key === "place-items" ||
           key === "place-content"
         )
-          root.style.setProperty(key, value as any as string);
+          root.style.setProperty(key, String(value));
       }
     };
 
@@ -165,36 +126,16 @@ class SuperGridLayout extends BaseLayout {
     this._applyFullscreen();
   }
 
-  _shouldShow(card: LovelaceCard | HuiCard, config: CardConfig, index: number) {
-    if (!super._shouldShow(card, config, index)) return false;
-
-    const mq = this._mediaQueries[index];
-    if (!mq) return true;
-    if (mq.matches) return true;
-    return false;
-  }
-
-  _placeCards() {
+  _makeLayout() {
     const root = this.shadowRoot?.querySelector("#root");
     if (!root) return;
     while (root.firstChild) root.removeChild(root.firstChild);
-    let cards: CardConfigGroup[] = this.cards.map((card, index) => {
-      const config = this._config.cards[index];
-      return {
-        card,
-        config,
-        index,
-        show: this._shouldShow(card, config, index),
-      };
-    });
-
-    for (const card of cards.filter((c) => this.lovelace?.editMode || c.show)) {
+    const cards = this._cardGroups().filter((c) => this.lovelace?.editMode || c.show);
+    for (const card of cards) {
       const el = this.getCardElement(card);
-      for (const [key, value] of Object.entries(
-        card.config?.view_layout ?? {}
-      )) {
+      for (const [key, value] of Object.entries(card.config.view_layout ?? {})) {
         if (key.startsWith("grid") || key === "place-self")
-          el.style.setProperty(key, value as string);
+          el.style.setProperty(key, String(value));
       }
       root.appendChild(el);
     }

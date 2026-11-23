@@ -1,51 +1,17 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../../shared/types';
-import { css, html } from "lit";
-import { property } from "lit/decorators.js";
-import {
-  AlignedGridViewConfig,
-  CardConfig,
-  CardConfigGroup,
-  HuiCard,
-  LovelaceCard,
-} from "../types";
+import { css, html, type PropertyValues } from "lit";
+import type { AlignedGridViewConfig, CardConfigGroup } from "../types";
 import { BaseLayout } from "./base-layout";
 import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader, VH } from "./header";
 
 class SuperAlignedGridLayout extends BaseLayout {
-  @property() _config: AlignedGridViewConfig;
-
   _autoHide = new AutoHideHeader();
   _cancelHideHeader = () => {};
-  _mediaQueries: Array<MediaQueryList | null> = [];
-  _mqListener = () => this._placeCards();
 
   async setConfig(config: AlignedGridViewConfig) {
     await super.setConfig(config);
     this._setupMediaQueryListeners();
     this._setGridStyles();
-  }
-
-  /** Per-card `show: {mediaquery}` listeners; rebuilt on reconnect. */
-  _setupMediaQueryListeners() {
-    this._cleanupMediaQueryListeners();
-    this._mediaQueries = (this._config?.cards || []).map((card) => {
-      const query =
-        typeof card.view_layout?.show === "object"
-          ? card.view_layout.show.mediaquery
-          : undefined;
-      if (!query) return null;
-      const mq = window.matchMedia(query);
-      mq.addEventListener("change", this._mqListener);
-      return mq;
-    });
-  }
-
-  _cleanupMediaQueryListeners() {
-    for (const mq of this._mediaQueries) {
-      mq?.removeEventListener("change", this._mqListener);
-    }
-    this._mediaQueries = [];
   }
 
   connectedCallback() {
@@ -55,21 +21,20 @@ class SuperAlignedGridLayout extends BaseLayout {
     this._setupMediaQueryListeners();
     this._setGridStyles();
     this._setupAutoHideHeader();
-    if (this._mediaQueries.some(Boolean)) this._placeCards();
+    if (this._mediaQueries.some(Boolean)) this._makeLayout();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this._cleanupMediaQueryListeners();
     this._autoHide.detach();
     this._cancelHideHeader();
     releaseHeader(this);
   }
 
-  async updated(changedProperties) {
+  async updated(changedProperties: PropertyValues) {
     await super.updated(changedProperties);
     if (changedProperties.has("cards") || changedProperties.has("_editMode")) {
-      this._placeCards();
+      this._makeLayout();
     }
   }
 
@@ -87,7 +52,7 @@ class SuperAlignedGridLayout extends BaseLayout {
           this._config.layout?.height !== undefined ? "auto" : "visible"
         };
       }`;
-    this.shadowRoot.appendChild(styleEl);
+    this.shadowRoot?.appendChild(styleEl);
   }
 
   _setGridStyles() {
@@ -127,12 +92,7 @@ class SuperAlignedGridLayout extends BaseLayout {
     this._autoHide.attach(this.shadowRoot?.querySelector("#root") || window);
   }
 
-  _shouldShow(card: LovelaceCard | HuiCard, config: CardConfig, index: number) {
-    if (!super._shouldShow(card, config, index)) return false;
-    return this._mediaQueries[index]?.matches ?? true;
-  }
-
-  _placeCards() {
+  _makeLayout() {
     const root = this.shadowRoot?.querySelector("#root");
     if (!root) return;
     while (root.firstChild) root.removeChild(root.firstChild);
@@ -144,17 +104,7 @@ class SuperAlignedGridLayout extends BaseLayout {
       .filter(Boolean).length;
     const bottomFill = layout["align-content"] === "end";
 
-    const cards: CardConfigGroup[] = this.cards.map((card, index) => {
-      const config = this._config.cards[index];
-      return {
-        card,
-        config,
-        index,
-        show: this._shouldShow(card, config, index),
-      };
-    });
-
-    const visible = cards.filter((c) => this.lovelace?.editMode || c.show);
+    const visible = this._cardGroups().filter((c) => this.lovelace?.editMode || c.show);
 
     if (bottomFill) {
       const placements = this._computeBottomFillPlacements(visible, numCols);

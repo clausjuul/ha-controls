@@ -1,9 +1,8 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
-import { css, html, LitElement, nothing } from "lit";
+import { css, html, LitElement, nothing, type PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
-import { CollapsibleCardConfig, CardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import type { CardConfig, CollapsibleCardConfig, FormSchema, Hass, Lovelace, LovelaceCard, ValueChangedEvent } from "./types";
+import { computeCardSize, safeCreateCards, safeRebuildCard } from "./card-helpers";
 import "./card-list-editor";
 
 // Older versions defaulted (and wrote via the stub) icon: mdi:chevron-down,
@@ -11,11 +10,11 @@ import "./card-list-editor";
 const LEGACY_DEFAULT_ICON = "mdi:chevron-down";
 
 class SuperCollapsibleCard extends LitElement {
-  @property() hass;
+  @property({ attribute: false }) hass?: Hass;
   @property() editMode = false;
   @state() _collapsed = true;
-  @property() _config: CollapsibleCardConfig;
-  @property() _cards: Array<LovelaceCard> = [];
+  @property({ attribute: false }) _config!: CollapsibleCardConfig;
+  @state() _cards: LovelaceCard[] = [];
 
   setConfig(config: CollapsibleCardConfig) {
     this._config = {
@@ -23,10 +22,10 @@ class SuperCollapsibleCard extends LitElement {
       initially_collapsed: true,
       ...config,
     };
-    this._collapsed = this._config.initially_collapsed;
+    this._collapsed = this._config.initially_collapsed ?? true;
   }
 
-  async updated(changedProperties: Map<string, any>) {
+  async updated(changedProperties: PropertyValues) {
     super.updated(changedProperties);
 
     if (changedProperties.has("_config")) {
@@ -59,8 +58,15 @@ class SuperCollapsibleCard extends LitElement {
     this._collapsed = !this._collapsed;
   }
 
-  getCardSize() {
-    return this._collapsed ? 1 : 1 + sumCardSizes(this._cards);
+  /** Full width in a sections view, any height (what HA used by default). */
+  getGridOptions() {
+    return { columns: 12, rows: "auto", min_columns: 3 };
+  }
+
+  async getCardSize(): Promise<number> {
+    if (this._collapsed) return 1;
+    const sizes = await Promise.all(this._cards.map(computeCardSize));
+    return 1 + sizes.reduce((a, b) => a + b, 0);
   }
 
   _onHeaderKey(ev: KeyboardEvent) {
@@ -180,8 +186,8 @@ class SuperCollapsibleCard extends LitElement {
 }
 
 define("super-collapsible-card", SuperCollapsibleCard);
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards || [];
+window.customCards.push({
   type: "super-collapsible-card",
   name: "Super Collapsible Card",
   preview: false,
@@ -190,12 +196,12 @@ define("super-collapsible-card", SuperCollapsibleCard);
 
 // --- Collapsible Card Editor ---
 class SuperCollapsibleCardEditor extends LitElement {
-  @property() _config: CollapsibleCardConfig;
-  @property() lovelace;
-  @property() hass;
+  @property({ attribute: false }) _config!: CollapsibleCardConfig;
+  @property({ attribute: false }) lovelace?: Lovelace;
+  @property({ attribute: false }) hass?: Hass;
   @state() _selectedTab = 0;
 
-  setConfig(config) {
+  setConfig(config: CollapsibleCardConfig) {
     this._config = config;
   }
 
@@ -214,8 +220,8 @@ class SuperCollapsibleCardEditor extends LitElement {
     },
   ];
 
-  _computeLabel(schema) {
-    const labels = {
+  _computeLabel(schema: FormSchema): string {
+    const labels: Record<string, string> = {
       title: "Title",
       icon: "Icon",
       initially_collapsed: "Start collapsed",
@@ -228,7 +234,7 @@ class SuperCollapsibleCardEditor extends LitElement {
     this._selectedTab = parseInt(ev.detail.name, 10);
   }
 
-  _valueChanged(ev) {
+  _valueChanged(ev: ValueChangedEvent<Partial<CollapsibleCardConfig>>) {
     ev.stopPropagation();
     const newValues = ev.detail.value;
     const config = {

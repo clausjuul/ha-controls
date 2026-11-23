@@ -1,6 +1,6 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
-import { LitElement, html, css, nothing } from "lit";
+import { LitElement, html, css, nothing, type PropertyValues } from "lit";
+import type { CardConfig, LayoutOptions } from "./types";
 import { property, state } from "lit/decorators.js";
 
 // Area colors for visual distinction
@@ -32,16 +32,9 @@ const AREA_COLORS_SOLID = [
 
 const SIZE_PRESETS = ["1fr", "2fr", "3fr", "auto", "min-content", "max-content"];
 
-interface GridDesignerState {
-  columns: string[];
-  rows: string[];
-  areas: string[][];
-  gap: string;
-}
-
 class SuperGridDesigner extends LitElement {
-  @property({ attribute: false }) config: any = {};
-  @property({ attribute: false }) cards: any[] = [];
+  @property({ attribute: false }) config: LayoutOptions = {};
+  @property({ attribute: false }) cards: CardConfig[] = [];
 
   @state() _columns: string[] = ["1fr", "1fr"];
   @state() _rows: string[] = ["auto", "auto"];
@@ -58,7 +51,7 @@ class SuperGridDesigner extends LitElement {
   private _nextColorIndex = 0;
   private _initialized = false;
 
-  willUpdate(changedProperties: Map<string, any>) {
+  willUpdate(changedProperties: PropertyValues) {
     if (changedProperties.has("config") && !this._initialized) {
       this._parseConfig();
       this._initialized = true;
@@ -70,22 +63,22 @@ class SuperGridDesigner extends LitElement {
 
     // Parse columns
     if (layout["grid-template-columns"]) {
-      this._columns = this._parseCSSValues(layout["grid-template-columns"]);
+      this._columns = this._parseCSSValues(String(layout["grid-template-columns"]));
     }
 
     // Parse rows
     if (layout["grid-template-rows"]) {
-      this._rows = this._parseCSSValues(layout["grid-template-rows"]);
+      this._rows = this._parseCSSValues(String(layout["grid-template-rows"]));
     }
 
     // Parse gap
     if (layout["grid-gap"]) {
-      this._gap = layout["grid-gap"];
+      this._gap = String(layout["grid-gap"]);
     }
 
     // Parse areas
     if (layout["grid-template-areas"]) {
-      this._areas = this._parseGridAreas(layout["grid-template-areas"]);
+      this._areas = this._parseGridAreas(String(layout["grid-template-areas"]));
       // Build color map from existing areas
       for (const row of this._areas) {
         for (const cell of row) {
@@ -364,8 +357,8 @@ class SuperGridDesigner extends LitElement {
 
   // --- Config generation & emit ---
 
-  _generateConfig(): any {
-    const layout: any = { ...this.config };
+  _generateConfig(): LayoutOptions {
+    const layout: LayoutOptions = { ...this.config };
 
     layout["grid-template-columns"] = this._columns.join(" ");
     layout["grid-template-rows"] = this._rows.join(" ");

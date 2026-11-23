@@ -1,18 +1,17 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
-import { css, html, LitElement, nothing } from "lit";
+import { css, html, LitElement, nothing, type PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
-import { TabCardConfig, TabConfig, CardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import type { CardConfig, FormSchema, Hass, Lovelace, LovelaceCard, TabCardConfig, TabConfig, ValueChangedEvent } from "./types";
+import { computeCardSize, safeCreateCards, safeRebuildCard } from "./card-helpers";
 import "./card-list-editor";
 
 class SuperTabCard extends LitElement {
-  @property() hass;
+  @property({ attribute: false }) hass?: Hass;
   @property() editMode = false;
   @state() _activeTab = 0;
-  @property() _config: TabCardConfig;
-  @property() _tabCards: Array<Array<LovelaceCard>> = [];
+  @property({ attribute: false }) _config!: TabCardConfig;
+  @property() _tabCards: Array<Array<LovelaceCard> | undefined> = [];
 
   setConfig(config: TabCardConfig) {
     this._config = {
@@ -25,59 +24,80 @@ class SuperTabCard extends LitElement {
     if (this._activeTab >= this._config.tabs.length) this._activeTab = 0;
   }
 
-  async updated(changedProperties: Map<string, any>) {
+  async updated(changedProperties: PropertyValues) {
     super.updated(changedProperties);
 
     if (changedProperties.has("_config")) {
-      await this._createAllCards();
+      // Cards are created per tab when it is first shown (see _ensureTab).
+      this._build++;
+      this._creating.clear();
+      this._tabCards = [];
+    }
+
+    if (changedProperties.has("_config") || changedProperties.has("_activeTab")) {
+      await this._ensureTab(this._activeTab);
+      // A tab shown again missed the hass updates while it was hidden.
+      this._tabCards[this._activeTab]?.forEach((card) => (card.hass = this.hass));
     }
 
     if (changedProperties.has("hass")) {
-      this._tabCards.forEach((cards) => {
-        cards.forEach((card) => {
-          card.hass = this.hass;
-        });
-      });
+      // Only the visible tab needs live updates.
+      this._tabCards[this._activeTab]?.forEach((card) => (card.hass = this.hass));
     }
   }
 
-  async _createAllCards() {
-    const tabCards: Array<Array<LovelaceCard>> = [];
-    for (const tab of this._config.tabs || []) {
-      const cards = await safeCreateCards(
-        tab.cards,
-        this.hass,
-        (el, config) => this._rebuildCard(el, config)
-      );
-      tabCards.push(cards);
-    }
+  _build = 0;
+  _creating = new Set<number>();
+
+  async _ensureTab(index: number) {
+    if (this._tabCards[index] || this._creating.has(index)) return;
+    const tab = this._config.tabs?.[index];
+    if (!tab) return;
+    const build = this._build;
+    this._creating.add(index);
+    const cards = await safeCreateCards(tab.cards, this.hass, (el, config) =>
+      this._rebuildCard(el, config)
+    );
+    if (build !== this._build) return; // config changed meanwhile
+    this._creating.delete(index);
+    const tabCards = [...this._tabCards];
+    tabCards[index] = cards;
     this._tabCards = tabCards;
   }
 
   async _rebuildCard(el: LovelaceCard, cardConfig: CardConfig) {
     for (let t = 0; t < this._tabCards.length; t++) {
-      const idx = this._tabCards[t].indexOf(el);
-      if (idx !== -1) {
-        this._tabCards[t] = await safeRebuildCard(
-          el, cardConfig, () => this._tabCards[t], this.hass,
+      if (this._tabCards[t]?.includes(el)) {
+        const rebuilt = await safeRebuildCard(
+          el, cardConfig, () => this._tabCards[t] ?? [], this.hass,
           (el2, config) => this._rebuildCard(el2, config)
         );
-        this._tabCards = [...this._tabCards];
+        const tabCards = [...this._tabCards];
+        tabCards[t] = rebuilt;
+        this._tabCards = tabCards;
         return;
       }
     }
   }
 
-  getCardSize() {
-    return 1 + sumCardSizes(this._tabCards[this._activeTab] || []);
+  /** Full width in a sections view, any height (what HA used by default). */
+  getGridOptions() {
+    return { columns: 12, rows: "auto", min_columns: 3 };
+  }
+
+  async getCardSize(): Promise<number> {
+    const sizes = await Promise.all(
+      (this._tabCards[this._activeTab] || []).map(computeCardSize)
+    );
+    return 1 + sizes.reduce((a, b) => a + b, 0);
   }
 
   _onTabKey(ev: KeyboardEvent) {
     const count = this._config.tabs?.length ?? 0;
-    const keys = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity };
-    if (!(ev.key in keys) || !count) return;
-    ev.preventDefault();
+    const keys: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity };
     const step = keys[ev.key];
+    if (step === undefined || !count) return;
+    ev.preventDefault();
     this._activeTab = Number.isFinite(step)
       ? (this._activeTab + step + count) % count
       : step < 0 ? 0 : count - 1;
@@ -201,8 +221,8 @@ class SuperTabCard extends LitElement {
 }
 
 define("super-tab-card", SuperTabCard);
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards || [];
+window.customCards.push({
   type: "super-tab-card",
   name: "Super Tab Card",
   preview: false,
@@ -211,13 +231,13 @@ define("super-tab-card", SuperTabCard);
 
 // --- Tab Card Editor ---
 class SuperTabCardEditor extends LitElement {
-  @property() _config: TabCardConfig;
-  @property() lovelace;
-  @property() hass;
+  @property({ attribute: false }) _config!: TabCardConfig;
+  @property({ attribute: false }) lovelace?: Lovelace;
+  @property({ attribute: false }) hass?: Hass;
   @state() _selectedMainTab = 0; // 0=Settings, 1=Tabs
   @state() _selectedTab = 0;
 
-  setConfig(config) {
+  setConfig(config: TabCardConfig) {
     this._config = config;
   }
 
@@ -253,7 +273,7 @@ class SuperTabCardEditor extends LitElement {
     this._fireConfigChanged();
   }
 
-  _updateTabSettings(ev) {
+  _updateTabSettings(ev: ValueChangedEvent<Partial<TabConfig>>) {
     ev.stopPropagation();
     const tabs = [...(this._config.tabs || [])];
     tabs[this._selectedTab] = {
@@ -344,8 +364,8 @@ class SuperTabCardEditor extends LitElement {
                     { name: "title", selector: { text: {} } },
                     { name: "icon", selector: { icon: {} } },
                   ]}
-                  .computeLabel=${(schema) => {
-                    const labels = { title: "Tab Title", icon: "Tab Icon" };
+                  .computeLabel=${(schema: FormSchema) => {
+                    const labels: Record<string, string> = { title: "Tab Title", icon: "Tab Icon" };
                     return labels[schema.name] || schema.name;
                   }}
                   @value-changed=${this._updateTabSettings}

@@ -1,15 +1,22 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
 import { html, LitElement } from "lit";
 import { property } from "lit/decorators.js";
+import type { FormSchema, Hass, ValueChangedEvent } from "./types";
+
+interface GapCardConfig {
+  type?: string;
+  /** Height in px (default 50). */
+  height?: number;
+  /** Card size reported to layouts (default: height / 50, rounded up). */
+  size?: number;
+}
 
 // SuperGapCard extends HTMLElement directly (not LitElement) since it needs no shadow DOM.
-// LitElement and html are used by SuperGapCardEditor below.
 class SuperGapCard extends HTMLElement {
-  height: number;
-  size: number;
+  height = 50;
+  size = 1;
 
-  setConfig(config) {
+  setConfig(config: GapCardConfig) {
     this.height = config.height ?? 50;
     this.size = config.size ?? Math.ceil(this.height / 50);
     this.style.cssText = `
@@ -31,23 +38,28 @@ class SuperGapCard extends HTMLElement {
 }
 
 define("super-gap-card", SuperGapCard);
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards || [];
+window.customCards.push({
   type: "super-gap-card",
   name: "Super Gap Card",
   preview: false,
   description: "Add a customizable gap in the layout.",
 });
 
-class SuperGapCardEditor extends LitElement {
-  @property() _config;
-  @property() hass;
+const LABELS: Record<string, string> = {
+  height: "Height (px)",
+  size: "Layout size",
+};
 
-  setConfig(config) {
+class SuperGapCardEditor extends LitElement {
+  @property({ attribute: false }) _config?: GapCardConfig;
+  @property({ attribute: false }) hass?: Hass;
+
+  setConfig(config: GapCardConfig) {
     this._config = config;
   }
 
-  _schema = [
+  _schema: FormSchema[] = [
     {
       name: "height",
       selector: { number: { min: 0, max: 500, unit_of_measurement: "px", mode: "slider" } },
@@ -58,7 +70,7 @@ class SuperGapCardEditor extends LitElement {
     },
   ];
 
-  _valueChanged(ev) {
+  _valueChanged(ev: ValueChangedEvent<GapCardConfig>) {
     ev.stopPropagation();
     const config = ev.detail.value;
     this._config = config;
@@ -67,12 +79,8 @@ class SuperGapCardEditor extends LitElement {
     );
   }
 
-  _computeLabel(schema) {
-    const labels = {
-      height: "Height (px)",
-      size: "Layout size",
-    };
-    return labels[schema.name] || schema.name;
+  _computeLabel(schema: FormSchema): string {
+    return LABELS[schema.name] || schema.name;
   }
 
   render() {

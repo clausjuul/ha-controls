@@ -1,5 +1,27 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
-import { CardConfig, LovelaceCard } from "./types";
+import type { CardConfig, Hass, LovelaceCard } from "./types";
+
+/** HA's card helpers (window.loadCardHelpers). */
+interface CardHelpers {
+  createCardElement(config: CardConfig): LovelaceCard;
+}
+
+/** HA's card wrapper element (hui-card). */
+interface HuiCardElement extends LovelaceCard {
+  preview: boolean;
+  config: CardConfig;
+  load(): void;
+}
+
+declare global {
+  interface Window {
+    loadCardHelpers?: () => Promise<CardHelpers>;
+  }
+}
+
+const loadCardHelpers = async (): Promise<CardHelpers> => {
+  if (!window.loadCardHelpers) throw new Error("loadCardHelpers is not available");
+  return window.loadCardHelpers();
+};
 
 /**
  * Creates an error card element that displays an error message.
@@ -37,15 +59,15 @@ export function createErrorCard(error: string, config: CardConfig): LovelaceCard
  */
 export function safeCreateCard(
   cardConfig: CardConfig,
-  cardHelpers: any,
-  hass: any,
+  cardHelpers: CardHelpers,
+  hass: Hass | undefined,
   onRebuild: (el: LovelaceCard, config: CardConfig) => void
 ): LovelaceCard {
   try {
     // HA's own wrapper (2024.6+) handles `visibility:` conditions, error cards
     // and rebuilding late-loaded custom cards, like the built-in stacks do.
     if (customElements.get("hui-card")) {
-      const el = document.createElement("hui-card") as any;
+      const el = document.createElement("hui-card") as HuiCardElement;
       el.hass = hass;
       el.preview = false;
       el.config = cardConfig;
@@ -72,12 +94,12 @@ export function safeCreateCard(
  * Creates all cards from config, with error boundaries.
  */
 export async function safeCreateCards(
-  cards: CardConfig[],
-  hass: any,
+  cards: CardConfig[] | undefined,
+  hass: Hass | undefined,
   onRebuild: (el: LovelaceCard, config: CardConfig) => void
 ): Promise<LovelaceCard[]> {
   if (!cards?.length) return [];
-  const cardHelpers = await (window as any).loadCardHelpers();
+  const cardHelpers = await loadCardHelpers();
   return cards.map((cardConfig) =>
     safeCreateCard(cardConfig, cardHelpers, hass, onRebuild)
   );
@@ -94,10 +116,10 @@ export async function safeRebuildCard(
   el: LovelaceCard,
   cardConfig: CardConfig,
   getCards: () => LovelaceCard[],
-  hass: any,
+  hass: Hass | undefined,
   onRebuild: (el: LovelaceCard, config: CardConfig) => void
 ): Promise<LovelaceCard[]> {
-  const cardHelpers = await (window as any).loadCardHelpers();
+  const cardHelpers = await loadCardHelpers();
   const newEl = safeCreateCard(cardConfig, cardHelpers, hass, onRebuild);
   if (el.parentElement) {
     el.parentElement.replaceChild(newEl, el);
@@ -105,16 +127,16 @@ export async function safeRebuildCard(
   return getCards().map((card) => (card === el ? newEl : card));
 }
 
-/** Sum of the cards' getCardSize() (1 for cards without one or that throw). */
-export function sumCardSizes(cards: Array<LovelaceCard | undefined>): number {
-  let total = 0;
-  for (const card of cards ?? []) {
-    try {
-      const size = card?.getCardSize?.();
-      total += typeof size === "number" ? size : 1;
-    } catch {
-      total += 1;
-    }
+/** A card's getCardSize(), awaited but capped at 500 ms; 1 when unknown. */
+export async function computeCardSize(card: LovelaceCard | undefined): Promise<number> {
+  if (!card?.getCardSize) return 1;
+  try {
+    const size = await Promise.race([
+      Promise.resolve(card.getCardSize()),
+      new Promise<number>((resolve) => setTimeout(() => resolve(1), 500)),
+    ]);
+    return typeof size === "number" && Number.isFinite(size) ? size : 1;
+  } catch {
+    return 1;
   }
-  return total;
 }

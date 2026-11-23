@@ -1,20 +1,20 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
-import { css, html, LitElement } from "lit";
-import { property } from "lit/decorators.js";
-import { BaseColumnLayout } from "./layouts/base-column-layout";
-import { CardConfig, SuperLayoutCardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import { css, html, LitElement, type PropertyValues } from "lit";
+import { property, state } from "lit/decorators.js";
+import type { BaseLayout } from "./layouts/base-layout";
+import type { CardConfig, Hass, Lovelace, LovelaceCard, SuperLayoutCardConfig } from "./types";
+import { computeCardSize, safeCreateCards, safeRebuildCard } from "./card-helpers";
 
 class SuperLayoutCard extends LitElement {
-  @property() hass;
-  @property() editMode = false;
-  @property() isPanel = false;
-  @property() _config: SuperLayoutCardConfig;
-  @property() _cards: Array<LovelaceCard> = [];
-  @property() _layoutElement?: BaseColumnLayout;
+  @property({ attribute: false }) hass?: Hass;
+  @property({ type: Boolean }) editMode = false;
+  @property({ type: Boolean }) isPanel = false;
+  @state() _config!: SuperLayoutCardConfig;
+  @state() _cards: LovelaceCard[] = [];
+  /** A super-*-layout element, or HA's hui-masonry-view when no type is set. */
+  @state() _layoutElement?: BaseLayout;
 
-  @property() _layoutType?: string;
+  @state() _layoutType = "hui-masonry-view";
   _build = 0;
 
   setConfig(config: SuperLayoutCardConfig) {
@@ -48,7 +48,7 @@ class SuperLayoutCard extends LitElement {
     this._layoutType = configType;
   }
 
-  async updated(changedProperties: Map<string, any>) {
+  async updated(changedProperties: PropertyValues) {
     super.updated(changedProperties);
 
     if (
@@ -63,9 +63,7 @@ class SuperLayoutCard extends LitElement {
       // Config can change again (e.g. while typing in the editor) before the
       // cards below are created; only the newest build may take over.
       const build = ++this._build;
-      const layoutElement = document.createElement(
-        this._layoutType
-      ) as BaseColumnLayout;
+      const layoutElement = document.createElement(this._layoutType) as BaseLayout;
       layoutElement.setConfig?.(viewConfig);
       const cards = await this._createCards();
       if (build !== this._build) return;
@@ -99,16 +97,16 @@ class SuperLayoutCard extends LitElement {
     }
   }
 
-  _getLovelace(el: any = this, depth = 0) {
-    if (depth > 50) return undefined;
-    if (el.lovelace) return el.lovelace;
-    if (el.localName === "home-assistant") return undefined;
-    if (el.parentElement && (el.parentElement as any).host)
-      return this._getLovelace((el.parentElement as any).host, depth + 1);
-    if (el.parentNode && (el.parentNode as any).host)
-      return this._getLovelace((el.parentNode as any).host, depth + 1);
-    if (el.parentElement) return this._getLovelace(el.parentElement, depth + 1);
-    if (el.parentNode) return this._getLovelace(el.parentNode, depth + 1);
+  /** Walks up through shadow roots to the nearest element with `lovelace`. */
+  _getLovelace(): Lovelace | undefined {
+    let node: Node | null = this;
+    for (let depth = 0; node && depth <= 50; depth++) {
+      const lovelace = (node as Node & { lovelace?: Lovelace }).lovelace;
+      if (lovelace) return lovelace;
+      if ((node as Element).localName === "home-assistant") return undefined;
+      node = node.parentNode instanceof ShadowRoot ? node.parentNode.host : node.parentNode;
+    }
+    return undefined;
   }
 
   async _createCards(): Promise<Array<LovelaceCard>> {
@@ -125,8 +123,20 @@ class SuperLayoutCard extends LitElement {
     );
   }
 
-  getCardSize(): number {
-    return Math.max(1, sumCardSizes(this._cards));
+  /**
+   * The layout's own estimate (tallest column, or measured height) when it
+   * has one; otherwise all cards stacked, as before.
+   */
+  async getCardSize(): Promise<number> {
+    const estimate = await this._layoutElement?.estimateCardSize?.();
+    if (estimate) return Math.max(1, estimate);
+    const sizes = await Promise.all(this._cards.map(computeCardSize));
+    return Math.max(1, sizes.reduce((a, b) => a + b, 0));
+  }
+
+  /** Full width in a sections view, any height (what HA used by default). */
+  getGridOptions() {
+    return { columns: 12, rows: "auto", min_columns: 3 };
   }
 
   render() {
@@ -162,8 +172,8 @@ class SuperLayoutCard extends LitElement {
 }
 
 define("super-layout-card", SuperLayoutCard);
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards || [];
+window.customCards.push({
   type: "super-layout-card",
   name: "Super Layout Card",
   preview: false,
