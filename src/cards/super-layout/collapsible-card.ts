@@ -55,11 +55,6 @@ class SuperCollapsibleCard extends LitElement {
     this._collapsed = !this._collapsed;
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this._cards = [];
-  }
-
   getCardSize() {
     if (this._collapsed) return 1;
     let size = 1;

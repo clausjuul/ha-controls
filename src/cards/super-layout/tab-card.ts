@@ -70,11 +70,6 @@ class SuperTabCard extends LitElement {
     this._activeTab = parseInt(ev.detail.name, 10);
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this._tabCards = [];
-  }
-
   getCardSize() {
     const activeCards = this._tabCards[this._activeTab] || [];
     let size = 1; // for tabs header
