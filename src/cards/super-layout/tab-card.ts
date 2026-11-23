@@ -4,7 +4,7 @@ import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
 import { TabCardConfig, TabConfig, CardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import { computeCardSize, safeCreateCards, safeRebuildCard } from "./card-helpers";
 import "./card-list-editor";
 
 class SuperTabCard extends LitElement {
@@ -12,7 +12,7 @@ class SuperTabCard extends LitElement {
   @property() editMode = false;
   @state() _activeTab = 0;
   @property() _config: TabCardConfig;
-  @property() _tabCards: Array<Array<LovelaceCard>> = [];
+  @property() _tabCards: Array<Array<LovelaceCard> | undefined> = [];
 
   setConfig(config: TabCardConfig) {
     this._config = {
@@ -29,47 +29,68 @@ class SuperTabCard extends LitElement {
     super.updated(changedProperties);
 
     if (changedProperties.has("_config")) {
-      await this._createAllCards();
+      // Cards are created per tab when it is first shown (see _ensureTab).
+      this._build++;
+      this._creating.clear();
+      this._tabCards = [];
+    }
+
+    if (changedProperties.has("_config") || changedProperties.has("_activeTab")) {
+      await this._ensureTab(this._activeTab);
+      // A tab shown again missed the hass updates while it was hidden.
+      this._tabCards[this._activeTab]?.forEach((card) => (card.hass = this.hass));
     }
 
     if (changedProperties.has("hass")) {
-      this._tabCards.forEach((cards) => {
-        cards.forEach((card) => {
-          card.hass = this.hass;
-        });
-      });
+      // Only the visible tab needs live updates.
+      this._tabCards[this._activeTab]?.forEach((card) => (card.hass = this.hass));
     }
   }
 
-  async _createAllCards() {
-    const tabCards: Array<Array<LovelaceCard>> = [];
-    for (const tab of this._config.tabs || []) {
-      const cards = await safeCreateCards(
-        tab.cards,
-        this.hass,
-        (el, config) => this._rebuildCard(el, config)
-      );
-      tabCards.push(cards);
-    }
+  _build = 0;
+  _creating = new Set<number>();
+
+  async _ensureTab(index: number) {
+    if (this._tabCards[index] || this._creating.has(index)) return;
+    const tab = this._config.tabs?.[index];
+    if (!tab) return;
+    const build = this._build;
+    this._creating.add(index);
+    const cards = await safeCreateCards(tab.cards, this.hass, (el, config) =>
+      this._rebuildCard(el, config)
+    );
+    if (build !== this._build) return; // config changed meanwhile
+    this._creating.delete(index);
+    const tabCards = [...this._tabCards];
+    tabCards[index] = cards;
     this._tabCards = tabCards;
   }
 
   async _rebuildCard(el: LovelaceCard, cardConfig: CardConfig) {
     for (let t = 0; t < this._tabCards.length; t++) {
-      const idx = this._tabCards[t].indexOf(el);
-      if (idx !== -1) {
-        this._tabCards[t] = await safeRebuildCard(
-          el, cardConfig, () => this._tabCards[t], this.hass,
+      if (this._tabCards[t]?.includes(el)) {
+        const rebuilt = await safeRebuildCard(
+          el, cardConfig, () => this._tabCards[t] ?? [], this.hass,
           (el2, config) => this._rebuildCard(el2, config)
         );
-        this._tabCards = [...this._tabCards];
+        const tabCards = [...this._tabCards];
+        tabCards[t] = rebuilt;
+        this._tabCards = tabCards;
         return;
       }
     }
   }
 
-  getCardSize() {
-    return 1 + sumCardSizes(this._tabCards[this._activeTab] || []);
+  /** Full width in a sections view, any height (what HA used by default). */
+  getGridOptions() {
+    return { columns: 12, rows: "auto", min_columns: 3 };
+  }
+
+  async getCardSize(): Promise<number> {
+    const sizes = await Promise.all(
+      (this._tabCards[this._activeTab] || []).map(computeCardSize)
+    );
+    return 1 + sizes.reduce((a, b) => a + b, 0);
   }
 
   _onTabKey(ev: KeyboardEvent) {

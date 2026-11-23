@@ -9,6 +9,7 @@ import {
   ColumnViewConfig,
 } from "../types";
 import { BaseLayout } from "./base-layout";
+import { computeCardSize } from "../card-helpers";
 
 export class BaseColumnLayout extends BaseLayout {
   @property() _columns?: number;
@@ -198,33 +199,59 @@ export class BaseColumnLayout extends BaseLayout {
     this._makeColumnLayout();
   }
 
+  /** The cards to lay out: all in edit mode, otherwise the visible ones. */
+  _layoutGroups(): CardConfigGroup[] {
+    return this.cards
+      .map((card, index) => {
+        const config = this._config.cards[index];
+        return { card, config, index, show: this._shouldShow(card, config, index) };
+      })
+      .filter((c) => this.lovelace?.editMode || c.show);
+  }
+
+  /** Whether `_assignColumns` needs the cards' sizes (masonry does). */
+  _usesCardSizes = false;
+
+  /**
+   * Picks a column (0-based) for each card. `sizes` holds the cards' sizes
+   * when `_usesCardSizes` is set, otherwise zeros.
+   */
+  _assignColumns(
+    cards: CardConfigGroup[],
+    _sizes: number[],
+    _columns: number
+  ): number[] {
+    return cards.map(() => 0);
+  }
+
+  async _cardSizes(cards: CardConfigGroup[]): Promise<number[]> {
+    return Promise.all(cards.map((c) => computeCardSize(c.card)));
+  }
+
   async _makeColumnLayout() {
     this._observer?.disconnect();
     if (this._cardObserver) {
       this._cardObserver.disconnect();
     }
     if (!this._columns) return;
-    let cols = [];
-    for (let i = 0; i < this._columns; i++) {
-      const newCol = document.createElement("div") as any;
+    const columnCount = this._columns;
+    let cols: HTMLElement[] = [];
+    for (let i = 0; i < columnCount; i++) {
+      const newCol = document.createElement("div");
       newCol.classList.add("column");
-      newCol.length = 0;
       cols.push(newCol);
     }
 
-    let cards: CardConfigGroup[] = this.cards.map((card, index) => {
-      const config = this._config.cards[index];
-      return {
-        card,
-        config,
-        index,
-        show: this._shouldShow(card, config, index),
-      };
+    const cards = this._layoutGroups();
+    const sizes = this._usesCardSizes
+      ? await this._cardSizes(cards)
+      : cards.map(() => 0);
+    const assigned = this._assignColumns(cards, sizes, columnCount);
+    cards.forEach((c, i) => {
+      // Breaks only steer the placement; show them only while editing.
+      if (this.isBreak(c.config) && !this.lovelace?.editMode) return;
+      cols[assigned[i]].appendChild(this.getCardElement(c));
     });
-    await this._placeColumnCards(
-      cols,
-      cards.filter((c) => this.lovelace?.editMode || c.show)
-    );
 
     cols = cols.filter((c) => c.childElementCount > 0);
     if (this._config.layout?.rtl) {
@@ -247,7 +274,21 @@ export class BaseColumnLayout extends BaseLayout {
     this._observer?.observe(this);
   }
 
-  async _placeColumnCards(cols: Array<Node>, cards: CardConfigGroup[]) {}
+  /**
+   * Height in card-size units: the tallest column, placed the way
+   * `_makeColumnLayout` places cards. Undefined until the column count is known.
+   */
+  async estimateCardSize(): Promise<number | undefined> {
+    if (!this._columns) return undefined;
+    const cards = this._layoutGroups();
+    const sizes = await this._cardSizes(cards);
+    const assigned = this._assignColumns(cards, sizes, this._columns);
+    const totals: number[] = new Array(this._columns).fill(0);
+    cards.forEach((c, i) => {
+      if (!this.isBreak(c.config)) totals[assigned[i]] += sizes[i];
+    });
+    return Math.max(...totals);
+  }
 
   render() {
     return html`

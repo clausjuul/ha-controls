@@ -3,7 +3,7 @@ import { define } from '../../shared/types';
 import { css, html, LitElement, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
 import { CollapsibleCardConfig, CardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import { computeCardSize, safeCreateCards, safeRebuildCard } from "./card-helpers";
 import "./card-list-editor";
 
 // Older versions defaulted (and wrote via the stub) icon: mdi:chevron-down,
@@ -59,8 +59,15 @@ class SuperCollapsibleCard extends LitElement {
     this._collapsed = !this._collapsed;
   }
 
-  getCardSize() {
-    return this._collapsed ? 1 : 1 + sumCardSizes(this._cards);
+  /** Full width in a sections view, any height (what HA used by default). */
+  getGridOptions() {
+    return { columns: 12, rows: "auto", min_columns: 3 };
+  }
+
+  async getCardSize(): Promise<number> {
+    if (this._collapsed) return 1;
+    const sizes = await Promise.all(this._cards.map(computeCardSize));
+    return 1 + sizes.reduce((a, b) => a + b, 0);
   }
 
   _onHeaderKey(ev: KeyboardEvent) {

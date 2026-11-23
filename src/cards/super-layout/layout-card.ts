@@ -4,7 +4,7 @@ import { css, html, LitElement } from "lit";
 import { property } from "lit/decorators.js";
 import { BaseColumnLayout } from "./layouts/base-column-layout";
 import { CardConfig, SuperLayoutCardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
+import { computeCardSize, safeCreateCards, safeRebuildCard } from "./card-helpers";
 
 class SuperLayoutCard extends LitElement {
   @property() hass;
@@ -125,8 +125,20 @@ class SuperLayoutCard extends LitElement {
     );
   }
 
-  getCardSize(): number {
-    return Math.max(1, sumCardSizes(this._cards));
+  /**
+   * The layout's own estimate (tallest column, or measured height) when it
+   * has one; otherwise all cards stacked, as before.
+   */
+  async getCardSize(): Promise<number> {
+    const estimate = await this._layoutElement?.estimateCardSize?.();
+    if (estimate) return Math.max(1, estimate);
+    const sizes = await Promise.all(this._cards.map(computeCardSize));
+    return Math.max(1, sizes.reduce((a, b) => a + b, 0));
+  }
+
+  /** Full width in a sections view, any height (what HA used by default). */
+  getGridOptions() {
+    return { columns: 12, rows: "auto", min_columns: 3 };
   }
 
   render() {

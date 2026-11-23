@@ -52,6 +52,11 @@ class SuperScrollArea extends LitElement {
     );
   }
 
+  /** Full width in a sections view, any height (what HA used by default). */
+  getGridOptions() {
+    return { columns: 12, rows: "auto", min_columns: 3 };
+  }
+
   getCardSize() {
     return 3;
   }

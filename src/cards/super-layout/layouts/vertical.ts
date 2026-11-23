@@ -4,16 +4,15 @@ import { CardConfigGroup } from "../types";
 import { BaseColumnLayout } from "./base-column-layout";
 
 class SuperVerticalLayout extends BaseColumnLayout {
-  async _placeColumnCards(cols: Array<Node>, cards: CardConfigGroup[]) {
+  /** Cards stack in one column; a break moves on to the next column. */
+  _assignColumns(cards: CardConfigGroup[], _sizes: number[], columns: number) {
     let i = 1;
-    for (const c of cards) {
+    return cards.map((c) => {
       if (c.config.view_layout?.column) i = c.config.view_layout.column;
-      const col = cols[(i - 1) % cols.length];
-      col.appendChild(this.getCardElement(c));
-      if (this.isBreak(c.config)) {
-        i = i + 1;
-      }
-    }
+      const col = (i - 1) % columns;
+      if (this.isBreak(c.config)) i += 1;
+      return col;
+    });
   }
 }
 

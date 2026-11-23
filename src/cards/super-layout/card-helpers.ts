@@ -105,16 +105,16 @@ export async function safeRebuildCard(
   return getCards().map((card) => (card === el ? newEl : card));
 }
 
-/** Sum of the cards' getCardSize() (1 for cards without one or that throw). */
-export function sumCardSizes(cards: Array<LovelaceCard | undefined>): number {
-  let total = 0;
-  for (const card of cards ?? []) {
-    try {
-      const size = card?.getCardSize?.();
-      total += typeof size === "number" ? size : 1;
-    } catch {
-      total += 1;
-    }
+/** A card's getCardSize(), awaited but capped at 500 ms; 1 when unknown. */
+export async function computeCardSize(card: LovelaceCard | undefined): Promise<number> {
+  if (!card?.getCardSize) return 1;
+  try {
+    const size = await Promise.race([
+      Promise.resolve(card.getCardSize()),
+      new Promise<number>((resolve) => setTimeout(() => resolve(1), 500)),
+    ]);
+    return typeof size === "number" && Number.isFinite(size) ? size : 1;
+  } catch {
+    return 1;
   }
-  return total;
 }

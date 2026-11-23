@@ -87,6 +87,15 @@ export class BaseLayout extends LitElement {
     return true;
   }
 
+  /**
+   * Height in card-size units (about 50px each), measured once rendered.
+   * Column layouts override this with a placement-based estimate.
+   */
+  async estimateCardSize(): Promise<number | undefined> {
+    const height = this.getBoundingClientRect().height;
+    return height > 0 ? Math.ceil(height / 50) : undefined;
+  }
+
   getCardElement(card: CardConfigGroup) {
     if (!this.lovelace?.editMode) return card.card;
     const wrapper = document.createElement("hui-card-options") as any;
