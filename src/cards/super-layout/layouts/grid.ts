@@ -10,21 +10,35 @@ import {
   LovelaceCard,
 } from "../types";
 import { BaseLayout } from "./base-layout";
+import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader } from "./header";
 
 class SuperGridLayout extends BaseLayout {
   _mediaQueries: Array<MediaQueryList | null> = [];
-  _layoutMQs: Array<MediaQueryList | null> = [];
   _mqListeners: Array<() => void> = [];
-  _layoutMqListeners: Array<() => void> = [];
+  // Layout breakpoints as [query list, layout overrides]. Kept as pairs because
+  // MediaQueryList.media is normalised by the browser and may not match the
+  // config key it came from.
+  _layoutMQs: Array<[MediaQueryList, Record<string, any>]> = [];
+  _layoutMqListener = () => this._setGridStyles();
+  _autoHide = new AutoHideHeader();
+  _cancelHideHeader = () => {};
   @property() _config: GridViewConfig;
 
   async setConfig(config: GridViewConfig) {
-    // Clean up previous listeners before re-configuring
+    await super.setConfig(config);
+    this._setupMediaQueryListeners();
+    this._setGridStyles();
+  }
+
+  /**
+   * (Re)creates media query listeners. Called from setConfig and again on
+   * reconnect, since disconnectedCallback removes them and HA moves cards
+   * around in the DOM (view cache, masonry reflow).
+   */
+  _setupMediaQueryListeners() {
     this._cleanupMediaQueryListeners();
 
-    await super.setConfig(config);
-
-    for (const card of this._config.cards || []) {
+    for (const card of this._config?.cards || []) {
       if (
         typeof card.view_layout?.show !== "string" &&
         card.view_layout?.show?.mediaquery
@@ -40,18 +54,13 @@ class SuperGridLayout extends BaseLayout {
       }
     }
 
-    if (this._config.layout?.mediaquery) {
-      for (const [query, layout] of Object.entries(
-        this._config.layout?.mediaquery
-      )) {
-        const mq = window.matchMedia(query);
-        const listener = () => this._setGridStyles();
-        this._layoutMQs.push(mq);
-        this._layoutMqListeners.push(listener);
-        mq.addEventListener("change", listener);
-      }
+    for (const [query, layout] of Object.entries(
+      this._config?.layout?.mediaquery ?? {}
+    )) {
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", this._layoutMqListener);
+      this._layoutMQs.push([mq, layout ?? {}]);
     }
-    this._setGridStyles();
   }
 
   _cleanupMediaQueryListeners() {
@@ -60,15 +69,31 @@ class SuperGridLayout extends BaseLayout {
         mq.removeEventListener("change", this._mqListeners[i]);
       }
     });
-    this._layoutMQs.forEach((mq, i) => {
-      if (mq && this._layoutMqListeners[i]) {
-        mq.removeEventListener("change", this._layoutMqListeners[i]);
-      }
-    });
+    for (const [mq] of this._layoutMQs) {
+      mq.removeEventListener("change", this._layoutMqListener);
+    }
     this._mediaQueries = [];
-    this._layoutMQs = [];
     this._mqListeners = [];
-    this._layoutMqListeners = [];
+    this._layoutMQs = [];
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    if (!this.hasUpdated) return;
+    // Reattached after a DOM move: restore what disconnectedCallback removed,
+    // and catch up on media queries that changed while detached.
+    this._setupMediaQueryListeners();
+    this._setGridStyles();
+    this._setupAutoHideHeader();
+    if (this._mediaQueries.some(Boolean)) this._placeCards();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._cleanupMediaQueryListeners();
+    this._autoHide.detach();
+    this._cancelHideHeader();
+    releaseHeader(this);
   }
 
   async updated(changedProperties) {
@@ -80,7 +105,6 @@ class SuperGridLayout extends BaseLayout {
 
   async firstUpdated() {
     this._setGridStyles();
-    this._applyFullscreen();
     this._setupAutoHideHeader();
 
     const styleEl = document.createElement("style");
@@ -98,173 +122,31 @@ class SuperGridLayout extends BaseLayout {
 
   _applyFullscreen() {
     if (!this._config.layout?.fullscreen) return;
-
-    // Detect header height
-    const headerHeight = this._getHeaderHeight();
-
     const root = this.shadowRoot?.querySelector("#root") as HTMLElement;
-    if (root) {
-      root.style.setProperty(
-        "height",
-        `calc(100vh - ${headerHeight}px)`
-      );
-      root.style.setProperty("overflow", "hidden");
-    }
+    if (!root) return;
 
-    // Optionally hide the HA header
     if (this._config.layout?.hide_header) {
-      this._hideHeader();
+      this._cancelHideHeader();
+      this._cancelHideHeader = hideHeader(this);
+      root.style.setProperty("height", "100vh");
+    } else {
+      root.style.setProperty("height", `calc(100vh - ${getHeaderHeight()}px)`);
     }
+    root.style.setProperty("overflow", "hidden");
   }
-
-  _getHeaderHeight(): number {
-    // Try to detect the HA toolbar height
-    const toolbar = document.querySelector("home-assistant")
-      ?.shadowRoot?.querySelector("home-assistant-main")
-      ?.shadowRoot?.querySelector("ha-panel-lovelace")
-      ?.shadowRoot?.querySelector("hui-root")
-      ?.shadowRoot?.querySelector(".header") as HTMLElement;
-
-    if (toolbar) {
-      return toolbar.getBoundingClientRect().height;
-    }
-    // Default HA header height
-    return 56;
-  }
-
-  _hideHeader() {
-    const applyHideStyle = () => {
-      const root = document.querySelector("home-assistant")
-        ?.shadowRoot?.querySelector("home-assistant-main")
-        ?.shadowRoot?.querySelector("ha-panel-lovelace")
-        ?.shadowRoot?.querySelector("hui-root")
-        ?.shadowRoot;
-
-      if (root) {
-        let styleEl = root.querySelector("#super-layout-hide-header") as HTMLStyleElement;
-        if (!styleEl) {
-          styleEl = document.createElement("style");
-          styleEl.id = "super-layout-hide-header";
-          styleEl.innerHTML = `
-            .header { display: none !important; }
-          `;
-          root.appendChild(styleEl);
-        }
-
-        // Also adjust our own height since header is hidden
-        const gridRoot = this.shadowRoot?.querySelector("#root") as HTMLElement;
-        if (gridRoot) {
-          gridRoot.style.setProperty("height", "100vh");
-        }
-      }
-    };
-    // Apply immediately and also after a short delay (for late-loading elements)
-    applyHideStyle();
-    setTimeout(applyHideStyle, 500);
-  }
-
-  _lastScrollY = 0;
-  _scrollListener: (() => void) | null = null;
 
   _setupAutoHideHeader() {
     if (!this._config.layout?.auto_hide_header) return;
-
-    const getHuiRoot = () =>
-      document.querySelector("home-assistant")
-        ?.shadowRoot?.querySelector("home-assistant-main")
-        ?.shadowRoot?.querySelector("ha-panel-lovelace")
-        ?.shadowRoot?.querySelector("hui-root")
-        ?.shadowRoot;
-
-    const applyAutoHide = () => {
-      const root = getHuiRoot();
-      if (!root) return;
-
-      let styleEl = root.querySelector("#super-layout-auto-hide-header") as HTMLStyleElement;
-      if (!styleEl) {
-        styleEl = document.createElement("style");
-        styleEl.id = "super-layout-auto-hide-header";
-        styleEl.innerHTML = `
-          .header {
-            transition: transform 0.3s ease, opacity 0.3s ease !important;
-          }
-          .header.auto-hidden {
-            transform: translateY(-100%) !important;
-            opacity: 0 !important;
-          }
-        `;
-        root.appendChild(styleEl);
-      }
-
-      const header = root.querySelector(".header") as HTMLElement;
-      if (!header) return;
-
-      const scrollTarget = this.shadowRoot?.querySelector("#root") || window;
-      this._scrollListener = () => {
-        const currentScrollY = scrollTarget === window
-          ? window.scrollY
-          : (scrollTarget as HTMLElement).scrollTop;
-
-        if (currentScrollY > this._lastScrollY && currentScrollY > 56) {
-          header.classList.add("auto-hidden");
-        } else {
-          header.classList.remove("auto-hidden");
-        }
-        this._lastScrollY = currentScrollY;
-      };
-
-      (scrollTarget as EventTarget).addEventListener("scroll", this._scrollListener, { passive: true });
-    };
-
-    applyAutoHide();
-    setTimeout(applyAutoHide, 500);
-  }
-
-  _cleanupAutoHideHeader() {
-    if (this._scrollListener) {
-      const scrollTarget = this.shadowRoot?.querySelector("#root") || window;
-      (scrollTarget as EventTarget).removeEventListener("scroll", this._scrollListener);
-      this._scrollListener = null;
-    }
-    const root = document.querySelector("home-assistant")
-      ?.shadowRoot?.querySelector("home-assistant-main")
-      ?.shadowRoot?.querySelector("ha-panel-lovelace")
-      ?.shadowRoot?.querySelector("hui-root")
-      ?.shadowRoot;
-    if (root) {
-      const styleEl = root.querySelector("#super-layout-auto-hide-header");
-      if (styleEl) styleEl.remove();
-      const header = root.querySelector(".header");
-      if (header) header.classList.remove("auto-hidden");
-    }
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this._cleanupMediaQueryListeners();
-    this._cleanupAutoHideHeader();
-    // Remove header-hiding style when this layout is removed
-    if (this._config?.layout?.hide_header) {
-      const root = document.querySelector("home-assistant")
-        ?.shadowRoot?.querySelector("home-assistant-main")
-        ?.shadowRoot?.querySelector("ha-panel-lovelace")
-        ?.shadowRoot?.querySelector("hui-root")
-        ?.shadowRoot;
-      if (root) {
-        const styleEl = root.querySelector("#super-layout-hide-header");
-        if (styleEl) styleEl.remove();
-      }
-    }
+    this._autoHide.attach(this.shadowRoot?.querySelector("#root") || window);
   }
 
   _setGridStyles() {
     const root = this.shadowRoot?.querySelector("#root") as HTMLElement;
     if (!root) return;
     const addStyles = (layout) => {
-      for (const [key, value] of Object.entries(layout)) {
+      for (const [key, value] of Object.entries(layout ?? {})) {
         if (
           key.startsWith("grid") ||
-          key === "grid" ||
           key === "place-items" ||
           key === "place-content"
         )
@@ -276,17 +158,11 @@ class SuperGridLayout extends BaseLayout {
 
     if (this._config.layout) addStyles(this._config.layout);
 
-    for (const q of this._layoutMQs) {
-      if (q.matches) {
-        addStyles(this._config.layout.mediaquery[q.media]);
-        break;
-      }
-    }
+    const match = this._layoutMQs.find(([mq]) => mq.matches);
+    if (match) addStyles(match[1]);
 
     // Re-apply fullscreen styles after grid styles reset
-    if (this._config.layout?.fullscreen) {
-      this._applyFullscreen();
-    }
+    this._applyFullscreen();
   }
 
   _shouldShow(card: LovelaceCard | HuiCard, config: CardConfig, index: number) {

@@ -10,16 +10,32 @@ import {
   LovelaceCard,
 } from "../types";
 import { BaseLayout } from "./base-layout";
+import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader } from "./header";
 
 class SuperAlignedGridLayout extends BaseLayout {
   @property() _config: AlignedGridViewConfig;
 
-  _scrollListener: (() => void) | null = null;
-  _lastScrollY = 0;
+  _autoHide = new AutoHideHeader();
+  _cancelHideHeader = () => {};
 
   async setConfig(config: AlignedGridViewConfig) {
     await super.setConfig(config);
     this._setGridStyles();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    if (!this.hasUpdated) return;
+    // Reattached after a DOM move: restore what disconnectedCallback removed.
+    this._setGridStyles();
+    this._setupAutoHideHeader();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._autoHide.detach();
+    this._cancelHideHeader();
+    releaseHeader(this);
   }
 
   async updated(changedProperties) {
@@ -31,7 +47,6 @@ class SuperAlignedGridLayout extends BaseLayout {
 
   async firstUpdated() {
     this._setGridStyles();
-    this._applyFullscreen();
     this._setupAutoHideHeader();
 
     const styleEl = document.createElement("style");
@@ -61,153 +76,27 @@ class SuperAlignedGridLayout extends BaseLayout {
     root.style.setProperty("justify-content", layout["justify-content"] || "start");
     root.style.setProperty("align-content", layout["align-content"] || "start");
 
-    if (layout.fullscreen) {
-      this._applyFullscreen();
-    }
+    this._applyFullscreen();
   }
 
   _applyFullscreen() {
     if (!this._config.layout?.fullscreen) return;
-
-    const headerHeight = this._getHeaderHeight();
     const root = this.shadowRoot?.querySelector("#root") as HTMLElement;
-    if (root) {
-      root.style.setProperty("height", `calc(100vh - ${headerHeight}px)`);
-      root.style.setProperty("overflow", "auto");
-    }
+    if (!root) return;
 
     if (this._config.layout?.hide_header) {
-      this._hideHeader();
+      this._cancelHideHeader();
+      this._cancelHideHeader = hideHeader(this);
+      root.style.setProperty("height", "100vh");
+    } else {
+      root.style.setProperty("height", `calc(100vh - ${getHeaderHeight()}px)`);
     }
-  }
-
-  _getHeaderHeight(): number {
-    const toolbar = document.querySelector("home-assistant")
-      ?.shadowRoot?.querySelector("home-assistant-main")
-      ?.shadowRoot?.querySelector("ha-panel-lovelace")
-      ?.shadowRoot?.querySelector("hui-root")
-      ?.shadowRoot?.querySelector(".header") as HTMLElement;
-
-    if (toolbar) {
-      return toolbar.getBoundingClientRect().height;
-    }
-    return 56;
-  }
-
-  _hideHeader() {
-    const applyHideStyle = () => {
-      const root = document.querySelector("home-assistant")
-        ?.shadowRoot?.querySelector("home-assistant-main")
-        ?.shadowRoot?.querySelector("ha-panel-lovelace")
-        ?.shadowRoot?.querySelector("hui-root")
-        ?.shadowRoot;
-
-      if (root) {
-        let styleEl = root.querySelector("#super-layout-hide-header") as HTMLStyleElement;
-        if (!styleEl) {
-          styleEl = document.createElement("style");
-          styleEl.id = "super-layout-hide-header";
-          styleEl.innerHTML = `.header { display: none !important; }`;
-          root.appendChild(styleEl);
-        }
-
-        const gridRoot = this.shadowRoot?.querySelector("#root") as HTMLElement;
-        if (gridRoot) {
-          gridRoot.style.setProperty("height", "100vh");
-        }
-      }
-    };
-    applyHideStyle();
-    setTimeout(applyHideStyle, 500);
+    root.style.setProperty("overflow", "auto");
   }
 
   _setupAutoHideHeader() {
     if (!this._config.layout?.auto_hide_header) return;
-
-    const getHuiRoot = () =>
-      document.querySelector("home-assistant")
-        ?.shadowRoot?.querySelector("home-assistant-main")
-        ?.shadowRoot?.querySelector("ha-panel-lovelace")
-        ?.shadowRoot?.querySelector("hui-root")
-        ?.shadowRoot;
-
-    const applyAutoHide = () => {
-      const root = getHuiRoot();
-      if (!root) return;
-
-      let styleEl = root.querySelector("#super-layout-auto-hide-header") as HTMLStyleElement;
-      if (!styleEl) {
-        styleEl = document.createElement("style");
-        styleEl.id = "super-layout-auto-hide-header";
-        styleEl.innerHTML = `
-          .header {
-            transition: transform 0.3s ease, opacity 0.3s ease !important;
-          }
-          .header.auto-hidden {
-            transform: translateY(-100%) !important;
-            opacity: 0 !important;
-          }
-        `;
-        root.appendChild(styleEl);
-      }
-
-      const header = root.querySelector(".header") as HTMLElement;
-      if (!header) return;
-
-      const scrollTarget = this.shadowRoot?.querySelector("#root") || window;
-      this._scrollListener = () => {
-        const currentScrollY = scrollTarget === window
-          ? window.scrollY
-          : (scrollTarget as HTMLElement).scrollTop;
-
-        if (currentScrollY > this._lastScrollY && currentScrollY > 56) {
-          header.classList.add("auto-hidden");
-        } else {
-          header.classList.remove("auto-hidden");
-        }
-        this._lastScrollY = currentScrollY;
-      };
-
-      (scrollTarget as EventTarget).addEventListener("scroll", this._scrollListener, { passive: true });
-    };
-
-    applyAutoHide();
-    setTimeout(applyAutoHide, 500);
-  }
-
-  _cleanupAutoHideHeader() {
-    if (this._scrollListener) {
-      const scrollTarget = this.shadowRoot?.querySelector("#root") || window;
-      (scrollTarget as EventTarget).removeEventListener("scroll", this._scrollListener);
-      this._scrollListener = null;
-    }
-    const root = document.querySelector("home-assistant")
-      ?.shadowRoot?.querySelector("home-assistant-main")
-      ?.shadowRoot?.querySelector("ha-panel-lovelace")
-      ?.shadowRoot?.querySelector("hui-root")
-      ?.shadowRoot;
-    if (root) {
-      const styleEl = root.querySelector("#super-layout-auto-hide-header");
-      if (styleEl) styleEl.remove();
-      const header = root.querySelector(".header");
-      if (header) header.classList.remove("auto-hidden");
-    }
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this._cleanupAutoHideHeader();
-    if (this._config?.layout?.hide_header) {
-      const root = document.querySelector("home-assistant")
-        ?.shadowRoot?.querySelector("home-assistant-main")
-        ?.shadowRoot?.querySelector("ha-panel-lovelace")
-        ?.shadowRoot?.querySelector("hui-root")
-        ?.shadowRoot;
-      if (root) {
-        const styleEl = root.querySelector("#super-layout-hide-header");
-        if (styleEl) styleEl.remove();
-      }
-    }
+    this._autoHide.attach(this.shadowRoot?.querySelector("#root") || window);
   }
 
   _shouldShow(card: LovelaceCard | HuiCard, config: CardConfig, index: number) {

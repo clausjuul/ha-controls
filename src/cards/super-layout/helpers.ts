@@ -25,25 +25,11 @@ export const loadHaForm = async () => {
   await card.getConfigElement();
 };
 
-export const SUPER_LAYOUT_CARD_SELECTOR_OPTIONS = [
-  {
-    value: "custom:super-masonry-layout",
-    label: "Masonry (super-layout-card)",
-  },
-  {
-    value: "custom:super-horizontal-layout",
-    label: "Horizontal (super-layout-card)",
-  },
-  {
-    value: "custom:super-vertical-layout",
-    label: "Vertical (super-layout-card)",
-  },
-  {
-    value: "custom:super-grid-layout",
-    label: "Grid (super-layout-card)",
-  },
-  {
-    value: "custom:super-aligned-grid-layout",
-    label: "Aligned Grid (super-layout-card)",
-  },
+/** Layout types implemented in ./layouts (element name: super-<type>-layout). */
+export const SUPER_LAYOUT_TYPES = [
+  { type: "masonry", label: "Masonry" },
+  { type: "horizontal", label: "Horizontal" },
+  { type: "vertical", label: "Vertical" },
+  { type: "grid", label: "Grid" },
+  { type: "aligned-grid", label: "Aligned Grid" },
 ];

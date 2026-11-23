@@ -33,6 +33,14 @@ class SuperLayoutCard extends LitElement {
       // Auto-prefix with super- if not already
       if (!configType.startsWith("super-") && !configType.startsWith("hui-"))
         configType = "super-" + configType;
+      // Unknown types (e.g. "sidebar"/"panel" from older editor versions)
+      // would create an empty unknown element; fall back to masonry instead.
+      if (configType.startsWith("super-") && !customElements.get(configType)) {
+        console.warn(
+          `super-layout-card: unknown layout_type "${config.layout_type}", using masonry`
+        );
+        configType = "super-masonry-layout";
+      }
     } else {
       configType = "hui-masonry-view";
     }

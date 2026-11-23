@@ -20,26 +20,8 @@ export class BaseColumnLayout extends BaseLayout {
   _mqListeners: Array<() => void> = [];
 
   async setConfig(config: ColumnViewConfig) {
-    // Clean up previous listeners before re-configuring
-    this._cleanupMediaQueryListeners();
-
     await super.setConfig(config);
-
-    for (const card of this._config.cards) {
-      if (
-        typeof card.view_layout?.show !== "string" &&
-        card.view_layout?.show?.mediaquery
-      ) {
-        const mq = window.matchMedia(`${card.view_layout.show.mediaquery}`);
-        const listener = () => this._makeLayout();
-        this._mediaQueries.push(mq);
-        this._mqListeners.push(listener);
-        mq.addEventListener("change", listener);
-      } else {
-        this._mediaQueries.push(null);
-        this._mqListeners.push(null);
-      }
-    }
+    this._setupMediaQueryListeners();
 
     if (this._observer) this._observer.disconnect();
     this._observer = new ResizeObserver(() => {
@@ -128,12 +110,45 @@ export class BaseColumnLayout extends BaseLayout {
 
   connectedCallback() {
     super.connectedCallback();
+    if (!this.hasUpdated) {
+      this._updateSize();
+      return;
+    }
+    // Reattached after a DOM move: restore what disconnectedCallback removed.
+    this._setupMediaQueryListeners();
+    this._observer?.observe(this);
     this._updateSize();
+    // Media queries may have changed while detached.
+    if (this._mediaQueries.some(Boolean)) this._makeLayout();
   }
   disconnectedCallback() {
     super.disconnectedCallback();
     this._cleanupMediaQueryListeners();
     this._observer?.disconnect();
+  }
+
+  /**
+   * (Re)creates the per-card media query listeners. Called from setConfig and
+   * again on reconnect, since disconnectedCallback removes them and HA moves
+   * cards around in the DOM (view cache, masonry reflow).
+   */
+  _setupMediaQueryListeners() {
+    this._cleanupMediaQueryListeners();
+    for (const card of this._config?.cards ?? []) {
+      if (
+        typeof card.view_layout?.show !== "string" &&
+        card.view_layout?.show?.mediaquery
+      ) {
+        const mq = window.matchMedia(`${card.view_layout.show.mediaquery}`);
+        const listener = () => this._makeLayout();
+        this._mediaQueries.push(mq);
+        this._mqListeners.push(listener);
+        mq.addEventListener("change", listener);
+      } else {
+        this._mediaQueries.push(null);
+        this._mqListeners.push(null);
+      }
+    }
   }
 
   _cleanupMediaQueryListeners() {

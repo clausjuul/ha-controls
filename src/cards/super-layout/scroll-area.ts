@@ -56,11 +56,6 @@ class SuperScrollArea extends LitElement {
     return 3;
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    this._cards = [];
-  }
-
   render() {
     const dir = this._config.direction || "vertical";
     const isHorizontal = dir === "horizontal";

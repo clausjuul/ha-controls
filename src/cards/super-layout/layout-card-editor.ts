@@ -3,10 +3,9 @@ import { define } from '../../shared/types';
 import { LitElement, html, CSSResultArray, css, nothing } from "lit";
 import { property, state, query } from "lit/decorators.js";
 import { SuperLayoutCardConfig } from "./types";
-import { loadHaForm, SUPER_LAYOUT_CARD_SELECTOR_OPTIONS } from "./helpers";
+import { loadHaForm, SUPER_LAYOUT_TYPES } from "./helpers";
 import "./grid-designer";
 
-const DEFAULT_LAYOUT_TYPES = ["masonry", "sidebar", "panel"];
 
 // --- Dynamic schemas per layout type ---
 
@@ -277,20 +276,19 @@ class SuperLayoutCardEditor extends LitElement {
 
   @query("hui-card-element-editor") _cardEditorEl?;
 
-  _typeSchema = (localize) => [
+  // Values are the short type names; existing configs may use any spelling
+  // ("masonry", "super-masonry", "custom:super-masonry-layout"), so the form
+  // shows the normalised name and writes the full custom: form back.
+  _typeSchema = [
     {
       name: "layout_type",
       selector: {
         select: {
-          options: [
-            ...DEFAULT_LAYOUT_TYPES.map((type) => ({
-              value: type,
-              label: localize(
-                `ui.panel.lovelace.editor.edit_view.types.${type}`
-              ),
-            })),
-            ...SUPER_LAYOUT_CARD_SELECTOR_OPTIONS,
-          ],
+          mode: "dropdown",
+          options: SUPER_LAYOUT_TYPES.map(({ type, label }) => ({
+            value: type,
+            label,
+          })),
         },
       },
     },
@@ -388,8 +386,12 @@ class SuperLayoutCardEditor extends LitElement {
 
   _typeValueChanged(ev) {
     ev.stopPropagation();
-    const newType = ev.detail.value;
-    this._config = { ...this._config, ...newType };
+    const type = ev.detail.value?.layout_type;
+    if (!type) return;
+    this._config = {
+      ...this._config,
+      layout_type: `custom:super-${type}-layout`,
+    };
     // Reset tab selection when layout type changes
     this._selectedTab = 0;
     this.dispatchEvent(
@@ -486,7 +488,10 @@ class SuperLayoutCardEditor extends LitElement {
   }
 
   _renderLayoutEditor() {
-    const typeSchema = this._typeSchema(this.hass.localize);
+    const typeSchema = this._typeSchema;
+    const typeData = this._config.layout_type
+      ? { layout_type: normalizeLayoutType(this._config.layout_type) }
+      : {};
     const layoutSchema = getLayoutSchemaForType(this._config.layout_type);
     const layoutData = this._config.layout || {};
 
@@ -494,7 +499,7 @@ class SuperLayoutCardEditor extends LitElement {
       <div class="layout-section">
         <ha-form
           .hass=${this.hass}
-          .data=${this._config}
+          .data=${typeData}
           .schema=${typeSchema}
           .computeLabel=${this._computeTypeLabel}
           @value-changed=${this._typeValueChanged}
