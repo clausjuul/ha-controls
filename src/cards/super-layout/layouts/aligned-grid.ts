@@ -10,29 +10,57 @@ import {
   LovelaceCard,
 } from "../types";
 import { BaseLayout } from "./base-layout";
-import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader } from "./header";
+import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader, VH } from "./header";
 
 class SuperAlignedGridLayout extends BaseLayout {
   @property() _config: AlignedGridViewConfig;
 
   _autoHide = new AutoHideHeader();
   _cancelHideHeader = () => {};
+  _mediaQueries: Array<MediaQueryList | null> = [];
+  _mqListener = () => this._placeCards();
 
   async setConfig(config: AlignedGridViewConfig) {
     await super.setConfig(config);
+    this._setupMediaQueryListeners();
     this._setGridStyles();
+  }
+
+  /** Per-card `show: {mediaquery}` listeners; rebuilt on reconnect. */
+  _setupMediaQueryListeners() {
+    this._cleanupMediaQueryListeners();
+    this._mediaQueries = (this._config?.cards || []).map((card) => {
+      const query =
+        typeof card.view_layout?.show === "object"
+          ? card.view_layout.show.mediaquery
+          : undefined;
+      if (!query) return null;
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", this._mqListener);
+      return mq;
+    });
+  }
+
+  _cleanupMediaQueryListeners() {
+    for (const mq of this._mediaQueries) {
+      mq?.removeEventListener("change", this._mqListener);
+    }
+    this._mediaQueries = [];
   }
 
   connectedCallback() {
     super.connectedCallback();
     if (!this.hasUpdated) return;
     // Reattached after a DOM move: restore what disconnectedCallback removed.
+    this._setupMediaQueryListeners();
     this._setGridStyles();
     this._setupAutoHideHeader();
+    if (this._mediaQueries.some(Boolean)) this._placeCards();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    this._cleanupMediaQueryListeners();
     this._autoHide.detach();
     this._cancelHideHeader();
     releaseHeader(this);
@@ -87,9 +115,9 @@ class SuperAlignedGridLayout extends BaseLayout {
     if (this._config.layout?.hide_header) {
       this._cancelHideHeader();
       this._cancelHideHeader = hideHeader(this);
-      root.style.setProperty("height", "100vh");
+      root.style.setProperty("height", `${VH}`);
     } else {
-      root.style.setProperty("height", `calc(100vh - ${getHeaderHeight()}px)`);
+      root.style.setProperty("height", `calc(${VH} - ${getHeaderHeight()}px)`);
     }
     root.style.setProperty("overflow", "auto");
   }
@@ -100,7 +128,8 @@ class SuperAlignedGridLayout extends BaseLayout {
   }
 
   _shouldShow(card: LovelaceCard | HuiCard, config: CardConfig, index: number) {
-    return super._shouldShow(card, config, index);
+    if (!super._shouldShow(card, config, index)) return false;
+    return this._mediaQueries[index]?.matches ?? true;
   }
 
   _placeCards() {
@@ -279,6 +308,7 @@ class SuperAlignedGridLayout extends BaseLayout {
     return [
       this._fab_styles,
       this._card_theme_styles,
+      this._hui_card_styles,
       css`
         :host {
           height: 100%;

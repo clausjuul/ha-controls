@@ -260,6 +260,7 @@ export class BaseColumnLayout extends BaseLayout {
     return [
       this._fab_styles,
       this._card_theme_styles,
+      this._hui_card_styles,
       css`
         :host {
           display: block;

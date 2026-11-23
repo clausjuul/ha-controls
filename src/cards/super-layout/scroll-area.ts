@@ -4,6 +4,7 @@ import { css, html, LitElement } from "lit";
 import { property } from "lit/decorators.js";
 import { CardConfig, ScrollAreaConfig, LovelaceCard } from "./types";
 import { safeCreateCards, safeRebuildCard } from "./card-helpers";
+import "./card-list-editor";
 
 class SuperScrollArea extends LitElement {
   @property() hass;
@@ -16,7 +17,6 @@ class SuperScrollArea extends LitElement {
       height: "400px",
       padding: "0",
       scroll_snap: false,
-      scroll_snap_type: "y mandatory",
       scrollbar_hidden: false,
       direction: "vertical",
       ...config,
@@ -47,7 +47,7 @@ class SuperScrollArea extends LitElement {
 
   async _rebuildCard(el: LovelaceCard, cardConfig: CardConfig) {
     this._cards = await safeRebuildCard(
-      el, cardConfig, this._cards, this.hass,
+      el, cardConfig, () => this._cards, this.hass,
       (el2, config) => this._rebuildCard(el2, config)
     );
   }
@@ -61,8 +61,12 @@ class SuperScrollArea extends LitElement {
     const isHorizontal = dir === "horizontal";
     const isBoth = dir === "both";
 
+    // Without an explicit type, snap along the scroll direction.
+    const snapType =
+      this._config.scroll_snap_type ||
+      (isHorizontal ? "x mandatory" : isBoth ? "both mandatory" : "y mandatory");
     const scrollSnapStyle = this._config.scroll_snap
-      ? `scroll-snap-type: ${this._config.scroll_snap_type};`
+      ? `scroll-snap-type: ${snapType};`
       : "";
     const scrollbarStyle = this._config.scrollbar_hidden
       ? "scrollbar-width: none;"
@@ -155,6 +159,12 @@ class SuperScrollArea extends LitElement {
         flex: 0 0 auto;
         min-width: 250px;
       }
+      hui-card:not([hidden]) {
+        display: block;
+      }
+      .scroll-item:has(> hui-card[hidden]) {
+        display: none;
+      }
       .scroll-item {
         margin: var(--masonry-view-card-margin, 4px 4px 8px);
       }
@@ -189,9 +199,6 @@ class SuperScrollAreaEditor extends LitElement {
   @property() lovelace;
   @property() hass;
   @property() _selectedTab = 0;
-  @property() _selectedCard = 0;
-  @property() _cardGUIMode = true;
-  @property() _cardGUIModeAvailable = true;
 
   setConfig(config) {
     this._config = config;
@@ -272,62 +279,6 @@ class SuperScrollAreaEditor extends LitElement {
     );
   }
 
-  _editCard(ev) {
-    ev.stopPropagation();
-    if (ev.detail.name === "add-card") {
-      this._selectedCard = (this._config.cards || []).length;
-      return;
-    }
-    this._cardGUIMode = true;
-    this._cardGUIModeAvailable = true;
-    this._selectedCard = parseInt(ev.detail.name, 10);
-  }
-
-  _addCard(ev: CustomEvent) {
-    ev.stopPropagation();
-    const cards = [...(this._config.cards || [])];
-    cards.push(ev.detail.config);
-    this._config = { ...this._config, cards };
-    this._selectedCard = cards.length - 1;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
-  _updateCard(ev) {
-    ev.stopPropagation();
-    const cards = [...(this._config.cards || [])];
-    cards[this._selectedCard] = ev.detail.config;
-    this._config = { ...this._config, cards };
-    this._cardGUIModeAvailable = ev.detail.guiModeAvailable;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
-  _deleteCard() {
-    const cards = [...(this._config.cards || [])];
-    cards.splice(this._selectedCard, 1);
-    this._config = { ...this._config, cards };
-    this._selectedCard = Math.max(0, this._selectedCard - 1);
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
-  _moveCard(ev) {
-    const source = this._selectedCard;
-    const target = source + ev.currentTarget.move;
-    const cards = [...(this._config.cards || [])];
-    const card = cards.splice(source, 1)[0];
-    cards.splice(target, 0, card);
-    this._config = { ...this._config, cards };
-    this._selectedCard = target;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
   render() {
     if (!this.hass || !this._config) return html``;
 
@@ -363,68 +314,22 @@ class SuperScrollAreaEditor extends LitElement {
   }
 
   _renderCardsEditor() {
-    const cards = this._config.cards || [];
-    const selected = this._selectedCard;
-    const numcards = cards.length;
-
     return html`
-      <div class="cards">
-        <ha-tab-group @wa-tab-show=${this._editCard}>
-          ${cards.map(
-            (_card, i) => html`
-              <ha-tab-group-tab slot="nav" .active=${selected == i} .panel=${i}>
-                ${i + 1}
-              </ha-tab-group-tab>
-            `
-          )}
-          <ha-tab-group-tab
-            slot="nav"
-            .active=${selected == numcards}
-            .panel=${"add-card"}
-            id="add-card"
-          >
-            <ha-icon .icon=${"mdi:plus"}></ha-icon>
-          </ha-tab-group-tab>
-        </ha-tab-group>
-        <div id="card-editor">
-          ${selected < numcards
-            ? html`
-                <div class="card-options">
-                  <ha-icon-button
-                    .disabled=${selected === 0}
-                    @click=${this._moveCard}
-                    .move=${-1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-left"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button
-                    .disabled=${selected === numcards - 1}
-                    @click=${this._moveCard}
-                    .move=${1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-right"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button @click=${this._deleteCard}>
-                    <ha-icon .icon=${"mdi:delete"}></ha-icon>
-                  </ha-icon-button>
-                </div>
-                <hui-card-element-editor
-                  .hass=${this.hass}
-                  .value=${cards[selected]}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._updateCard}
-                ></hui-card-element-editor>
-              `
-            : html`
-                <hui-card-picker
-                  .hass=${this.hass}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._addCard}
-                ></hui-card-picker>
-              `}
-        </div>
-      </div>
+      <super-card-list-editor
+        .hass=${this.hass}
+        .lovelace=${this.lovelace}
+        .cards=${this._config.cards || []}
+        @cards-changed=${this._cardsChanged}
+      ></super-card-list-editor>
     `;
+  }
+
+  _cardsChanged(ev: CustomEvent) {
+    ev.stopPropagation();
+    this._config = { ...this._config, cards: ev.detail.cards };
+    this.dispatchEvent(
+      new CustomEvent("config-changed", { detail: { config: this._config } })
+    );
   }
 
   static get styles() {
@@ -440,17 +345,7 @@ class SuperScrollAreaEditor extends LitElement {
         width: 100%;
         justify-content: center;
       }
-      #add-card {
-        max-width: 32px;
-        padding: 0;
-      }
-      .cards .card-options {
-        display: flex;
-        justify-content: flex-end;
-        width: 100%;
-      }
-      #editor,
-      #card-editor {
+      #editor {
         border: 1px solid var(--divider-color);
         padding: 12px;
       }

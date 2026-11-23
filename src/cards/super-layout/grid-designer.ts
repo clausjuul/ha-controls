@@ -256,6 +256,25 @@ class SuperGridDesigner extends LitElement {
     }
   }
 
+  // Pointer events cover mouse, pen and touch. A touch keeps sending its moves
+  // to the cell it started on, so find the cell under the finger by position.
+  _canvasPointerMove(ev: PointerEvent) {
+    if (!this._dragStart) return;
+    const cell = (this.shadowRoot?.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement)
+      ?.closest?.(".grid-cell") as HTMLElement | null;
+    if (!cell) return;
+    const row = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+    if (this._dragEnd?.row !== row || this._dragEnd?.col !== col) {
+      this._cellMouseEnter(row, col);
+    }
+  }
+
+  _cancelDrag() {
+    this._dragStart = null;
+    this._dragEnd = null;
+  }
+
   _cellMouseUp() {
     if (!this._dragStart || !this._dragEnd || !this._currentAreaName.trim()) {
       this._dragStart = null;
@@ -436,19 +455,16 @@ class SuperGridDesigner extends LitElement {
 
             <!-- Grid canvas -->
             <div
-              class="grid-canvas"
+              class="grid-canvas ${this._namingMode ? "naming" : ""}"
               style="
                 grid-template-columns: 40px ${this._columns.join(" ")};
                 grid-template-rows: ${this._rows.join(" ")};
                 gap: ${this._gap};
               "
-              @mouseup=${this._cellMouseUp}
-              @mouseleave=${() => {
-                if (this._dragStart) {
-                  this._dragStart = null;
-                  this._dragEnd = null;
-                }
-              }}
+              @pointermove=${this._canvasPointerMove}
+              @pointerup=${this._cellMouseUp}
+              @pointercancel=${this._cancelDrag}
+              @mouseleave=${this._cancelDrag}
             >
               ${this._rows.map(
                 (rowSize, r) => html`
@@ -492,8 +508,9 @@ class SuperGridDesigner extends LitElement {
                           grid-column: ${c + 2};
                           background: ${bgColor};
                         "
-                        @mousedown=${() => this._cellMouseDown(r, c)}
-                        @mouseenter=${() => this._cellMouseEnter(r, c)}
+                        data-row=${r}
+                        data-col=${c}
+                        @pointerdown=${() => this._cellMouseDown(r, c)}
                         @contextmenu=${(e: Event) => {
                           e.preventDefault();
                           this._clearCell(r, c);
@@ -786,6 +803,9 @@ class SuperGridDesigner extends LitElement {
       border: 2px dashed var(--designer-border);
       border-radius: 6px;
       padding: 4px;
+    }
+    .grid-canvas.naming {
+      touch-action: none;
     }
 
     .row-header {

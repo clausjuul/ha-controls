@@ -126,6 +126,15 @@ export class BaseLayout extends LitElement {
     `;
   }
 
+  /** hui-card (the child card wrapper) is inline by default. */
+  static get _hui_card_styles() {
+    return css`
+      hui-card:not([hidden]) {
+        display: block;
+      }
+    `;
+  }
+
   static get _fab_styles() {
     return css`
       ha-fab {

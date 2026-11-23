@@ -6,6 +6,9 @@ const HIDE_STYLE_ID = "super-layout-hide-header";
 const AUTO_HIDE_STYLE_ID = "super-layout-auto-hide-header";
 const RETRY_MS = 500;
 
+/** Viewport height that excludes mobile browser bars where supported. */
+export const VH = CSS.supports?.("height", "100dvh") ? "100dvh" : "100vh";
+
 export const getHuiRootShadow = (): ShadowRoot | undefined =>
   document
     .querySelector("home-assistant")

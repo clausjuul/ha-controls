@@ -42,6 +42,16 @@ export function safeCreateCard(
   onRebuild: (el: LovelaceCard, config: CardConfig) => void
 ): LovelaceCard {
   try {
+    // HA's own wrapper (2024.6+) handles `visibility:` conditions, error cards
+    // and rebuilding late-loaded custom cards, like the built-in stacks do.
+    if (customElements.get("hui-card")) {
+      const el = document.createElement("hui-card") as any;
+      el.hass = hass;
+      el.preview = false;
+      el.config = cardConfig;
+      el.load();
+      return el;
+    }
     const el = cardHelpers.createCardElement(cardConfig);
     el.addEventListener("ll-rebuild", (ev: Event) => {
       ev.stopPropagation();
@@ -75,11 +85,15 @@ export async function safeCreateCards(
 
 /**
  * Rebuilds a single card, replacing it in the cards array.
+ *
+ * `getCards` is read after the await: several cards often ask to be rebuilt at
+ * once (custom cards that load late), and mapping an array captured before the
+ * await would let each rebuild overwrite the others.
  */
 export async function safeRebuildCard(
   el: LovelaceCard,
   cardConfig: CardConfig,
-  cards: LovelaceCard[],
+  getCards: () => LovelaceCard[],
   hass: any,
   onRebuild: (el: LovelaceCard, config: CardConfig) => void
 ): Promise<LovelaceCard[]> {
@@ -88,5 +102,19 @@ export async function safeRebuildCard(
   if (el.parentElement) {
     el.parentElement.replaceChild(newEl, el);
   }
-  return cards.map((card) => (card === el ? newEl : card));
+  return getCards().map((card) => (card === el ? newEl : card));
+}
+
+/** Sum of the cards' getCardSize() (1 for cards without one or that throw). */
+export function sumCardSizes(cards: Array<LovelaceCard | undefined>): number {
+  let total = 0;
+  for (const card of cards ?? []) {
+    try {
+      const size = card?.getCardSize?.();
+      total += typeof size === "number" ? size : 1;
+    } catch {
+      total += 1;
+    }
+  }
+  return total;
 }
