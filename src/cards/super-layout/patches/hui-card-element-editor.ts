@@ -1,6 +1,16 @@
 // @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 customElements.whenDefined("hui-card-element-editor").then(() => {
   const HuiCardElementEditor = customElements.get("hui-card-element-editor");
+  const proto = HuiCardElementEditor?.prototype;
+  // This patches every card editor in HA. If HA renames these internals,
+  // skip the patch rather than break all card editors.
+  if (
+    typeof proto?.getConfigElement !== "function" ||
+    typeof proto?._handleUIConfigChanged !== "function"
+  ) {
+    console.warn("super-layout-card: hui-card-element-editor changed, view_layout patch skipped");
+    return;
+  }
 
   const _getConfigElement = HuiCardElementEditor.prototype.getConfigElement;
   HuiCardElementEditor.prototype.getConfigElement = async function () {

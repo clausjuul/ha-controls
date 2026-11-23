@@ -1,10 +1,11 @@
 // @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
 import { LitElement, html, CSSResultArray, css, nothing } from "lit";
-import { property, state, query } from "lit/decorators.js";
+import { property, state } from "lit/decorators.js";
 import { SuperLayoutCardConfig } from "./types";
 import { loadHaForm, SUPER_LAYOUT_TYPES } from "./helpers";
 import "./grid-designer";
+import "./card-list-editor";
 
 
 // --- Dynamic schemas per layout type ---
@@ -209,6 +210,20 @@ const GRID_SCHEMA = [
   },
 ];
 
+/**
+ * The grid layout applies the first matching breakpoint, so order plain
+ * max-width queries narrowest first; anything else keeps its place at the end.
+ */
+function sortBreakpoints(mq: Record<string, any>): Record<string, any> {
+  const width = (q: string) => {
+    const m = q.match(/^\(\s*max-width\s*:\s*(\d+(?:\.\d+)?)px\s*\)$/);
+    return m ? parseFloat(m[1]) : Infinity;
+  };
+  return Object.fromEntries(
+    Object.entries(mq).sort(([a], [b]) => width(a) - width(b))
+  );
+}
+
 function normalizeLayoutType(layoutType: string): string {
   return (layoutType || "").replace("custom:", "").replace("super-", "").replace("-layout", "");
 }
@@ -270,11 +285,6 @@ class SuperLayoutCardEditor extends LitElement {
   @property() hass;
 
   @state() _selectedTab = 0;
-  @state() _selectedCard = 0;
-  @state() _cardGUIMode = true;
-  @state() _cardGUIModeAvailable = true;
-
-  @query("hui-card-element-editor") _cardEditorEl?;
 
   // Values are the short type names; existing configs may use any spelling
   // ("masonry", "super-masonry", "custom:super-masonry-layout"), so the form
@@ -323,74 +333,20 @@ class SuperLayoutCardEditor extends LitElement {
     this._selectedTab = parseInt(ev.detail.name, 10);
   }
 
-  _editCard(ev) {
-    ev.stopPropagation();
-    if (ev.detail.name === "add-card") {
-      this._selectedCard = (this._config.cards || []).length;
-      return;
-    }
-    this._cardGUIMode = true;
-    if (this._cardEditorEl) this._cardEditorEl.GUImode = true;
-    this._cardGUIModeAvailable = true;
-    this._selectedCard = parseInt(ev.detail.name, 10);
-  }
-  _addCard(ev: CustomEvent) {
-    ev.stopPropagation();
-    const cards = [...(this._config.cards || [])];
-    cards.push(ev.detail.config);
-    this._config = { ...this._config, cards };
-    this._selectedCard = this._config.cards.length - 1;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-  _updateCard(ev) {
-    ev.stopPropagation();
-    const cards = [...(this._config.cards || [])];
-    cards[this._selectedCard] = ev.detail.config;
-    this._config = { ...this._config, cards };
-    this._cardGUIModeAvailable = ev.detail.guiModeAvailable;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-  _GUIModeChange(ev) {
-    ev.stopPropagation();
-    this._cardGUIMode = ev.detail.guiMode;
-    this._cardGUIModeAvailable = ev.detail.guiModeAvailable;
-  }
-  _toggleMode(ev) {
-    this._cardEditorEl.toggleMode();
-  }
-  _moveCard(ev) {
-    const source = this._selectedCard;
-    const target = source + ev.currentTarget.move;
-    const cards = [...(this._config.cards || [])];
-    const card = cards.splice(source, 1)[0];
-    cards.splice(target, 0, card);
-    this._config = { ...this._config, cards };
-    this._selectedCard = target;
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-  _deleteCard() {
-    const cards = [...(this._config.cards || [])];
-    cards.splice(this._selectedCard, 1);
-    this._config = { ...this._config, cards };
-    this._selectedCard = Math.max(0, this._selectedCard - 1);
-    this.dispatchEvent(
-      new CustomEvent("config-changed", { detail: { config: this._config } })
-    );
-  }
-
   _typeValueChanged(ev) {
     ev.stopPropagation();
     const type = ev.detail.value?.layout_type;
     if (!type) return;
+    // Keep only the layout options the new type understands.
+    const allowed = new Set(getLayoutSchemaForType(type).map((f) => f.name));
+    if (type === "grid") allowed.add("mediaquery");
+    const layout = Object.fromEntries(
+      Object.entries(this._config.layout || {}).filter(([k]) => allowed.has(k))
+    );
     this._config = {
       ...this._config,
       layout_type: `custom:super-${type}-layout`,
+      layout,
     };
     // Reset tab selection when layout type changes
     this._selectedTab = 0;
@@ -630,7 +586,7 @@ class SuperLayoutCardEditor extends LitElement {
     mediaquery[query] = {
       "grid-template-columns": "1fr",
     };
-    layout.mediaquery = mediaquery;
+    layout.mediaquery = sortBreakpoints(mediaquery);
     this._config = { ...this._config, layout };
     this.dispatchEvent(
       new CustomEvent("config-changed", { detail: { config: this._config } })
@@ -823,7 +779,6 @@ class SuperLayoutCardEditor extends LitElement {
               selector: {
                 select: {
                   options: [
-                    { value: "", label: "Custom..." },
                     { value: "(max-width: 480px)", label: "Mobile only (≤480px)" },
                     { value: "(max-width: 768px)", label: "Mobile + Tablet (≤768px)" },
                     { value: "(min-width: 769px)", label: "Desktop only (≥769px)" },
@@ -868,7 +823,7 @@ class SuperLayoutCardEditor extends LitElement {
     const viewLayout = { ...(card.view_layout || {}) };
 
     if (values.show_mode === "always") {
-      viewLayout.show = "always";
+      delete viewLayout.show; // the default
     } else if (values.show_mode === "never") {
       viewLayout.show = "never";
     } else if (values.show_mode === "mediaquery") {
@@ -877,7 +832,8 @@ class SuperLayoutCardEditor extends LitElement {
       viewLayout.show = { sidebar: values.sidebar || "shown" };
     }
 
-    card.view_layout = viewLayout;
+    if (Object.keys(viewLayout).length) card.view_layout = viewLayout;
+    else delete card.view_layout;
     cards[cardIndex] = card;
     this._config = { ...this._config, cards };
     this.dispatchEvent(
@@ -943,9 +899,6 @@ class SuperLayoutCardEditor extends LitElement {
   }
 
   _renderCardsEditor() {
-    const selected = this._selectedCard;
-    const cards = this._config.cards || [];
-    const numcards = cards.length;
     if (this._config.entities) {
       return html`
         This card has the <code>entities</code> parameter set. You cannot
@@ -953,77 +906,25 @@ class SuperLayoutCardEditor extends LitElement {
       `;
     }
     return html`
-      <div class="cards">
-        <ha-tab-group @wa-tab-show=${this._editCard}>
-          ${cards.map((_card, i) => {
-            return html`
-              <ha-tab-group-tab slot="nav" .active=${selected == i} .panel=${i}>
-                ${i + 1}
-              </ha-tab-group-tab>
-            `;
-          })}
-          <ha-tab-group-tab
-            slot="nav"
-            .active=${selected == numcards}
-            .panel=${"add-card"}
-            id="add-card"
-          >
-            <ha-icon .icon=${"mdi:plus"}></ha-icon>
-          </ha-tab-group-tab>
-        </ha-tab-group>
-        <div id="editor">
-          ${selected < numcards
-            ? html`
-                <div class="card-options">
-                  <ha-button
-                    @click=${this._toggleMode}
-                    .disabled=${!this._cardGUIModeAvailable}
-                    class="gui-mode-button"
-                  >
-                    ${this.hass.localize(
-                      this._cardEditorEl || this._cardGUIMode
-                        ? "ui.panel.lovelace.editor.edit_card.show_code_editor"
-                        : "ui.panel.lovelace.editor.edit_card.show_visual_editor"
-                    )}
-                  </ha-button>
-                  <ha-icon-button
-                    .disabled=${selected === 0}
-                    @click=${this._moveCard}
-                    .move=${-1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-left"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button
-                    .disabled=${selected === numcards - 1}
-                    @click=${this._moveCard}
-                    .move=${1}
-                  >
-                    <ha-icon .icon=${"mdi:arrow-right"}></ha-icon>
-                  </ha-icon-button>
-                  <ha-icon-button @click=${this._deleteCard}>
-                    <ha-icon .icon=${"mdi:delete"}></ha-icon>
-                  </ha-icon-button>
-                </div>
-                <hui-card-element-editor
-                  .hass=${this.hass}
-                  .value=${cards[selected]}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._updateCard}
-                  @GUImode-changed=${this._GUIModeChange}
-                ></hui-card-element-editor>
-                ${this._renderCardVisibility(selected)}
-                ${this._isAlignedGridLayout() ? this._renderCardPlacement(selected) : nothing}
-              `
-            : html`
-                <hui-card-picker
-                  .hass=${this.hass}
-                  .lovelace=${this.lovelace}
-                  @config-changed=${this._addCard}
-                ></hui-card-picker>
-              `}
-        </div>
-      </div>
+      <super-card-list-editor
+        .hass=${this.hass}
+        .lovelace=${this.lovelace}
+        .cards=${this._config.cards || []}
+        .renderExtra=${(i: number) => html`
+          ${this._renderCardVisibility(i)}
+          ${this._isAlignedGridLayout() ? this._renderCardPlacement(i) : nothing}
+        `}
+        @cards-changed=${this._cardsChanged}
+      ></super-card-list-editor>
     `;
+  }
+
+  _cardsChanged(ev: CustomEvent) {
+    ev.stopPropagation();
+    this._config = { ...this._config, cards: ev.detail.cards };
+    this.dispatchEvent(
+      new CustomEvent("config-changed", { detail: { config: this._config } })
+    );
   }
 
   static get styles(): CSSResultArray {
@@ -1052,17 +953,6 @@ class SuperLayoutCardEditor extends LitElement {
           margin: 0 0 12px 0;
         }
 
-        .layout,
-        .cards #editor {
-          margin-top: 8px;
-          border: 1px solid var(--divider-color);
-          padding: 12px;
-        }
-
-        #add-card {
-          max-width: 32px;
-          padding: 0;
-        }
         ha-tab-group {
           margin-top: -16px;
           margin-bottom: 16px;
@@ -1074,21 +964,9 @@ class SuperLayoutCardEditor extends LitElement {
           width: 100%;
           justify-content: center;
         }
-        ha-tab-group-tab[panel="?"] {
-          flex: 0;
-        }
-
-        .cards .card-options {
-          display: flex;
-          justify-content: flex-end;
-          width: 100%;
-        }
         #editor {
           border: 1px solid var(--divider-color);
           padding: 12px;
-        }
-        .gui-mode-button {
-          margin-right: auto;
         }
 
         a {

@@ -10,7 +10,7 @@ import {
   LovelaceCard,
 } from "../types";
 import { BaseLayout } from "./base-layout";
-import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader } from "./header";
+import { AutoHideHeader, getHeaderHeight, hideHeader, releaseHeader, VH } from "./header";
 
 class SuperGridLayout extends BaseLayout {
   _mediaQueries: Array<MediaQueryList | null> = [];
@@ -128,9 +128,9 @@ class SuperGridLayout extends BaseLayout {
     if (this._config.layout?.hide_header) {
       this._cancelHideHeader();
       this._cancelHideHeader = hideHeader(this);
-      root.style.setProperty("height", "100vh");
+      root.style.setProperty("height", `${VH}`);
     } else {
-      root.style.setProperty("height", `calc(100vh - ${getHeaderHeight()}px)`);
+      root.style.setProperty("height", `calc(${VH} - ${getHeaderHeight()}px)`);
     }
     root.style.setProperty("overflow", "hidden");
   }
@@ -208,6 +208,7 @@ class SuperGridLayout extends BaseLayout {
     return [
       this._fab_styles,
       this._card_theme_styles,
+      this._hui_card_styles,
       css`
         :host {
           height: 100%;

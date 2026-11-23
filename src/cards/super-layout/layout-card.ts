@@ -4,7 +4,7 @@ import { css, html, LitElement } from "lit";
 import { property } from "lit/decorators.js";
 import { BaseColumnLayout } from "./layouts/base-column-layout";
 import { CardConfig, SuperLayoutCardConfig, LovelaceCard } from "./types";
-import { safeCreateCards, safeRebuildCard } from "./card-helpers";
+import { safeCreateCards, safeRebuildCard, sumCardSizes } from "./card-helpers";
 
 class SuperLayoutCard extends LitElement {
   @property() hass;
@@ -15,6 +15,7 @@ class SuperLayoutCard extends LitElement {
   @property() _layoutElement?: BaseColumnLayout;
 
   @property() _layoutType?: string;
+  _build = 0;
 
   setConfig(config: SuperLayoutCardConfig) {
     this._config = { ...config };
@@ -59,12 +60,18 @@ class SuperLayoutCard extends LitElement {
         layout: this._config.layout || this._config.layout_options,
         cards: this._config.cards,
       };
+      // Config can change again (e.g. while typing in the editor) before the
+      // cards below are created; only the newest build may take over.
+      const build = ++this._build;
       const layoutElement = document.createElement(
         this._layoutType
       ) as BaseColumnLayout;
       layoutElement.setConfig?.(viewConfig);
+      const cards = await this._createCards();
+      if (build !== this._build) return;
       this._layoutElement = layoutElement;
-      await this._createCards();
+      cards.forEach((card) => (card.hass = this.hass)); // hass may have moved on
+      this._cards = cards;
       this._layoutElement.hass = this.hass;
       this._layoutElement.narrow = false;
       this._layoutElement.lovelace = {
@@ -104,41 +111,22 @@ class SuperLayoutCard extends LitElement {
     if (el.parentNode) return this._getLovelace(el.parentNode, depth + 1);
   }
 
-  async _createCards() {
-    if (!this._config.cards?.length) {
-      this._cards = [];
-      return;
-    }
-    this._cards = await safeCreateCards(
-      this._config.cards,
-      this.hass,
-      (el, config) => this._rebuildCard(el, config)
+  async _createCards(): Promise<Array<LovelaceCard>> {
+    if (!this._config.cards?.length) return [];
+    return safeCreateCards(this._config.cards, this.hass, (el, config) =>
+      this._rebuildCard(el, config)
     );
   }
 
   async _rebuildCard(el: LovelaceCard, cardConfig: CardConfig) {
     this._cards = await safeRebuildCard(
-      el, cardConfig, this._cards, this.hass,
+      el, cardConfig, () => this._cards, this.hass,
       (el2, config) => this._rebuildCard(el2, config)
     );
   }
 
   getCardSize(): number {
-    if (!this._cards?.length) return 1;
-    let totalSize = 0;
-    for (const card of this._cards) {
-      if (card.getCardSize) {
-        try {
-          const size = card.getCardSize();
-          totalSize += typeof size === "number" ? size : 1;
-        } catch {
-          totalSize += 1;
-        }
-      } else {
-        totalSize += 1;
-      }
-    }
-    return Math.max(1, totalSize);
+    return Math.max(1, sumCardSizes(this._cards));
   }
 
   render() {
