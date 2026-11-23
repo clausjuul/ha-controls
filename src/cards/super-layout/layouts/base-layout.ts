@@ -1,26 +1,34 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
-import { css, html, LitElement } from "lit";
+import { css, html, LitElement, type PropertyValues } from "lit";
 import { property } from "lit/decorators.js";
-import {
+import type {
   CardConfig,
   CardConfigGroup,
-  HuiCard,
+  Hass,
   LovelaceCard,
+  Lovelace,
   ViewConfig,
 } from "../types";
+
+/** HA's edit-mode wrapper around a card in a view. */
+interface HuiCardOptions extends HTMLElement {
+  hass?: Hass;
+  lovelace?: Lovelace;
+  path?: [number, number];
+}
 
 const CARD_THEME_VARS = ["border-radius", "border-width", "box-shadow"];
 
 export class BaseLayout extends LitElement {
-  @property() cards: Array<LovelaceCard | HuiCard> = [];
-  @property() index: number;
-  @property() narrow: boolean;
-  @property() hass;
-  @property() lovelace: any;
-  @property() _editMode: boolean = false;
+  @property({ attribute: false }) cards: LovelaceCard[] = [];
+  @property({ attribute: false }) index = 0;
+  @property({ attribute: false }) narrow = false;
+  @property({ attribute: false }) hass?: Hass;
+  @property({ attribute: false }) lovelace?: Lovelace;
+  @property({ attribute: false }) _editMode = false;
   _editorLoaded = false;
 
-  @property() _config: ViewConfig;
+  // Set by setConfig before the element is used.
+  @property({ attribute: false }) _config!: ViewConfig;
 
   async setConfig(config: ViewConfig) {
     this._config = { ...config };
@@ -49,37 +57,88 @@ export class BaseLayout extends LitElement {
     }
   }
 
-  async updated(changedProperties: Map<string, any>) {
-    if (changedProperties.get("hass")?.themes !== this.hass?.themes) {
+  async updated(changedProperties: PropertyValues) {
+    const oldHass = changedProperties.get("hass") as Hass | undefined;
+    if (oldHass?.themes !== this.hass?.themes) {
       this._syncCardTheme();
     }
     if (
       changedProperties.has("lovelace") &&
-      this.lovelace?.editMode != changedProperties.get("lovelace")?.editMode
+      this.lovelace?.editMode !=
+        (changedProperties.get("lovelace") as Lovelace | undefined)?.editMode
     ) {
       if (this.lovelace?.editMode && !this._editorLoaded) {
         this._editorLoaded = true;
-        {
-          const loader = document.createElement("hui-masonry-view");
-          (loader as any).lovelace = { editMode: true };
-          (loader as any).willUpdate(new Map());
-        }
+        // Rendering a masonry view in edit mode makes HA load its card
+        // editing elements (hui-card-options etc.).
+        const loader = document.createElement("hui-masonry-view") as HTMLElement & {
+          lovelace?: Partial<Lovelace>;
+          willUpdate?(changed: Map<string, unknown>): void;
+        };
+        loader.lovelace = { editMode: true };
+        loader.willUpdate?.(new Map());
       }
       this.cards.forEach((c) => (c.editMode = this.lovelace?.editMode));
       this._editMode = this.lovelace?.editMode ?? false;
     }
   }
 
-  _shouldShow(card: LovelaceCard | HuiCard, config: CardConfig, index: number) {
-    if (config.view_layout?.show === "always") return true;
-    if (config.view_layout?.show === "never") return false;
+  /** Per card: its `show.mediaquery` list, or null. */
+  _mediaQueries: Array<MediaQueryList | null> = [];
+  _mqListener = () => this._makeLayout();
+
+  /** Places the cards; each layout implements it. */
+  _makeLayout(): void | Promise<void> {}
+
+  /**
+   * (Re)creates the per-card `show.mediaquery` listeners. Called from
+   * setConfig and again on reconnect, since disconnectedCallback removes them
+   * and HA moves cards around in the DOM (view cache, masonry reflow).
+   */
+  _setupMediaQueryListeners() {
+    this._cleanupMediaQueryListeners();
+    this._mediaQueries = (this._config?.cards ?? []).map((card) => {
+      const show = card.view_layout?.show;
+      const query = typeof show === "object" ? show.mediaquery : undefined;
+      if (!query) return null;
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", this._mqListener);
+      return mq;
+    });
+  }
+
+  _cleanupMediaQueryListeners() {
+    for (const mq of this._mediaQueries) {
+      mq?.removeEventListener("change", this._mqListener);
+    }
+    this._mediaQueries = [];
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._cleanupMediaQueryListeners();
+  }
+
+  /** The child cards paired with their config and visibility. */
+  _cardGroups(): CardConfigGroup[] {
+    return this.cards.map((card, index) => {
+      const config = this._config.cards?.[index] ?? { type: "" };
+      return { card, config, index, show: this._shouldShow(card, config, index) };
+    });
+  }
+
+  _shouldShow(_card: LovelaceCard, config: CardConfig, index: number): boolean {
+    const show = config.view_layout?.show;
+    if (this._mediaQueries[index]?.matches === false) return false;
+    if (show === "always" || show === undefined) return true;
+    if (show === "never") return false;
     if (
-      config.view_layout?.show?.sidebar === "shown" &&
+      show.sidebar === "shown" &&
       (this.hass?.dockedSidebar === "auto" || this.narrow)
     )
       return false;
     if (
-      config.view_layout?.show?.sidebar === "hidden" &&
+      show.sidebar === "hidden" &&
       this.hass?.dockedSidebar === "docked" &&
       !this.narrow
     )
@@ -96,9 +155,9 @@ export class BaseLayout extends LitElement {
     return height > 0 ? Math.ceil(height / 50) : undefined;
   }
 
-  getCardElement(card: CardConfigGroup) {
+  getCardElement(card: CardConfigGroup): HTMLElement {
     if (!this.lovelace?.editMode) return card.card;
-    const wrapper = document.createElement("hui-card-options") as any;
+    const wrapper = document.createElement("hui-card-options") as HuiCardOptions;
     wrapper.hass = this.hass;
     wrapper.lovelace = this.lovelace;
     wrapper.path = [this.index, card.index];

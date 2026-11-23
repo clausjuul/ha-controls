@@ -1,45 +1,60 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
+// Keeps a card's `view_layout` out of its own editor and puts it back on save,
+// so card editors that reject unknown keys still work inside super layouts.
+import type { CardConfig } from "../types";
+
+/** A card's config editor element, with the layout data we park on it. */
+interface CardConfigElement extends HTMLElement {
+  setConfig(config: CardConfig): void;
+  _layoutData?: CardConfig["view_layout"];
+}
+
+/** The parts of HA's hui-card-element-editor this patch touches. */
+interface HuiCardElementEditor extends HTMLElement {
+  _configElement?: CardConfigElement;
+  getConfigElement(): Promise<CardConfigElement | undefined>;
+  _handleUIConfigChanged(ev: CustomEvent<{ config: CardConfig }>): void;
+}
+
 customElements.whenDefined("hui-card-element-editor").then(() => {
-  const HuiCardElementEditor = customElements.get("hui-card-element-editor");
-  const proto = HuiCardElementEditor?.prototype;
+  const ctor = customElements.get("hui-card-element-editor");
+  const proto = ctor?.prototype as HuiCardElementEditor | undefined;
   // This patches every card editor in HA. If HA renames these internals,
   // skip the patch rather than break all card editors.
   if (
-    typeof proto?.getConfigElement !== "function" ||
-    typeof proto?._handleUIConfigChanged !== "function"
+    !proto ||
+    typeof proto.getConfigElement !== "function" ||
+    typeof proto._handleUIConfigChanged !== "function"
   ) {
     console.warn("super-layout-card: hui-card-element-editor changed, view_layout patch skipped");
     return;
   }
 
-  const _getConfigElement = HuiCardElementEditor.prototype.getConfigElement;
-  HuiCardElementEditor.prototype.getConfigElement = async function () {
-    const retval = await _getConfigElement.bind(this)();
-
-    if (retval) {
-      const _setConfig = retval.setConfig;
-
+  const getConfigElement = proto.getConfigElement;
+  proto.getConfigElement = async function (this: HuiCardElementEditor) {
+    const element = await getConfigElement.call(this);
+    if (element) {
+      const setConfig = element.setConfig;
       try {
-        retval.setConfig = function (config: any) {
-          let newConfig = JSON.parse(JSON.stringify(config));
+        element.setConfig = function (this: CardConfigElement, config: CardConfig) {
+          const newConfig: CardConfig = JSON.parse(JSON.stringify(config));
           this._layoutData = newConfig.view_layout;
-
           delete newConfig.view_layout;
-
-          _setConfig.bind(this)(newConfig);
+          setConfig.call(this, newConfig);
         };
       } catch (error) {
         console.warn(error);
       }
     }
-    return retval;
+    return element;
   };
 
-  const _handleUIConfigChanged =
-    HuiCardElementEditor.prototype._handleUIConfigChanged;
-  HuiCardElementEditor.prototype._handleUIConfigChanged = function (ev) {
-    if (this._configElement && this._configElement._layoutData)
+  const handleUIConfigChanged = proto._handleUIConfigChanged;
+  proto._handleUIConfigChanged = function (
+    this: HuiCardElementEditor,
+    ev: CustomEvent<{ config: CardConfig }>
+  ) {
+    if (this._configElement?._layoutData)
       ev.detail.config.view_layout = this._configElement._layoutData;
-    _handleUIConfigChanged.bind(this)(ev);
+    handleUIConfigChanged.call(this, ev);
   };
 });

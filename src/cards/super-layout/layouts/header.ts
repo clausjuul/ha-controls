@@ -1,4 +1,3 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 // Shared HA-header helpers for the grid layouts (fullscreen, hide_header,
 // auto_hide_header). They reach into HA's internals, so keep them in one place.
 

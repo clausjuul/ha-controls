@@ -1,8 +1,7 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
 import { css, html, LitElement, nothing } from "lit";
 import { property, query, state } from "lit/decorators.js";
-import { CardConfig } from "./types";
+import type { CardConfig, Hass, Lovelace } from "./types";
 
 /**
  * The child-card list used by every super-layout editor: one tab per card plus
@@ -10,9 +9,15 @@ import { CardConfig } from "./types";
  * the card picker. Fires `cards-changed` with `{ cards }`; the parent owns the
  * array. `renderExtra(index)` adds content below the selected card's editor.
  */
+/** HA's card editor element; only the parts used here. */
+interface HuiCardElementEditor extends HTMLElement {
+  GUImode: boolean;
+  toggleMode(): void;
+}
+
 class SuperCardListEditor extends LitElement {
-  @property({ attribute: false }) hass;
-  @property({ attribute: false }) lovelace;
+  @property({ attribute: false }) hass?: Hass;
+  @property({ attribute: false }) lovelace?: Lovelace;
   @property({ attribute: false }) cards: CardConfig[] = [];
   @property({ attribute: false }) renderExtra?: (index: number) => unknown;
 
@@ -20,7 +25,7 @@ class SuperCardListEditor extends LitElement {
   @state() _guiMode = true;
   @state() _guiModeAvailable = true;
 
-  @query("hui-card-element-editor") _cardEditor?;
+  @query("hui-card-element-editor") _cardEditor?: HuiCardElementEditor;
 
   willUpdate() {
     const max = (this.cards || []).length;
@@ -105,7 +110,7 @@ class SuperCardListEditor extends LitElement {
                   .disabled=${!this._guiModeAvailable}
                   @click=${() => this._cardEditor?.toggleMode()}
                 >
-                  ${this.hass.localize(
+                  ${this.hass?.localize(
                     this._guiMode
                       ? "ui.panel.lovelace.editor.edit_card.show_code_editor"
                       : "ui.panel.lovelace.editor.edit_card.show_visual_editor"

@@ -1,25 +1,20 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
-import { css, html } from "lit";
+import { css, html, type PropertyValues } from "lit";
 import { property } from "lit/decorators.js";
-import {
+import type {
   CardConfigGroup,
   CardConfig,
-  LovelaceCard,
-  HuiCard,
   ColumnViewConfig,
+  Hass,
+  LovelaceCard,
 } from "../types";
 import { BaseLayout } from "./base-layout";
 import { computeCardSize } from "../card-helpers";
 
 export class BaseColumnLayout extends BaseLayout {
-  @property() _columns?: number;
-  @property() _config: ColumnViewConfig;
+  @property({ attribute: false }) _columns?: number;
 
   _observer?: ResizeObserver;
   _cardObserver?: MutationObserver;
-  _mediaQueries: Array<MediaQueryList | null> = [];
-  _mqListeners: Array<() => void> = [];
-
   async setConfig(config: ColumnViewConfig) {
     await super.setConfig(config);
     this._setupMediaQueryListeners();
@@ -44,7 +39,7 @@ export class BaseColumnLayout extends BaseLayout {
     }
   }
 
-  async updated(changedProperties: Map<string, any>) {
+  async updated(changedProperties: PropertyValues) {
     await super.updated(changedProperties);
     if (changedProperties.has("_columns") || changedProperties.has("cards")) {
       this._makeLayout();
@@ -55,7 +50,8 @@ export class BaseColumnLayout extends BaseLayout {
     if (
       changedProperties.has("narrow") ||
       (changedProperties.has("hass") &&
-        changedProperties.get("hass")?.dockedSidebar != this.hass.dockedSidebar)
+        (changedProperties.get("hass") as Hass | undefined)?.dockedSidebar !=
+          this.hass?.dockedSidebar)
     ) {
       this._updateSize();
       this._makeLayout();
@@ -106,7 +102,7 @@ export class BaseColumnLayout extends BaseLayout {
         }
       }
     `;
-    this.shadowRoot.appendChild(styleEl);
+    this.shadowRoot?.appendChild(styleEl);
   }
 
   connectedCallback() {
@@ -124,48 +120,12 @@ export class BaseColumnLayout extends BaseLayout {
   }
   disconnectedCallback() {
     super.disconnectedCallback();
-    this._cleanupMediaQueryListeners();
     this._observer?.disconnect();
   }
 
-  /**
-   * (Re)creates the per-card media query listeners. Called from setConfig and
-   * again on reconnect, since disconnectedCallback removes them and HA moves
-   * cards around in the DOM (view cache, masonry reflow).
-   */
-  _setupMediaQueryListeners() {
-    this._cleanupMediaQueryListeners();
-    for (const card of this._config?.cards ?? []) {
-      if (
-        typeof card.view_layout?.show !== "string" &&
-        card.view_layout?.show?.mediaquery
-      ) {
-        const mq = window.matchMedia(`${card.view_layout.show.mediaquery}`);
-        const listener = () => this._makeLayout();
-        this._mediaQueries.push(mq);
-        this._mqListeners.push(listener);
-        mq.addEventListener("change", listener);
-      } else {
-        this._mediaQueries.push(null);
-        this._mqListeners.push(null);
-      }
-    }
-  }
-
-  _cleanupMediaQueryListeners() {
-    this._mediaQueries.forEach((mq, i) => {
-      if (mq && this._mqListeners[i]) {
-        mq.removeEventListener("change", this._mqListeners[i]);
-      }
-    });
-    this._mediaQueries = [];
-    this._mqListeners = [];
-  }
-
   async _updateSize() {
-    let width = this.getBoundingClientRect().width;
-    let colnum = 0;
-    colnum = Math.floor(width / (this._config.layout?.width || 300));
+    const width = this.getBoundingClientRect().width;
+    let colnum = Math.floor(width / (this._config.layout?.width || 300));
     colnum = Math.min(
       colnum,
       this._config.layout?.max_cols ||
@@ -177,18 +137,14 @@ export class BaseColumnLayout extends BaseLayout {
     }
   }
 
-  _shouldShow(card: LovelaceCard | HuiCard, config: CardConfig, index: number) {
+  _shouldShow(card: LovelaceCard, config: CardConfig, index: number): boolean {
     if (!super._shouldShow(card, config, index)) return false;
 
     if (this._config.layout?.reflow) {
       if (getComputedStyle(card).display === "none") return false;
       if (card.hidden === true) return false;
     }
-
-    const mq = this._mediaQueries[index];
-    if (!mq) return true;
-    if (mq.matches) return true;
-    return false;
+    return true;
   }
 
   isBreak(config: CardConfig) {
@@ -201,12 +157,7 @@ export class BaseColumnLayout extends BaseLayout {
 
   /** The cards to lay out: all in edit mode, otherwise the visible ones. */
   _layoutGroups(): CardConfigGroup[] {
-    return this.cards
-      .map((card, index) => {
-        const config = this._config.cards[index];
-        return { card, config, index, show: this._shouldShow(card, config, index) };
-      })
-      .filter((c) => this.lovelace?.editMode || c.show);
+    return this._cardGroups().filter((c) => this.lovelace?.editMode || c.show);
   }
 
   /** Whether `_assignColumns` needs the cards' sizes (masonry does). */

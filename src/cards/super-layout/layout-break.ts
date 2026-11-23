@@ -1,7 +1,5 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
 class SuperLayoutBreak extends HTMLElement {
-  _display;
   setConfig() {
     this.style.display = "none";
     const display = document.createElement("ha-card");
@@ -18,7 +16,7 @@ class SuperLayoutBreak extends HTMLElement {
   getCardSize() {
     return 0;
   }
-  set editMode(editMode) {
+  set editMode(editMode: boolean) {
     this.style.display = editMode ? "block" : "none";
   }
 
@@ -31,8 +29,8 @@ class SuperLayoutBreak extends HTMLElement {
 }
 
 define("super-layout-break", SuperLayoutBreak);
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards || [];
+window.customCards.push({
   type: "super-layout-break",
   name: "Super Layout Break",
   preview: false,
@@ -41,7 +39,7 @@ define("super-layout-break", SuperLayoutBreak);
 });
 
 class SuperLayoutBreakEditor extends HTMLElement {
-  setConfig(config) {
+  setConfig() {
     const div = document.createElement("div");
     div.innerHTML = "BREAK";
     this.appendChild(div);

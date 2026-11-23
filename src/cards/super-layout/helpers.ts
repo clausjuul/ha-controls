@@ -1,28 +1,13 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
-export const loadHaYamlEditor = async () => {
-  if (customElements.get("ha-yaml-editor")) return;
-
-  // Load in ha-yaml-editor from developer-tools-service
-  const ppResolver = document.createElement("partial-panel-resolver");
-  const routes = (ppResolver as any).getRoutes([
-    {
-      component_name: "developer-tools",
-      url_path: "a",
-    },
-  ]);
-  await routes?.routes?.a?.load?.();
-  const devToolsRouter = document.createElement("developer-tools-router");
-  await (devToolsRouter as any)?.routerOptions?.routes?.service?.load?.();
-};
-
-export const loadHaForm = async () => {
+/**
+ * Makes sure `ha-form` is defined: HA loads it lazily, and creating an entity
+ * card's editor pulls it in.
+ */
+export const loadHaForm = async (): Promise<void> => {
   if (customElements.get("ha-form")) return;
-
-  const helpers = await (window as any).loadCardHelpers?.();
-  if (!helpers) return;
-  const card = await helpers.createCardElement({ type: "entity" });
-  if (!card) return;
-  await card.getConfigElement();
+  const helpers = await window.loadCardHelpers?.();
+  const card = helpers?.createCardElement({ type: "entity" });
+  const ctor = card?.constructor as { getConfigElement?: () => Promise<unknown> } | undefined;
+  await ctor?.getConfigElement?.();
 };
 
 /** Layout types implemented in ./layouts (element name: super-<type>-layout). */

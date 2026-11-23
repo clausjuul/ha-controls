@@ -1,17 +1,16 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
-import { css, html, LitElement, nothing } from "lit";
+import { css, html, LitElement, nothing, type PropertyValues } from "lit";
 import { property, state } from "lit/decorators.js";
 import { keyed } from "lit/directives/keyed.js";
-import { TabCardConfig, TabConfig, CardConfig, LovelaceCard } from "./types";
+import type { CardConfig, FormSchema, Hass, Lovelace, LovelaceCard, TabCardConfig, TabConfig, ValueChangedEvent } from "./types";
 import { computeCardSize, safeCreateCards, safeRebuildCard } from "./card-helpers";
 import "./card-list-editor";
 
 class SuperTabCard extends LitElement {
-  @property() hass;
+  @property({ attribute: false }) hass?: Hass;
   @property() editMode = false;
   @state() _activeTab = 0;
-  @property() _config: TabCardConfig;
+  @property({ attribute: false }) _config!: TabCardConfig;
   @property() _tabCards: Array<Array<LovelaceCard> | undefined> = [];
 
   setConfig(config: TabCardConfig) {
@@ -25,7 +24,7 @@ class SuperTabCard extends LitElement {
     if (this._activeTab >= this._config.tabs.length) this._activeTab = 0;
   }
 
-  async updated(changedProperties: Map<string, any>) {
+  async updated(changedProperties: PropertyValues) {
     super.updated(changedProperties);
 
     if (changedProperties.has("_config")) {
@@ -95,10 +94,10 @@ class SuperTabCard extends LitElement {
 
   _onTabKey(ev: KeyboardEvent) {
     const count = this._config.tabs?.length ?? 0;
-    const keys = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity };
-    if (!(ev.key in keys) || !count) return;
-    ev.preventDefault();
+    const keys: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, Home: -Infinity, End: Infinity };
     const step = keys[ev.key];
+    if (step === undefined || !count) return;
+    ev.preventDefault();
     this._activeTab = Number.isFinite(step)
       ? (this._activeTab + step + count) % count
       : step < 0 ? 0 : count - 1;
@@ -222,8 +221,8 @@ class SuperTabCard extends LitElement {
 }
 
 define("super-tab-card", SuperTabCard);
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards || [];
+window.customCards.push({
   type: "super-tab-card",
   name: "Super Tab Card",
   preview: false,
@@ -232,13 +231,13 @@ define("super-tab-card", SuperTabCard);
 
 // --- Tab Card Editor ---
 class SuperTabCardEditor extends LitElement {
-  @property() _config: TabCardConfig;
-  @property() lovelace;
-  @property() hass;
+  @property({ attribute: false }) _config!: TabCardConfig;
+  @property({ attribute: false }) lovelace?: Lovelace;
+  @property({ attribute: false }) hass?: Hass;
   @state() _selectedMainTab = 0; // 0=Settings, 1=Tabs
   @state() _selectedTab = 0;
 
-  setConfig(config) {
+  setConfig(config: TabCardConfig) {
     this._config = config;
   }
 
@@ -274,7 +273,7 @@ class SuperTabCardEditor extends LitElement {
     this._fireConfigChanged();
   }
 
-  _updateTabSettings(ev) {
+  _updateTabSettings(ev: ValueChangedEvent<Partial<TabConfig>>) {
     ev.stopPropagation();
     const tabs = [...(this._config.tabs || [])];
     tabs[this._selectedTab] = {
@@ -365,8 +364,8 @@ class SuperTabCardEditor extends LitElement {
                     { name: "title", selector: { text: {} } },
                     { name: "icon", selector: { icon: {} } },
                   ]}
-                  .computeLabel=${(schema) => {
-                    const labels = { title: "Tab Title", icon: "Tab Icon" };
+                  .computeLabel=${(schema: FormSchema) => {
+                    const labels: Record<string, string> = { title: "Tab Title", icon: "Tab Icon" };
                     return labels[schema.name] || schema.name;
                   }}
                   @value-changed=${this._updateTabSettings}

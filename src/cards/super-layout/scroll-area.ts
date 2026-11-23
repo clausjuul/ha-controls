@@ -1,16 +1,15 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
-import { css, html, LitElement } from "lit";
-import { property } from "lit/decorators.js";
-import { CardConfig, ScrollAreaConfig, LovelaceCard } from "./types";
+import { css, html, LitElement, type PropertyValues } from "lit";
+import { property, state } from "lit/decorators.js";
+import type { CardConfig, FormSchema, Hass, Lovelace, LovelaceCard, ScrollAreaConfig, ValueChangedEvent } from "./types";
 import { safeCreateCards, safeRebuildCard } from "./card-helpers";
 import "./card-list-editor";
 
 class SuperScrollArea extends LitElement {
-  @property() hass;
+  @property({ attribute: false }) hass?: Hass;
   @property() editMode = false;
-  @property() _config: ScrollAreaConfig;
-  @property() _cards: Array<LovelaceCard> = [];
+  @property({ attribute: false }) _config!: ScrollAreaConfig;
+  @state() _cards: LovelaceCard[] = [];
 
   setConfig(config: ScrollAreaConfig) {
     this._config = {
@@ -23,7 +22,7 @@ class SuperScrollArea extends LitElement {
     };
   }
 
-  async updated(changedProperties: Map<string, any>) {
+  async updated(changedProperties: PropertyValues) {
     super.updated(changedProperties);
 
     if (changedProperties.has("_config")) {
@@ -189,8 +188,8 @@ class SuperScrollArea extends LitElement {
 }
 
 define("super-scroll-area", SuperScrollArea);
-(window as any).customCards = (window as any).customCards || [];
-(window as any).customCards.push({
+window.customCards = window.customCards || [];
+window.customCards.push({
   type: "super-scroll-area",
   name: "Super Scroll Area",
   preview: false,
@@ -200,12 +199,12 @@ define("super-scroll-area", SuperScrollArea);
 
 // --- Scroll Area Editor ---
 class SuperScrollAreaEditor extends LitElement {
-  @property() _config: ScrollAreaConfig;
-  @property() lovelace;
-  @property() hass;
+  @property({ attribute: false }) _config!: ScrollAreaConfig;
+  @property({ attribute: false }) lovelace?: Lovelace;
+  @property({ attribute: false }) hass?: Hass;
   @property() _selectedTab = 0;
 
-  setConfig(config) {
+  setConfig(config: ScrollAreaConfig) {
     this._config = config;
   }
 
@@ -253,8 +252,8 @@ class SuperScrollAreaEditor extends LitElement {
     },
   ];
 
-  _computeLabel(schema) {
-    const labels = {
+  _computeLabel(schema: FormSchema): string {
+    const labels: Record<string, string> = {
       height: "Height (CSS value, e.g. 400px, 50vh)",
       padding: "Padding (CSS value)",
       direction: "Scroll direction",
@@ -270,7 +269,7 @@ class SuperScrollAreaEditor extends LitElement {
     this._selectedTab = parseInt(ev.detail.name, 10);
   }
 
-  _valueChanged(ev) {
+  _valueChanged(ev: ValueChangedEvent<Partial<ScrollAreaConfig>>) {
     ev.stopPropagation();
     const newValues = ev.detail.value;
     const config = {

@@ -1,8 +1,14 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../shared/types';
 import { LitElement, html, CSSResultArray, css, nothing } from "lit";
 import { property, state } from "lit/decorators.js";
-import { SuperLayoutCardConfig } from "./types";
+import type {
+  FormSchema,
+  Hass,
+  LayoutOptions,
+  Lovelace,
+  SuperLayoutCardConfig,
+  ValueChangedEvent,
+} from "./types";
 import { loadHaForm, SUPER_LAYOUT_TYPES } from "./helpers";
 import "./grid-designer";
 import "./card-list-editor";
@@ -214,7 +220,7 @@ const GRID_SCHEMA = [
  * The grid layout applies the first matching breakpoint, so order plain
  * max-width queries narrowest first; anything else keeps its place at the end.
  */
-function sortBreakpoints(mq: Record<string, any>): Record<string, any> {
+function sortBreakpoints<T>(mq: Record<string, T>): Record<string, T> {
   const width = (q: string) => {
     const m = q.match(/^\(\s*max-width\s*:\s*(\d+(?:\.\d+)?)px\s*\)$/);
     return m ? parseFloat(m[1]) : Infinity;
@@ -224,11 +230,11 @@ function sortBreakpoints(mq: Record<string, any>): Record<string, any> {
   );
 }
 
-function normalizeLayoutType(layoutType: string): string {
+function normalizeLayoutType(layoutType: string | undefined): string {
   return (layoutType || "").replace("custom:", "").replace("super-", "").replace("-layout", "");
 }
 
-function getLayoutSchemaForType(layoutType: string) {
+function getLayoutSchemaForType(layoutType: string | undefined): FormSchema[] {
   const type = normalizeLayoutType(layoutType) || "masonry";
 
   switch (type) {
@@ -280,9 +286,9 @@ const LAYOUT_LABELS: Record<string, string> = {
 };
 
 class SuperLayoutCardEditor extends LitElement {
-  @state() _config: SuperLayoutCardConfig;
-  @property() lovelace;
-  @property() hass;
+  @state() _config!: SuperLayoutCardConfig;
+  @property({ attribute: false }) lovelace?: Lovelace;
+  @property({ attribute: false }) hass?: Hass;
 
   @state() _selectedTab = 0;
 
@@ -304,7 +310,7 @@ class SuperLayoutCardEditor extends LitElement {
     },
   ];
 
-  setConfig(config) {
+  setConfig(config: SuperLayoutCardConfig) {
     this._config = config;
   }
 
@@ -314,18 +320,20 @@ class SuperLayoutCardEditor extends LitElement {
   }
 
   async _preloadCardEditors() {
-    const helpers = await (window as any).loadCardHelpers?.();
+    const helpers = await window.loadCardHelpers?.();
     if (!helpers) return;
 
-    const verticalStackCard = await helpers.createCardElement({
+    // The stack card's editor brings in HA's card editor elements.
+    const verticalStackCard = helpers.createCardElement({
       type: "vertical-stack",
       cards: [],
     });
 
     await customElements.whenDefined("hui-vertical-stack-card");
-    if (verticalStackCard?.constructor?.getConfigElement) {
-      await verticalStackCard.constructor.getConfigElement();
-    }
+    const ctor = verticalStackCard?.constructor as
+      | { getConfigElement?: () => Promise<unknown> }
+      | undefined;
+    await ctor?.getConfigElement?.();
   }
 
   _handleSwitchTab(ev: CustomEvent) {
@@ -333,7 +341,7 @@ class SuperLayoutCardEditor extends LitElement {
     this._selectedTab = parseInt(ev.detail.name, 10);
   }
 
-  _typeValueChanged(ev) {
+  _typeValueChanged(ev: ValueChangedEvent<{ layout_type?: string }>) {
     ev.stopPropagation();
     const type = ev.detail.value?.layout_type;
     if (!type) return;
@@ -355,11 +363,11 @@ class SuperLayoutCardEditor extends LitElement {
     );
   }
 
-  _layoutValueChanged(ev) {
+  _layoutValueChanged(ev: ValueChangedEvent<LayoutOptions>) {
     ev.stopPropagation();
     const layoutValues = ev.detail.value;
     // Clean out empty string values
-    const cleanLayout = {};
+    const cleanLayout: LayoutOptions = {};
     for (const [key, value] of Object.entries(layoutValues)) {
       if (value !== "" && value !== undefined && value !== null) {
         cleanLayout[key] = value;
@@ -371,12 +379,12 @@ class SuperLayoutCardEditor extends LitElement {
     );
   }
 
-  _computeTypeLabel(schema) {
+  _computeTypeLabel(schema: FormSchema): string {
     if (schema.name === "layout_type") return "Layout Type";
     return schema.name;
   }
 
-  _computeLayoutLabel(schema) {
+  _computeLayoutLabel(schema: FormSchema): string {
     return LAYOUT_LABELS[schema.name] || schema.name;
   }
 
@@ -404,7 +412,7 @@ class SuperLayoutCardEditor extends LitElement {
     const styleTab = tabIndex++;
     const cardsTab = tabIndex++;
 
-    const tabRenderers = {};
+    const tabRenderers: Record<number, () => unknown> = {};
     tabRenderers[layoutTab] = this._renderLayoutEditor;
     if (isGrid) {
       tabRenderers[gridDesignerTab] = this._renderGridDesigner;
@@ -533,7 +541,7 @@ class SuperLayoutCardEditor extends LitElement {
           those grid properties override the base layout.
         </p>
 
-        ${breakpoints.map(([query, layout], index) => html`
+        ${breakpoints.map(([query, layout]) => html`
           <div class="breakpoint-item">
             <div class="breakpoint-header">
               <span class="breakpoint-query">${query}</span>
@@ -543,14 +551,14 @@ class SuperLayoutCardEditor extends LitElement {
             </div>
             <ha-form
               .hass=${this.hass}
-              .data=${layout as Record<string, any>}
+              .data=${layout}
               .schema=${[
                 { name: "grid-template-columns", selector: { text: {} } },
                 { name: "grid-template-rows", selector: { text: {} } },
                 { name: "grid-gap", selector: { text: {} } },
               ]}
-              .computeLabel=${(schema) => LAYOUT_LABELS[schema.name] || schema.name}
-              @value-changed=${(ev) => this._updateBreakpoint(query, ev)}
+              .computeLabel=${(schema: FormSchema) => LAYOUT_LABELS[schema.name] || schema.name}
+              @value-changed=${(ev: ValueChangedEvent<Record<string, unknown>>) => this._updateBreakpoint(query, ev)}
             ></ha-form>
           </div>
         `)}
@@ -594,7 +602,7 @@ class SuperLayoutCardEditor extends LitElement {
   }
 
   _addCustomBreakpoint() {
-    const input = this.shadowRoot?.querySelector("#custom-mq") as any;
+    const input = this.shadowRoot?.querySelector<HTMLInputElement>("#custom-mq");
     const query = input?.value?.trim();
     if (query) {
       this._addBreakpoint(query);
@@ -657,8 +665,8 @@ class SuperLayoutCardEditor extends LitElement {
             { name: "padding", selector: { text: {} } },
             { name: "margin", selector: { text: {} } },
           ]}
-          .computeLabel=${(schema) => {
-            const labels = {
+          .computeLabel=${(schema: FormSchema) => {
+            const labels: Record<string, string> = {
               background: "Background",
               "border-radius": "Border Radius",
               "box-shadow": "Box Shadow",
@@ -692,7 +700,7 @@ class SuperLayoutCardEditor extends LitElement {
     `;
   }
 
-  _styleValueChanged(ev) {
+  _styleValueChanged(ev: ValueChangedEvent<Record<string, unknown>>) {
     ev.stopPropagation();
     const newValues = ev.detail.value;
     const style = { ...(this._config.style || {}) };
@@ -711,8 +719,8 @@ class SuperLayoutCardEditor extends LitElement {
   }
 
   _addStyleProperty() {
-    const keyEl = this.shadowRoot?.querySelector("#style-key") as any;
-    const valueEl = this.shadowRoot?.querySelector("#style-value") as any;
+    const keyEl = this.shadowRoot?.querySelector<HTMLInputElement>("#style-key");
+    const valueEl = this.shadowRoot?.querySelector<HTMLInputElement>("#style-value");
     const key = keyEl?.value?.trim();
     const value = valueEl?.value?.trim();
     if (key && value) {
@@ -801,15 +809,15 @@ class SuperLayoutCardEditor extends LitElement {
               },
             },
           ]}
-          .computeLabel=${(schema) => {
-            const labels = {
+          .computeLabel=${(schema: FormSchema) => {
+            const labels: Record<string, string> = {
               show_mode: "Visibility",
               mediaquery: "Media Query",
               sidebar: "Sidebar condition",
             };
             return labels[schema.name] || schema.name;
           }}
-          @value-changed=${(ev) => this._updateCardVisibility(cardIndex, ev)}
+          @value-changed=${(ev: ValueChangedEvent<Record<string, unknown>>) => this._updateCardVisibility(cardIndex, ev)}
         ></ha-form>
       </div>
     `;
@@ -867,8 +875,8 @@ class SuperLayoutCardEditor extends LitElement {
             { name: "row", selector: { number: { min: 1, max: 50, step: 1, mode: "box" } } },
             { name: "row_span", selector: { number: { min: 1, max: 50, step: 1, mode: "box" } } },
           ]}
-          .computeLabel=${(schema) => LAYOUT_LABELS[schema.name] || schema.name}
-          @value-changed=${(ev) => this._updateCardPlacement(cardIndex, ev)}
+          .computeLabel=${(schema: FormSchema) => LAYOUT_LABELS[schema.name] || schema.name}
+          @value-changed=${(ev: ValueChangedEvent<Record<string, unknown>>) => this._updateCardPlacement(cardIndex, ev)}
         ></ha-form>
       </div>
     `;

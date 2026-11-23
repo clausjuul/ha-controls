@@ -1,4 +1,3 @@
-// @ts-nocheck -- copied from super-layout-card; not yet ported to strict mode
 import { define } from '../../../shared/types';
 import { CardConfigGroup } from "../types";
 import { BaseColumnLayout } from "./base-column-layout";
