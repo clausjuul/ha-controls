@@ -210,10 +210,11 @@ export const styles = css`
     --hac-slider-value-color: var(--hac-text);
     --hac-slider-value-color-track: var(--hac-text);
     --hac-slider-value-weight: var(--hac-weight-normal);
-    /* Name and buttons get columns of the same width, so the bar sits in the
-       middle of the card. */
+    /* The buttons get just the room they need, and the name and bar share the
+       rest 1:2. Every row renders the same buttons (or spacers), so the bars
+       still line up. */
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
     align-items: center;
     gap: var(--hac-space-3);
   }
